@@ -56,6 +56,7 @@ function createMigrationSkillBackupFixture(parent, overrides = {}) {
   const helpers = ['skillImportRecordStore', 'writeSkillImportRecord', 'readSkillImportRecord', 'loadSkillRegistry', 'readEnabledSkill'];
   let migration = source('13u-migration-center.js');
   if (typeof overrides.nativeSourceTransform === 'function') migration = overrides.nativeSourceTransform(migration);
+  if (overrides.previewWriter) migration += '\nmigrationCapsulePrepare = ' + require('./legacy-skill-capsule-writer').toString() + ';';
   const names = ['migrationCopyOneSkill', 'migrationCopySkills', 'migrationUndo', 'migrationUndoSkillCopy', 'migrationSkillTree',
     'migrationTreeHash', 'migrationRecoverSkillBackups', 'migrationCapsuleDescriptor', 'migrationCapsuleArchive', 'migrationCapsuleRead',
     'migrationCapsuleDecode', 'migrationCapsuleShape', 'migrationCapsuleIntent', 'migrationCapsuleWriteIntent', 'migrationCapsulePresent',

@@ -202,6 +202,9 @@ const TIMEOUT_OVERRIDES = {
   // alias windows. User-approved240s contract on2026-11-02; keep every native
   // command120s/close2s and all assertions unchanged. Prior120s failures remain.
   'migration-skill-backup-representation.e2e.js': 240000,
+  // Six archive undo cases provision real NTFS capsules and cold DPAPI runtimes.
+  // The existing per-command and helper-close deadlines still apply.
+  'migration-skill-backups-work-data.e2e.js': 420000,
   // M2-8b fixed resources: real 15s heartbeats and complete 17s negative windows
   // across cancel/ABA/revoke/parser/backpressure/idle. Complete run was 231s (partial 207s);
   // keep the actual heartbeat and per-wait bounds, with a 360s owned-case watchdog.

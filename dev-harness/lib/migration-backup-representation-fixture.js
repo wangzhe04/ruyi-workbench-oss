@@ -34,7 +34,17 @@ function createRepresentationFixture(root,overrides={}){
   for(const entry of snapshot.entries){const file=entry.rel?path.join(restored,entry.rel):restored;if(!entry.dir){const fd=fs.openSync(file,'r+');try{fs.ftruncateSync(fd,0);fs.writeFileSync(fd,Buffer.from(entry.streams.find(stream=>stream.name==='').data,'base64'));}finally{fs.closeSync(fd);}}streams.set(entry.id,new Map(entry.streams.filter(stream=>stream.name!=='').map(stream=>[stream.name,Buffer.from(stream.data,'base64')])));metadata.set(entry.id,{attrs:entry.attrs,times:entry.times,shortName:entry.shortName});}
   event('materialize-written');assert.equal(fs.existsSync(paths.backup),false);await fsp.rename(restored,paths.backup);event('materialize-after');
  };
- const native={info,capture,move,seal,materialize,flush:async()=>event('flush')};
+ const native={info,capture,move,seal,materialize,flush:async()=>event('flush'),
+  async retireCommittedSource({root,id:original,parentId,revision,snapshot}){
+   assert.equal(id(root),original); assert.equal(id(path.dirname(root)),parentId);
+   const current=await capture(root,revision);
+   assert.deepEqual(current.entries.map(row=>row.id),snapshot.entries.map(row=>row.id));
+   for(const row of [...current.entries].sort((a,b)=>b.rel.length-a.rel.length)){
+    const file=path.join(root,...row.rel.split('/'));
+    if(row.dir)await fsp.rmdir(file);else await fsp.unlink(file);
+   }
+   return {root,id:original,parentId,count:current.entries.length,removed:true};
+  }};
  const f=createBackupOwnerFixture(root,{...overrides,native});let selected=f.expected;
  Object.defineProperties(state,{enabled:{get:()=>f.state.enabled,set:value=>{f.state.enabled=value;}},acquires:{get:()=>f.state.acquires}});
  const vm=require('node:vm'),evaluate=name=>vm.runInNewContext(name,f.context);

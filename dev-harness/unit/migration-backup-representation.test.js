@@ -152,10 +152,28 @@ test('legacy nonempty owner binds relocation and conversion before the original 
    state.transition=transition;return true;
   }});
   assert.equal(fs.existsSync(p.backup),false);
+  const physical=path.join(token.root,f.stamp,p.skillId);
+  assert.deepEqual(identities(physical),before);
+  assert.equal(f.state.events.includes('seal-before'),false);
   await f.owner.prepareBindings(token);
   const delta=await f.owner.preparedDelta(token);
   assert.ok(delta.some(row=>row.before?.path.startsWith('migrations/skill-backups/')&&row.after===null));
-  if(disposition==='forward')f.select(candidate);
+  if(disposition==='forward'){
+   f.select(candidate);
+   const retire=f.native.retireCommittedSource;
+   f.native.retireCommittedSource=async({root})=>{
+    await fsp.unlink(path.join(root,'SKILL.md'));
+    throw new Error('simulated interruption after one retired file');
+   };
+   const recover=()=>f.owner.recoverPreparedTransition({state,disposition,assertUnchanged:async()=>true});
+   await assert.rejects(recover,error=>error.operationMayHaveExecuted===true);
+   f.native.retireCommittedSource=retire;
+   const extra=path.join(physical,'foreign.bin');
+   await fsp.writeFile(extra,'preserve');
+   await assert.rejects(recover,{code:'work_data_backup.representation_source_changed'});
+   assert.equal(await fsp.readFile(extra,'utf8'),'preserve');
+   await fsp.unlink(extra);
+  }
   const replay=await f.owner.recoverPreparedTransition({state,disposition,includePublishedProof:disposition==='forward',assertUnchanged:async()=>true});
   assert.equal(replay.disposition,disposition);
   if(disposition==='inverse')assert.deepEqual(identities(p.backup),before);
@@ -167,13 +185,13 @@ test('legacy nonempty owner binds relocation and conversion before the original 
  }
 });
 test('legacy cold inverse distinguishes original location before move and after lost move acknowledgment',async()=>{
- for(const fault of ['before-move','move-after','materialize-before']){
+ for(const fault of ['before-move','move-after','after-relocation']){
   const f=fixture(),p=await f.plain(),before=identities(p.backup),candidate={...f.candidate,mode:'encrypted'};
   const raw=JSON.stringify({schema:1,id:candidate.id,generation:1,mode:'encrypted',activeRoot:'generations/'+candidate.id});
   candidate.pointerProof={raw,sha256:hash(raw)};
   const token=await f.owner.prepare({expected:f.selected,candidate,requireEstablished:true,deferLegacyRelocation:true});
   const state={expectedAuthority:{id:null,sha256:null},candidate:{id:candidate.id,mode:candidate.mode,pointerSha256:candidate.pointerProof.sha256}};
-  await assert.rejects(()=>f.owner.prepareRepresentation(token,{mode:'encrypted',assertPrepared:async()=>fault!=='before-move',onPrepared:async transition=>{
+  await assert.rejects(()=>f.owner.prepareRepresentation(token,{mode:'encrypted',assertPrepared:async()=>fault!=='before-move' && !(fault==='after-relocation' && fs.existsSync(token.root)),onPrepared:async transition=>{
    state.transition=transition;
    if(fault==='before-move'){
     const id=f.nativeId(p.backup),metadata=f.metadata.get(id),[creation,,write,change]=metadata.times;

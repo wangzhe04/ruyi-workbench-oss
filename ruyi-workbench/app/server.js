@@ -103879,6 +103879,7 @@ public static class RuyiSkillCapsule {
     return a.Creation == b.Creation && a.Access == b.Access && a.Write == b.Write && a.Change == b.Change && a.Attr == b.Attr;
   }
   static bool RetiringPortableStage = false;
+  static bool RetiringCommittedSource = false;
   static SafeFileHandle OpenPreserved(SafeFileHandle parent, string name, string path, bool dataStream, out bool writable) {
     SafeFileHandle metadata = null, actual = null;
     Exception primary = null;
@@ -103899,10 +103900,11 @@ public static class RuyiSkillCapsule {
       bool directory = !dataStream && (before.Attr & 0x10u) != 0, readOnly = (before.Attr & 1u) != 0;
       writable = !directory && !readOnly;
       uint access = CapturedDirectoryWrite && directory ? 0xC0010100u : writable ? 0xC0010000u : 0x80010100u;
+      if(RetiringCommittedSource)access=dataStream ? 0x80000100u : 0x80010100u;
       // Only this held handle may enumerate a captured directory. Independent
       // directory readers can update its access time during descendant I/O.
       // Keep write/delete sharing and verify every name and Basic field again.
-      uint share = RetiringPortableStage ? 0u : directory ? 6u : 5u;
+      uint share = RetiringCommittedSource ? (dataStream ? 5u : 1u) : RetiringPortableStage ? 0u : directory ? 6u : 5u;
       actual = OpenPreservedHandle(parent, name, path, access, share);
       PreserveHandleTimes(actual);
       if (Id(actual) != expectedId || !SamePreservedBasic(before, BasicOf(actual)) || !SamePreservedBasic(before, BasicOf(metadata)))
@@ -103942,7 +103944,7 @@ public static class RuyiSkillCapsule {
       List<object> streams = new List<object>();
       foreach (string streamName in StreamNames(node)) {
         if (directory && streamName == "") Reject("directory_data");
-        if(RetiringPortableStage && streamName!="")Reject("portable_retire_named_stream");
+        if(RetiringPortableStage && !RetiringCommittedSource && streamName!="")Reject("portable_retire_named_stream");
         bool writable = node.Writable;
         SafeFileHandle handle = node.Handle;
         if (streamName != "") {
@@ -104807,34 +104809,44 @@ public static class RuyiSkillCapsule {
     if(count!=byPath.Count)Reject("portable_readback_changed");
   }
 
-  static object RetirePortableStage(Dictionary<string,object> args) {
+  static object RetirePortableStage(Dictionary<string,object> args, bool committedSource=false) {
     string root=Str(args["root"]), id=Str(args["id"]), ancestorId=Str(args["parentId"]);
     string parent=System.IO.Path.GetDirectoryName(root);
     if(parent==null || System.IO.Path.GetFullPath(root)!=root
-      || !System.Text.RegularExpressions.Regex.IsMatch(System.IO.Path.GetFileName(root),@"^[.]ruyi-skill-portable-[a-f0-9]{48}$")
+      || !(committedSource
+        ? System.Text.RegularExpressions.Regex.IsMatch(root.Replace('\\','/'),@"/[.]work-data/skill-backups/objects-v1/[0-9TZ-]+/[A-Za-z0-9_-]{1,64}$")
+        : System.Text.RegularExpressions.Regex.IsMatch(System.IO.Path.GetFileName(root),@"^[.]ruyi-skill-portable-[a-f0-9]{48}$"))
       || !System.Text.RegularExpressions.Regex.IsMatch(id,@"^[a-f0-9]{24}$")
       || !System.Text.RegularExpressions.Regex.IsMatch(ancestorId,@"^[a-f0-9]{24}$"))Reject("portable_retire_scope");
     using(var ancestor=OpenPreservedHandle(null,null,NativePath(parent),0x00100180u,3)) {
       PreserveHandleTimes(ancestor);
       if(CandidateDirectoryId(ancestor)!=ancestorId || !String.Equals(PathOf(ancestor),NativePath(parent),StringComparison.OrdinalIgnoreCase))Reject("portable_retire_changed");
       bool previous=PreserveTimeHandles;
-      PreserveTimeHandles=true;RetiringPortableStage=true;
+      PreserveTimeHandles=true;RetiringPortableStage=true;RetiringCommittedSource=committedSource;
       try {
+        if(committedSource)Step="retire-capture";
         var captured=Dict(CapturePreserved(args));var expected=Dict(args["snapshot"]);
         if(RootNode().Entry["id"].ToString()!=id || Str(captured["revision"])!=Str(expected["revision"]))Reject("portable_retire_changed");
-        VerifyPortableReadback(expected,captured);
+        VerifyPortableReadback(expected,captured,!committedSource);
         var nodes=Expected();
-        if(nodes.Exists(n=>(Convert.ToUInt32(n.Entry["attrs"])&1u)!=0))Reject("portable_retire_readonly");
+        if(!committedSource && nodes.Exists(n=>(Convert.ToUInt32(n.Entry["attrs"])&1u)!=0))Reject("portable_retire_readonly");
         nodes.Sort((a,b)=>Str(b.Entry["rel"]).Length.CompareTo(Str(a.Entry["rel"]).Length));
         VerifyOriginalLayout();VerifyEntries(nodes);VerifyCapturedBasicUnchanged(nodes);
+        if(committedSource)Verify(false,true);
         if(CandidateDirectoryId(ancestor)!=ancestorId || !String.Equals(PathOf(ancestor),NativePath(parent),StringComparison.OrdinalIgnoreCase))Reject("portable_retire_changed");
         Step="portable-retire";
         foreach(var node in nodes) {
           if(Id(node.Handle)!=Str(node.Entry["id"]))Reject("portable_retire_changed");
-          DeleteStream(node.Handle);
+          if(committedSource) {
+            foreach(var stream in node.Streams.Values)stream.Dispose();
+            // Ignore readonly on the bound object without changing its attributes.
+            IntPtr flags=Marshal.AllocHGlobal(4);
+            try { Marshal.WriteInt32(flags,0x13);Check(SetFileInformationByHandle(node.Handle,21,flags,4)); }
+            finally {Marshal.FreeHGlobal(flags);node.Handle.Dispose();}
+          } else DeleteStream(node.Handle);
         }
         return new Dictionary<string,object>{{"root",root},{"id",id},{"parentId",ancestorId},{"count",nodes.Count},{"removed",true}};
-      }finally{RetiringPortableStage=false;PreserveTimeHandles=previous;}
+      }finally{RetiringCommittedSource=false;RetiringPortableStage=false;PreserveTimeHandles=previous;}
     }
   }
 
@@ -104999,6 +105011,10 @@ public static class RuyiSkillCapsule {
           else if (command == "retire-portable-stage") {
             if(!firstCommand)Reject("portable_retire_scope");
             result=RetirePortableStage(args);
+          }
+          else if(command=="retire-committed-source") {
+            if(!firstCommand)Reject("portable_retire_scope");
+            result=RetirePortableStage(args,true);
           }
           else if (command == "capture") result = Capture(args);
           else if (command == "capture-preserved") result=CapturePreserved(args);
@@ -105175,6 +105191,16 @@ function migrationCapsuleArchive(descriptor, keys = descriptor.archiveKeys) {
     }, writeJson: atomicWriteJson });
 }
 function migrationCapsuleIntentShape(value, descriptor) {
+  const restore = value?.archiveRestore;
+  if (restore !== undefined && (value.phase !== 'restoring' || descriptor.plainRoot
+      || Object.keys(restore || {}).sort().join(',') !== 'directory,empty,nonce,objects,tree'
+      || !(value.archiveUpdate && restore.empty === null) && !/^[0-9]+:[0-9]+$/.test(restore.empty)
+      || restore.objects !== null && !/^[0-9]+:[0-9]+$/.test(restore.objects)
+      || !/^[a-f0-9]{48}$/.test(restore.nonce) || !/^[0-9]+:[0-9]+$/.test(restore.directory)
+      || !migrationCapsuleFingerprintShape(restore.tree))) return false;
+  if (value?.undoFormat !== undefined && value.undoFormat !== 'archive-v1') return false;
+  if (value?.archiveUpdate !== undefined && (value.archiveUpdate !== true || value.undoFormat !== 'archive-v1')) return false;
+  if (value?.plainRename !== undefined && (value.plainRename !== true || !descriptor.plainRoot || !value.conversion)) return false;
   const converted = value?.conversion;
   if (converted !== undefined && (!converted || converted.schema !== 1 || !/^[a-f0-9]{48}$/.test(converted.operationId || '')
     || !['eligible', 'edited', 'gone'].includes(converted.eligibility))) return false;
@@ -105895,8 +105921,22 @@ async function migrationCapsuleCreateOwnedPortable(root, snapshot, revision) {
   // Capture the exact logical input before any await. The child creates new
   // objects; source IDs and opaque paths are historical metadata only.
   const original=JSON.parse(JSON.stringify(snapshot));
-  const logical=value=>value.entries.map(entry=>({rel:entry.rel,dir:entry.dir,attrs:entry.attrs,times:entry.times,shortName:entry.shortName,streams:entry.streams}))
-    .sort((a,b)=>a.rel<b.rel?-1:a.rel>b.rel?1:0);
+  // Both snapshots validate each stream's decoded bytes against its SHA-256.
+  // NTFS enumeration order and newly allocated file IDs do not identify content.
+  const matchesArchive = rebuilt => {
+    const paths = new Map(rebuilt.entries.map(entry => [entry.rel, entry]));
+    return paths.size === original.entries.length && original.entries.every(source => {
+      const target = paths.get(source.rel);
+      if (!target || target.dir !== source.dir || target.attrs !== source.attrs || target.shortName !== source.shortName
+          || !source.times.every((time, index) => time === target.times[index])
+          || source.streams.length !== target.streams.length) return false;
+      const streams = new Map(target.streams.map(stream => [stream.name, stream]));
+      return source.streams.every(stream => {
+        const restored = streams.get(stream.name);
+        return restored && restored.size === stream.size && restored.hash === stream.hash;
+      });
+    });
+  };
   let broker,result,failure,failed=false,started=false;
   const hasUncertainty=root=>{
     const active=new Set(),done=new Set();let nodes=0;
@@ -105922,7 +105962,7 @@ async function migrationCapsuleCreateOwnedPortable(root, snapshot, revision) {
   try {
     broker=await migrationCapsuleBroker();started=true;
     result=await broker.command({cmd:'create-owned-portable',root,snapshot:original,revision});
-    if(!migrationCapsulePortableShape(result)||result.revision!==revision||JSON.stringify(logical(result))!==JSON.stringify(logical(original)))migrationCapsuleFail('portable_create_changed');
+    if(!migrationCapsulePortableShape(result)||result.revision!==revision||!matchesArchive(result))migrationCapsuleFail('portable_create_changed');
     result=JSON.parse(JSON.stringify(result));
   }catch(cause){failure=cause;failed=true;}
   const cleanupErrors=[];let cleanupUnproven=false;
@@ -105964,6 +106004,16 @@ async function migrationCapsuleCapture(root, revision) {
 async function migrationCapsuleAssertTree(root, fingerprint, revision) {
   const snapshot = await migrationCapsuleCapture(root, revision);
   if (!migrationCapsuleSame(snapshot, fingerprint)) migrationCapsuleFail('live_changed', true);
+}
+async function migrationBackupPathExists(file) {
+  try { await fsp.lstat(file); return true; }
+  catch (error) { if (error.code === 'ENOENT') return false; throw error; }
+}
+function migrationAssertSurvivingTree(snapshot, fingerprint, reason) {
+  const expected = new Map(fingerprint.map(entry => [entry.rel, entry]));
+  for (const entry of migrationCapsuleFingerprint(snapshot)) {
+    if (JSON.stringify(entry) !== JSON.stringify(expected.get(entry.rel))) migrationCapsuleFail(reason, true);
+  }
 }
 async function migrationCapsuleVerifyReady(descriptor, snapshot) {
   const broker = await migrationCapsuleBroker();
@@ -106209,6 +106259,126 @@ async function migrationFinishPlainHistory(descriptor, snapshot, intent) {
     if (!moved || moved.id !== intent.historyPublish.id) migrationCapsuleFail('plain_history_conflict', true);
   }
 }
+// Only a completely absent container admits archive recovery. Partial object
+// sets still use the original identity and integrity checks.
+async function migrationArchiveOnly(descriptor) {
+  if (descriptor.plainRoot) return false;
+  try { await fsp.lstat(path.join(descriptor.backup, 'objects')); return false; }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const names = (await fsp.readdir(descriptor.backup)).sort();
+  return JSON.stringify(names) === JSON.stringify([MIGRATION_CAPSULE_MARKER, 'archive', 'intent'].sort());
+}
+async function migrationRestoreArchiveCopy(descriptor, snapshot, intent) {
+  const dest = migrationSkillTarget(descriptor.id), parent = path.dirname(dest);
+  const nonce = intent.archiveRestore?.nonce || crypto.randomBytes(24).toString('hex');
+  const wrapper = path.join(parent, MIGRATION_SKILL_STAGE_PREFIX + 'restore-' + nonce);
+  const rebuildParent = path.join(wrapper, 'rebuilt'), staged = path.join(rebuildParent, descriptor.id);
+  const previous = path.join(wrapper, 'previous');
+  const empty = path.join(wrapper, 'empty');
+  const cleanup = path.join(parent, MIGRATION_SKILL_STAGE_PREFIX + 'finished-' + nonce);
+  const objects = path.join(descriptor.backup, 'objects');
+  const identity = async file => {
+    const stat = await fsp.lstat(file, { bigint: true }).catch(error => {
+      if (error.code !== 'ENOENT') throw error;
+      return null;
+    });
+    if (!stat) return null;
+    if (!stat.isDirectory() || stat.isSymbolicLink() || samePathKey(await fsp.realpath(file)) !== samePathKey(file))
+      migrationCapsuleFail('restore_directory', true);
+    return stat.dev + ':' + stat.ino;
+  };
+  if (!intent.archiveRestore) {
+    const objectId = await identity(objects);
+    if (objectId) await migrationCapsuleVerifyReady(descriptor, snapshot);
+    else if (!await migrationArchiveOnly(descriptor)) migrationCapsuleFail('opaque_set');
+    await fsp.mkdir(wrapper, { mode: 0o700 });
+    const directory = await identity(wrapper);
+    try {
+      await fsp.mkdir(rebuildParent);
+      if (!intent.archiveUpdate) await fsp.mkdir(empty);
+      const rebuilt = await migrationCapsuleCreateOwnedPortable(staged, snapshot, intent.revision);
+      await migrationCapsuleAssertTree(dest, intent.newTree, intent.revision);
+      intent.archiveRestore = { nonce, directory, objects: objectId, empty: await identity(empty), tree: migrationCapsuleFingerprint(rebuilt) };
+    } catch (error) {
+      if (!error.helperMayStillRun && !migrationCapsuleBroker.helperMayStillRun && await identity(wrapper) === directory)
+        await fsp.rm(wrapper, { recursive: true }).catch(() => {});
+      throw error;
+    }
+    intent.phase = 'restoring';
+    migrationRecoveryNeeded = true;
+    await migrationCapsuleWriteIntent(descriptor, intent);
+  }
+  const proof = intent.archiveRestore;
+  async function finish(resumingCleanup) {
+    await migrationCapsuleAssertTree(dest, proof.tree, intent.revision);
+    if (await identity(objects) !== proof.empty || proof.empty && (await fsp.readdir(objects)).length) migrationCapsuleFail('opaque_set', true);
+    const garbage = await identity(cleanup);
+    if (garbage) {
+      if (garbage !== proof.directory) migrationCapsuleFail('restore_directory', true);
+      // A failed removal may leave a subset. Validate survivors against their
+      // receipts before continuing, including files added since interruption.
+      if (resumingCleanup) {
+        const survivors = await migrationCapsuleCapture(cleanup, intent.revision);
+        const prior = new Map(intent.newTree.map(entry => [entry.rel, entry]));
+        const opaque = new Map(snapshot.entries.map(entry => [entry.opaque, entry]));
+        for (const entry of migrationCapsuleFingerprint(survivors)) {
+          const [top, ...parts] = entry.rel.split('/');
+          if (top === 'previous') {
+            const original = prior.get(parts.join('/'));
+            if (original && original.id === entry.id && original.dir === entry.dir
+                && JSON.stringify(original.streams) === JSON.stringify(entry.streams)) continue;
+          } else if (top === 'objects' && parts.length === 1) {
+            const original = opaque.get(parts[0]);
+            if (proof.objects && original?.id === entry.id && original.dir === entry.dir
+                && entry.streams.every(stream => stream.name === '' && stream.size === 0)) continue;
+          } else if (!parts.length && ['', 'rebuilt', 'objects'].includes(top) && entry.dir && !entry.streams.length) {
+            if (top !== 'objects' || await identity(path.join(cleanup, top)) === proof.objects) continue;
+          }
+          migrationCapsuleFail('restore_cleanup_changed', true);
+        }
+      }
+      await fsp.rm(cleanup, { recursive: true });
+    }
+    intent.phase = 'complete';
+    delete intent.archiveRestore;
+    await migrationCapsuleWriteIntent(descriptor, intent);
+  }
+  if (!await identity(wrapper)) return finish(true);
+  if (await identity(wrapper) !== proof.directory
+      || await identity(cleanup)
+      || (await fsp.readdir(wrapper)).some(name => !['rebuilt', 'previous', 'objects', 'empty'].includes(name))
+      || !await identity(rebuildParent) || (await fsp.readdir(rebuildParent)).some(name => name !== descriptor.id))
+    migrationCapsuleFail('restore_directory', true);
+  if (await identity(staged)) {
+    await migrationCapsuleAssertTree(staged, proof.tree, intent.revision);
+    if (!await identity(previous)) {
+      await migrationCapsuleAssertTree(dest, intent.newTree, intent.revision);
+      await fsp.rename(dest, previous);
+    }
+    await migrationCapsuleAssertTree(previous, intent.newTree, intent.revision);
+    if (await identity(dest)) migrationCapsuleFail('live_changed', true);
+    await fsp.rename(staged, dest);
+  }
+  await migrationCapsuleAssertTree(dest, proof.tree, intent.revision);
+  await migrationCapsuleAssertTree(previous, intent.newTree, intent.revision);
+  const retiredObjects = path.join(wrapper, 'objects');
+  if (proof.objects) {
+    if (!await identity(retiredObjects)) {
+      if (await identity(objects) !== proof.objects) migrationCapsuleFail('opaque_set', true);
+      await migrationCapsuleVerifyReady(descriptor, snapshot);
+      await fsp.rename(objects, retiredObjects);
+    }
+    if (await identity(retiredObjects) !== proof.objects) migrationCapsuleFail('opaque_set', true);
+    await migrationCapsuleVerifyReady({ backup: wrapper }, snapshot);
+  } else if (await identity(retiredObjects)) migrationCapsuleFail('opaque_set', true);
+  if (await identity(empty)) {
+    if (await identity(empty) !== proof.empty || await identity(objects)) migrationCapsuleFail('opaque_set', true);
+    await fsp.rename(empty, objects);
+  }
+  if (await identity(objects) !== proof.empty || proof.empty && (await fsp.readdir(objects)).length) migrationCapsuleFail('opaque_set', true);
+  await fsp.rename(wrapper, cleanup);
+  await finish(false);
+}
 async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
   const broker = await migrationCapsuleBroker(), dest = migrationSkillTarget(descriptor.id);
   const wrapper = path.join(descriptor.backup, 'restored'), restored = path.join(wrapper, intent.oldRoot), retired = path.join(descriptor.backup, 'retired');
@@ -106239,54 +106409,65 @@ async function migrationCapsuleRestore(descriptor, snapshot, intent, undo) {
   }
   await migrationFinishPlainHistory(descriptor, snapshot, intent);
 }
+async function migrationArchiveUpdateRecovery(descriptor, snapshot, intent) {
+  const dest = migrationSkillTarget(descriptor.id);
+  const retired = path.join(path.dirname(dest), '.ruyi-retired-' + intent.revision);
+  const previous = migrationCapsuleFingerprint(snapshot);
+  const exists = migrationBackupPathExists;
+  if (intent.phase === 'preparing') {
+    if (!await exists(dest)) {
+      await migrationCapsuleAssertTree(retired, previous, intent.revision);
+      await fsp.rename(retired, dest);
+    }
+    const current = await migrationCapsuleCapture(dest, intent.revision);
+    if (migrationCapsuleSame(current, previous) && !await exists(retired)) intent.phase = 'aborted';
+    else if (migrationCapsuleSame(current, intent.newTree) && await exists(retired)) intent.phase = 'published';
+    else migrationCapsuleFail('published_identity', true);
+    await migrationCapsuleWriteIntent(descriptor, intent);
+  }
+  if (intent.phase === 'published' && await exists(retired)) {
+    const surviving = await migrationCapsuleCapture(retired, intent.revision);
+    migrationAssertSurvivingTree(surviving, previous, 'archive_cleanup_changed');
+    await fsp.rm(retired, {recursive:true});
+  }
+}
 async function migrationCapsulePrepare(dest, stage, backup) {
   const descriptor = migrationCapsuleDescriptor(backup), revision = crypto.randomBytes(32).toString('hex');
-  const broker = await migrationCapsuleBroker();
-  let intent = null;
+  const snapshot = await migrationCapsuleCapture(dest, revision);
+  const staged = await migrationCapsuleCapture(stage, revision);
+  const retired = path.join(path.dirname(dest), '.ruyi-retired-' + revision);
+  let intent;
   try {
-    await broker.command({ cmd: 'short-probe', root: stage });
-    const snapshot = await broker.command({ cmd: 'capture', root: dest, revision });
-    if (!migrationCapsuleShape(snapshot)) migrationCapsuleFail('shape');
-    const staged = await migrationCapsuleCapture(stage, revision);
     const raw = Buffer.from(JSON.stringify(snapshot), 'utf8');
     if (raw.length > MIGRATION_CAPSULE_ARCHIVE_LIMIT) { raw.fill(0); migrationCapsuleFail('capacity'); }
     let bytes;
     try { bytes = require('node:zlib').gzipSync(raw); } finally { raw.fill(0); }
     try {
       if (bytes.length > MIGRATION_CAPSULE_BINARY_LIMIT) migrationCapsuleFail('capacity');
-      if (await migrationLstat(backup)) migrationCapsuleFail('target_exists');
+      if (await migrationBackupPathExists(backup)) migrationCapsuleFail('target_exists');
       await fsp.mkdir(path.dirname(backup), { recursive: true });
       await fsp.mkdir(backup);
       await atomicWriteJson(path.join(backup, MIGRATION_CAPSULE_MARKER), { version: 1 });
-      await fsp.mkdir(path.join(backup, 'objects'));
       await migrationCapsuleArchive(descriptor).write(bytes);
     } finally { if (bytes) bytes.fill(0); }
-    intent = { schema: 1, id: descriptor.id, stamp: descriptor.stamp, revision, phase: 'preparing',
-      oldRoot: snapshot.entries.find(entry => entry.rel === '').id, newTree: migrationCapsuleFingerprint(staged), sourceStage: path.basename(stage) };
+    intent = {schema:1,id:descriptor.id,stamp:descriptor.stamp,revision,phase:'preparing',undoFormat:'archive-v1',archiveUpdate:true,
+      oldRoot:snapshot.entries.find(entry => entry.rel === '').id,newTree:migrationCapsuleFingerprint(staged),sourceStage:path.basename(stage)};
     migrationRecoveryNeeded = true;
     await migrationCapsuleWriteIntent(descriptor, intent);
-    // Authenticate the durable authority and all business/path/size bindings before
-    // the first truncation/rename. No archive is ever written as a plaintext temp.
     await migrationCapsuleRead(descriptor);
-    await broker.command({ cmd: 'seal', container: path.join(backup, 'objects') });
-    intent.phase = 'ready';
-    await migrationCapsuleWriteIntent(descriptor, intent);
-    await broker.command({ cmd: 'verify', cleared: true });
+    await migrationCapsuleAssertTree(dest, migrationCapsuleFingerprint(snapshot), revision);
+    if (await migrationBackupPathExists(retired)) migrationCapsuleFail('target_exists');
+    await fsp.rename(dest, retired);
+    await migrationCapsuleAssertTree(retired, migrationCapsuleFingerprint(snapshot), revision);
     await migrationCapsuleAssertTree(stage, intent.newTree, revision);
     await fsp.rename(stage, dest);
-    await migrationCapsuleAssertTree(dest, intent.newTree, revision);
-    intent.phase = 'published';
-    await migrationCapsuleWriteIntent(descriptor, intent);
+    await migrationArchiveUpdateRecovery(descriptor, snapshot, intent);
     migrationRecoveryNeeded = false;
     return descriptor;
   } catch (error) {
-    if (intent) {
-      // Recovery is durable; never hide an executed publication behind a retryable
-      // copy-failed result. The next owner/startup resolves the same intent once.
-      error.operationMayHaveExecuted = true; error.resultUnavailable = true; error.retry = false;
-    }
+    if (intent) Object.assign(error, {operationMayHaveExecuted:true,resultUnavailable:true,retry:false});
     throw error;
-  } finally { await broker.close(); }
+  }
 }
 async function migrationRecoverSkillBackups() {
   const root = migrationBackupRoot();
@@ -106315,7 +106496,7 @@ async function migrationRecoverSkillBackups() {
       // Before intent publication the live objects are untouched. Keep orphaned
       // encrypted archives for inspection; they are never interpreted as live trees.
       if (!await migrationLstat(descriptor.intentFile || path.join(descriptor.backup, 'intent'))) {
-        if ((await fsp.readdir(path.join(descriptor.backup, 'objects'))).length) migrationCapsuleFail('intent_missing', true);
+        if ((await fsp.readdir(path.join(descriptor.backup, 'objects')).catch(error => { if (error.code === 'ENOENT') return []; throw error; })).length) migrationCapsuleFail('intent_missing', true);
         continue;
       }
       const { snapshot, intent } = await migrationCapsuleRead(descriptor);
@@ -106323,7 +106504,13 @@ async function migrationRecoverSkillBackups() {
   }
 }
 async function migrationRecoverSkillBackup(descriptor, snapshot, intent) {
+  if (intent.archiveRestore) return migrationRestoreArchiveCopy(descriptor, snapshot, intent);
+  if (intent.plainRename && intent.phase === 'restoring') return migrationRestorePlainDirectory(descriptor, snapshot, intent);
   const dest = migrationSkillTarget(descriptor.id), stat = await migrationLstat(dest);
+  if (intent.archiveUpdate && !descriptor.plainRoot && ['preparing','published'].includes(intent.phase)) {
+    if (!await migrationArchiveOnly(descriptor)) migrationCapsuleFail('opaque_set', true);
+    return migrationArchiveUpdateRecovery(descriptor, snapshot, intent);
+  }
   const oldPublished = stat && !stat.isSymbolicLink() && (await fsp.stat(dest, { bigint: true })).ino.toString(16).padStart(16, '0') === intent.oldRoot.slice(8);
   if (['complete', 'aborted'].includes(intent.phase)) {
     const retired = path.join(descriptor.backup, 'retired');
@@ -106337,7 +106524,7 @@ async function migrationRecoverSkillBackup(descriptor, snapshot, intent) {
     if (descriptor.plainRoot) {
       const captured = await migrationCapsuleCapturePreserved(descriptor.plainRoot, intent.revision);
       if (!migrationCapsuleSameMetadata(captured, snapshot)) migrationCapsuleFail('plain_backup_changed', true);
-    } else await migrationCapsuleVerifyReady(descriptor, snapshot);
+    } else if (!await migrationArchiveOnly(descriptor)) await migrationCapsuleVerifyReady(descriptor, snapshot);
     return; // users may edit/remove their live skill after a committed publication
   }
   if (intent.phase === 'ready' && stat && !oldPublished) {
@@ -106359,6 +106546,30 @@ async function migrationRecoverSkillBackup(descriptor, snapshot, intent) {
     await migrationFinishPlainHistory(descriptor, snapshot, intent); return;
   }
   await migrationCapsuleRestore(descriptor, snapshot, intent, intent.phase === 'restoring');
+}
+async function migrationRestorePlainDirectory(descriptor, snapshot, intent) {
+  const host = descriptor.historyHost, dest = migrationSkillTarget(descriptor.id);
+  const retired = path.join(descriptor.backup, 'retired');
+  const exists = migrationBackupPathExists;
+  if (await exists(descriptor.plainRoot)) {
+    if (!migrationCapsuleSameMetadata(await host.capture(descriptor.plainRoot, intent.revision), snapshot))
+      migrationCapsuleFail('plain_backup_changed', true);
+    if (await exists(dest)) {
+      if (await exists(retired) || !migrationCapsuleSame(await host.capture(dest, intent.revision), intent.newTree))
+        migrationCapsuleFail('live_changed', true);
+      await fsp.rename(dest, retired);
+    }
+    if (!migrationCapsuleSame(await host.capture(retired, intent.revision), intent.newTree)) migrationCapsuleFail('retired_changed', true);
+    await host.move({source:descriptor.plainRoot, target:dest, id:intent.oldRoot, preserveMetadata:true});
+  }
+  if (!migrationCapsuleSameMetadata(await host.capture(dest, intent.revision), snapshot)) migrationCapsuleFail('published_identity', true);
+  if (await exists(retired)) {
+    migrationAssertSurvivingTree(await host.capture(retired, intent.revision), intent.newTree, 'retired_changed');
+    await fsp.rm(retired, {recursive:true});
+  }
+  intent.phase = 'complete';
+  await migrationCapsuleWriteIntent(descriptor, intent);
+  await migrationFinishPlainHistory(descriptor, snapshot, intent);
 }
 async function migrationUndoCapsule(descriptor, item, dest) {
   if ((await readConfig()).workDataEncryptionV1 !== true && !descriptor.plainRoot) migrationCapsuleFail('downgrade_refused');
@@ -106385,10 +106596,25 @@ async function migrationUndoCapsule(descriptor, item, dest) {
   const current = await migrationCapsuleCapture(dest, intent.revision);
   if (!migrationCapsuleSame(current, intent.newTree)) return { id: item.id, outcome: 'kept', reason: 'edited' };
   if (descriptor.generationLocal) await descriptor.assertCurrent();
+  const independent = !descriptor.plainRoot && (intent.archiveUpdate || !descriptor.generationId && !descriptor.generationLocal && !descriptor.intentFile);
+  if (intent.phase === 'published' && !descriptor.plainRoot && (independent && intent.undoFormat === 'archive-v1' || await migrationArchiveOnly(descriptor))) {
+    try { await migrationRestoreArchiveCopy(descriptor, snapshot, intent); }
+    catch (error) {
+      if (intent.archiveRestore || intent.phase === 'complete') {
+        error.operationMayHaveExecuted = true; error.resultUnavailable = true; error.retry = false;
+      }
+      throw error;
+    }
+    migrationRecoveryNeeded = false;
+    return { id: item.id, outcome: 'restored-previous' };
+  }
   intent.phase = 'restoring';
   await migrationCapsuleWriteIntent(descriptor, intent);
   migrationRecoveryNeeded = true;
-  try { await migrationCapsuleRestore(descriptor, snapshot, intent, true); }
+  try {
+    if (intent.plainRename) await migrationRestorePlainDirectory(descriptor, snapshot, intent);
+    else await migrationCapsuleRestore(descriptor, snapshot, intent, true);
+  }
   catch (error) { error.operationMayHaveExecuted = true; error.resultUnavailable = true; error.retry = false; throw error; }
   migrationRecoveryNeeded = false;
   return { id: item.id, outcome: 'restored-previous' };
@@ -106410,8 +106636,10 @@ async function migrationCopyOneSkill(row, ts) {
   const stage = path.join(root, MIGRATION_SKILL_STAGE_PREFIX + row.id + '-' + ts);
   const stageKey = samePathKey(stage);
   let backup = '';
+  let ownsStage = false, movedPlainBackup = false;
   try {
     await fsp.mkdir(stage, { recursive: false });
+    ownsStage = true;
     for (const f of tree.files) {
       const target = path.resolve(stage, ...f.rel.split('/'));
       if (!migrationPathInside(samePathKey(target), stageKey) || samePathKey(target) === stageKey) throw new Error('path escaped stage');
@@ -106435,14 +106663,24 @@ async function migrationCopyOneSkill(row, ts) {
         await migrationCapsulePrepare(dest, stage, backup);
       } else {
         await fsp.rename(dest, backup);
+        movedPlainBackup = true;
       }
     }
     if (!existing || !sealBackup) await fsp.rename(stage, dest);
     return { ok: true, action: existing ? 'updated' : 'created', copyTreeHash, backup,
       ...(backup && migrationBackupAuthority ? { backupRef: migrationBackupAuthority.makeRef(ts, row.id) } : {}), skippedLinks: tree.links };
   } catch (e) {
-    await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
-    if (backup && !await migrationCapsulePresent(backup) && !(await migrationLstat(dest))) await fsp.rename(backup, dest).catch(() => {});
+    if (ownsStage) await fsp.rm(stage, { recursive: true, force: true }).catch(() => {});
+    if (movedPlainBackup) {
+      try {
+        const occupied = await fsp.lstat(dest).catch(error => { if (error.code !== 'ENOENT') throw error; return null; });
+        if (occupied) throw new Error('skill target occupied during rollback');
+        await fsp.rename(backup, dest);
+      } catch (cause) {
+        throw Object.assign(new Error('Skill update interrupted with the previous copy in its backup directory', { cause }), {
+          operationMayHaveExecuted: true, resultUnavailable: true, retry: false });
+      }
+    }
     if (String(e?.code || '').startsWith('work_data') || e.operationMayHaveExecuted) throw e;
     return { ok: false, reason: 'copy-failed', detail: String((e && e.message) || e).slice(0, 200) };
   }
@@ -106531,7 +106769,11 @@ async function migrationUndoSkillCopy(f, logId) {
   const hash = await migrationTreeHash(await migrationSkillTree(dest));
   if (!rec || !hash || hash !== item.copyTreeHash) return { id: item.id, outcome: 'kept', reason: 'edited' };
   if (historical) await historical.assertCurrent();
-  const hasBackup = Boolean(historical || backup && await migrationLstat(backup));
+  const hasBackup = Boolean(backup);
+  if (item.action === 'updated' || f.backup || f.backupRef || hasBackup) {
+    const prior = backup && await fsp.lstat(backup);
+    if (!prior || !prior.isDirectory() || prior.isSymbolicLink()) throw new Error('Previous skill backup is unavailable');
+  }
   await fsp.rm(dest, { recursive: true, force: true });
   if (hasBackup) {
     await fsp.rename(backup, dest);
@@ -107312,7 +107554,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       generationId: owned.candidate.id, sourceStage: MIGRATION_SKILL_STAGE_PREFIX + physicalSkillId + '-' + backupRef.stamp,
       conversion: { schema: 1, operationId: currentRepresentation?.targetId === owned.candidate.id ? currentRepresentation.operationId : owned.candidate.id, eligibility: entry.eligibility } };
     await directory(source.backup, true); await fsp.mkdir(source.backup, { recursive: true }); await directory(source.backup);
-    await directory(path.join(source.backup, 'objects'), true); await fsp.mkdir(path.join(source.backup, 'objects')).catch(error => { if (error.code !== 'EEXIST') throw error; }); await directory(path.join(source.backup, 'objects'));
+    if (!await stat(path.join(source.backup, 'objects'))) intent.plainRename = true;
     if (await stat(path.join(source.backup, 'archive'))) {
       const previous = await migrationCapsuleRead(source);
       if (!migrationCapsuleSameMetadata(captured, previous.snapshot) || JSON.stringify(previous.intent) !== JSON.stringify(intent)) migrationCapsuleFail('binding_conflict');
@@ -107334,12 +107576,23 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     if (owned.expected.id && (!priorBinding || priorBinding.generationId !== owned.expected.id || priorBinding.storeId !== token.storeId)) migrationCapsuleFail('binding_missing');
     const representation = await representationStore().read();
     const targetMode = owned.candidate.mode || (representation?.targetId === owned.candidate.id ? representation.mode : 'encrypted');
+    // Until the target manifest commits, the stable slot still holds the source.
+    const preparedArchives = new Map();
+    if (representation?.targetId === owned.candidate.id && representation.prepared && targetMode === 'encrypted') {
+      for (const row of representation.entries) {
+        const record = await representationRecordStore(representation,row).read();
+        if (!record) migrationCapsuleFail('representation_missing');
+        if (record.oldType === 'plain-deferred') preparedArchives.set(row.backupId,representationPaths(representation,row).capsule);
+      }
+    }
     const entries = []; let ready = true;
     for (const batch of await fsp.readdir(stableRoot, { withFileTypes: true })) {
       if (!batch.isDirectory() || batch.isSymbolicLink() || !/^[0-9TZ-]+$/.test(batch.name)) migrationCapsuleFail('store_entry');
       for (const item of await fsp.readdir(path.join(stableRoot, batch.name), { withFileTypes: true })) {
         if (!item.isDirectory() || item.isSymbolicLink() || !SKILL_ID_RE.test(item.name)) migrationCapsuleFail('store_entry');
         const backupRef = ref(batch.name, item.name, token.storeId), source = descriptor(stableRoot, batch.name, item.name);
+        const deferred = preparedArchives.get(backupRef.backupId);
+        if (deferred) source.backup = deferred;
         const history = await migrationReadBackupHistory(source.backup, source);
         if (history) {
           if (history.mode !== targetMode) migrationCapsuleFail('representation_mode');
@@ -107360,7 +107613,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         const entry = { ref: backupRef, physicalSkillId: item.name, phase, archiveSha: await fileHash(path.join(source.backup, 'archive')),
           intentSha: await fileHash(source.intentFile || path.join(source.backup, 'intent')), sourceGenerationId: prior ? owned.expected.id : null, eligibility: 'terminal', newTree: null };
         if (phase === 'published') {
-          await migrationCapsuleVerifyReady(source, record.snapshot);
+          if (!await migrationArchiveOnly(source)) await migrationCapsuleVerifyReady(source, record.snapshot);
           if (['edited', 'gone'].includes(record.intent.conversion?.eligibility)) entry.eligibility = record.intent.conversion.eligibility;
           else {
             const sourceLive = path.join(owned.expected.root, 'skills', item.name), targetLive = path.join(owned.candidate.root, 'skills', item.name);
@@ -107658,17 +107911,29 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
   function representationRecordValid(value) {
     if (!exact(value, 'schema,operationId,stamp,skillId,oldType,oldMode,oldPhase,eligibility,capsuleId,historyId,historyTree,revision,original,target,newTree,sourceGenerationId,archiveSha,intentSha,phase') || value.schema !== 1
       || !id48(value.operationId) || typeof value.stamp !== 'string' || !/^[0-9TZ-]+$/.test(value.stamp)
-      || typeof value.skillId !== 'string' || !SKILL_ID_RE.test(value.skillId) || !['plain', 'capsule', 'history'].includes(value.oldType) || !['plain', 'encrypted'].includes(value.oldMode)
+      || typeof value.skillId !== 'string' || !SKILL_ID_RE.test(value.skillId) || !['plain', 'plain-archive', 'plain-deferred', 'capsule', 'archive', 'history'].includes(value.oldType) || !['plain', 'encrypted'].includes(value.oldMode)
       || !['published', 'complete', 'aborted'].includes(value.oldPhase) || !['eligible', 'edited', 'gone', 'terminal'].includes(value.eligibility)
+      || ['plain-archive','plain-deferred'].includes(value.oldType) && value.oldMode !== 'plain'
       || !id24(value.capsuleId) || !hex(value.revision) || !migrationCapsuleShape(value.original) || !migrationCapsuleShape(value.target)
       || !(value.sourceGenerationId === null || id48(value.sourceGenerationId)) || !hex(value.archiveSha) || !hex(value.intentSha)
       || (value.eligibility === 'terminal' ? !id24(value.historyId) || !migrationCapsuleFingerprintShape(value.historyTree) : value.historyId !== null || value.historyTree !== null)
       || value.original.revision !== value.revision || value.target.revision !== value.revision
-      || !['prepared', 'forward', 'canceled'].includes(value.phase)
+      || !(['prepared', 'forward', 'canceled'].includes(value.phase) || value.oldType === 'plain-deferred' && value.phase === 'retiring')
       || (value.eligibility !== 'gone' && value.eligibility !== 'terminal' && !migrationCapsuleFingerprintShape(value.newTree))) return false;
     const left = JSON.parse(JSON.stringify(value.original)), right = JSON.parse(JSON.stringify(value.target));
     for (const snapshot of [left, right]) for (const entry of snapshot.entries) if (entry.rel === SKILL_IMPORT_RECORD)
       for (const stream of entry.streams) if (stream.name === '') { delete stream.data; delete stream.hash; delete stream.size; }
+    if (value.oldType === 'archive') {
+      if (value.oldMode !== 'encrypted') return false;
+      for (const snapshot of [left, right]) {
+        snapshot.entries.sort((a,b) => portableSort(a.rel,b.rel));
+        for (const entry of snapshot.entries) {
+          delete entry.id; delete entry.opaque;
+          entry.streams.sort((a,b) => portableSort(a.name,b.name));
+        }
+      }
+      return require('node:util').isDeepStrictEqual(left, right);
+    }
     return JSON.stringify(left) === JSON.stringify(right);
   }
   const representationRecordStore = (journal, row) => sealed(path.join(representationPaths(journal, row).anchor, 'record-v1.sealed'),
@@ -107686,6 +107951,11 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     return roots;
   }
   const conversionNative = native || {
+    retireCommittedSource: async request => {
+      const broker = await migrationCapsuleBroker();
+      try { return await broker.command({cmd:'retire-committed-source',...request}); }
+      finally { await broker.close(); }
+    },
     createOwnedPortable: async ({root,snapshot,revision}) => migrationCapsuleCreateOwnedPortable(root,snapshot,revision),
     ...platform,
     capture: async (root, revision) => { const broker = await migrationCapsuleBroker(); try { return await broker.command({ cmd: 'capture-preserved', root, revision }); } finally { await broker.close(); } },
@@ -107704,8 +107974,8 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       await broker.command({ cmd: 'publish', target: paths.backup, container: path.join(paths.capsule, 'objects'), ...(publishExactBasic?{publishExactBasic:true}:{}) });
     } finally { await broker.close(); } },
   };
-  function requireConversionNative() {
-    if (['info', 'move', 'capture', 'flush', 'seal', 'materialize'].some(name => typeof conversionNative[name] !== 'function')) migrationCapsuleFail('representation_host');
+  function requireConversionNative(...additional) {
+    if (['info', 'move', 'capture', 'flush', ...additional].some(name => typeof conversionNative[name] !== 'function')) migrationCapsuleFail('representation_host');
   }
   async function conversionIdentity(root) {
     await directory(root);
@@ -107763,7 +108033,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if (!await directory(root, true)) continue;
       const info = await conversionNative.info(root);
       if (info.id === record.capsuleId) matches.push(root);
-      else if (info.id !== rootId(record.original) && info.id !== record.historyId) migrationCapsuleFail('representation_identity', true);
+      else if (info.id !== (record.oldType === 'archive' ? rootId(record.target) : rootId(record.original)) && info.id !== record.historyId) migrationCapsuleFail('representation_identity', true);
     }
     if (matches.length !== 1) migrationCapsuleFail('representation_location', true);
     return matches[0];
@@ -107794,7 +108064,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     if (await fileHash(path.join(capsule, 'archive')) !== record.archiveSha
       || await fileHash(source.intentFile || path.join(capsule, 'intent')) !== record.intentSha) migrationCapsuleFail('representation_carrier_changed', true);
     const authenticated = await migrationCapsuleRead(capturedDescriptor(source));
-    if (JSON.stringify(authenticated.snapshot) !== JSON.stringify(record.oldType === 'plain' ? record.target : record.original)) migrationCapsuleFail('representation_carrier_changed', true);
+    if (JSON.stringify(authenticated.snapshot) !== JSON.stringify(['plain','plain-archive','plain-deferred'].includes(record.oldType) ? record.target : record.original)) migrationCapsuleFail('representation_carrier_changed', true);
   }
   function importShape(text) {
     const value = safeJsonParse(text, null);
@@ -107875,11 +108145,11 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
   async function writeConversionCapsule(paths, row, record) {
     const source = descriptor(paths.anchor, row.stamp, row.skillId); source.backup = paths.capsule;
     await atomicWriteJson(path.join(paths.capsule, MIGRATION_CAPSULE_MARKER), { version: 1 });
-    await fsp.mkdir(path.join(paths.capsule, 'objects')); await directory(path.join(paths.capsule, 'objects'));
+    if (record.oldType !== 'plain-deferred') { await fsp.mkdir(path.join(paths.capsule, 'objects')); await directory(path.join(paths.capsule, 'objects')); }
     const raw = Buffer.from(JSON.stringify(record.target), 'utf8'); let bytes;
     try { bytes = require('node:zlib').gzipSync(raw); } finally { raw.fill(0); }
     try { await migrationCapsuleArchive(source).write(bytes); } finally { bytes.fill(0); }
-    const intent = { schema: 1, id: row.skillId, stamp: row.stamp, revision: record.revision, phase: 'published', oldRoot: rootId(record.target),
+    const intent = { schema: 1, id: row.skillId, stamp: row.stamp, revision: record.revision, phase: 'published', ...(['plain-archive','plain-deferred'].includes(record.oldType) ? {undoFormat:'archive-v1', archiveUpdate:true} : {}), oldRoot: rootId(record.target),
       newTree: record.newTree, sourceStage: MIGRATION_SKILL_STAGE_PREFIX + row.skillId + '-' + row.stamp,
       conversion: { schema: 1, operationId: record.operationId, eligibility: record.eligibility } };
     await migrationCapsuleIntent(source).write(JSON.stringify(intent)); await migrationCapsuleRead(source);
@@ -107909,7 +108179,8 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     if (!result || result.id !== record.historyId || result.volume !== before.volume) migrationCapsuleFail('representation_identity', true);
   }
   async function runRepresentation(journal, row, record, forward, admit) {
-    const paths = representationPaths(journal, row), wantCapsule = forward ? journal.mode === 'encrypted' : record.oldType === 'capsule';
+    if (record.eligibility !== 'terminal' && !['archive','plain-deferred'].includes(record.oldType)) requireConversionNative('materialize','seal');
+    const paths = representationPaths(journal, row), wantCapsule = forward ? journal.mode === 'encrypted' : ['archive','capsule'].includes(record.oldType);
     if(admit)await withCapturedReads(()=>verifyConversionCarrier(journal,row,record));
     else await verifyConversionCarrier(journal, row, record);
     if (record.eligibility === 'terminal') {
@@ -107917,6 +108188,37 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       // typed history and the original wrapper; never instantiate or move them.
       if (forward) { await moveConversionCapsule(paths, record, paths.capsule, admit); await moveHistory(paths, record, paths.backup, admit); }
       else { await moveHistory(paths, record, paths.history, admit); await moveConversionCapsule(paths, record, paths.backup, admit); }
+    } else if (record.oldType === 'plain-deferred') {
+      // Both directions leave the reversible source in place until manifest commit.
+      await verifyDeferredSource(paths,record);
+    } else if (record.oldType === 'archive') {
+      const parent = path.join(generationRoot(journal.targetId), '.ruyi-skill-restore-' + row.backupId);
+      const staged = path.join(parent,row.skillId), id = rootId(record.target);
+      if (forward) await moveConversionCapsule(paths, record, paths.capsule, admit);
+      const stagedStat = await stat(staged);
+      const published = await stat(paths.backup) && (await conversionNative.info(paths.backup)).id === id;
+      if (stagedStat && published) migrationCapsuleFail('representation_location', true);
+      if (forward || published) {
+        const root = stagedStat ? staged : paths.backup;
+        const actual = await portableCapture(root, record.revision);
+        if (!migrationCapsuleSame(actual, migrationCapsuleFingerprint(record.target))) migrationCapsuleFail('representation_target', true);
+        if (forward && !published || !forward && published) {
+          await admit?.();
+          if (!forward) { await fsp.mkdir(parent).catch(error => { if (error.code !== 'EEXIST') throw error; }); await directory(parent); }
+          const moved = await conversionNative.move({source:root,target:forward?paths.backup:staged,id,preserveMetadata:true});
+          if (moved.id !== id) migrationCapsuleFail('representation_identity', true);
+        }
+      }
+      if (!forward) {
+        await moveConversionCapsule(paths, record, paths.backup, admit);
+        if (await stat(staged)) {
+          const remaining = await portableCapture(staged, record.revision);
+          migrationAssertSurvivingTree(remaining, migrationCapsuleFingerprint(record.target), 'representation_target');
+          await admit?.();
+          await fsp.rm(staged, {recursive:true});
+        }
+      }
+      if (await directory(parent,true)) await fsp.rmdir(parent);
     } else if (wantCapsule) {
       // First materialize the exact representation that is being sealed. This
       // reconciles any interrupted flatten/write using only two authenticated snapshots.
@@ -107991,7 +108293,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         const capsule = !legacyView&&!history&&await migrationCapsulePresent(source.backup,source),oldMode=history?history.mode:capsule?'encrypted':'plain';
         if (oldMode === mode) continue;
         await directory(paths.anchor, true); await fsp.mkdir(paths.anchor, { recursive: !owned.legacy }); await directory(paths.anchor);
-        let original, oldPhase = 'published', eligibility, newTree, revision, sourceGenerationId = null;
+        let original, archiveOnly = false, oldPhase = 'published', eligibility, newTree, revision, sourceGenerationId = null;
         if (history) {
           original = history.snapshot; revision = original.revision; oldPhase = history.phase; eligibility = 'terminal'; newTree = [];
         } else if (capsule) {
@@ -108004,14 +108306,16 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
           const existing = onPrepared
             ? await withCapturedReads(()=>migrationCapsuleRead(capturedDescriptor(source))) : await migrationCapsuleRead(source);
           original = existing.snapshot; revision = original.revision;
+          archiveOnly = await migrationArchiveOnly(source);
           oldPhase = existing.intent.phase; if (!['published', 'complete', 'aborted'].includes(oldPhase)) migrationCapsuleFail('backup_unsettled');
           if (oldPhase !== 'published') {
-            const objects = path.join(paths.backup, 'objects'); await directory(objects);
-            if ((await fsp.readdir(objects)).length || await stat(path.join(paths.backup, 'retired'))) migrationCapsuleFail('representation_terminal_unsettled');
+            const objects = path.join(paths.backup, 'objects'); if (!archiveOnly) await directory(objects);
+            if (!archiveOnly && (await fsp.readdir(objects)).length || await stat(path.join(paths.backup, 'retired'))) migrationCapsuleFail('representation_terminal_unsettled');
             eligibility = 'terminal'; newTree = [];
           }
           else {
-            await migrationCapsuleVerifyReady(source, original); eligibility = existing.intent.conversion?.eligibility || 'eligible'; newTree = existing.intent.newTree;
+            if (!archiveOnly) await migrationCapsuleVerifyReady(source, original);
+            eligibility = existing.intent.conversion?.eligibility || 'eligible'; newTree = existing.intent.newTree;
             const live = path.join(owned.expected.root, 'skills', row.skillId);
             if (!await stat(live)) { eligibility = 'gone'; newTree = []; }
             else {
@@ -108035,10 +108339,19 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
             else if (eligibility === 'eligible' && !migrationCapsuleSame(await conversionNative.capture(live, revision), newTree)) eligibility = 'edited';
           } else ({ eligibility, newTree } = await plainReceipt(owned.expected,row,revision,legacyView)); }
         if (!migrationCapsuleShape(original)) migrationCapsuleFail('representation_shape');
-        const target = await representationSnapshot(original, mode, paths, row.skillId);
-        if (!capsule && !history) { await fsp.mkdir(paths.capsule); await directory(paths.capsule); }
+        let target = await representationSnapshot(original, mode, paths, row.skillId);
+        if (archiveOnly && eligibility !== 'terminal') {
+          // An interrupted preparation belongs to the disposable plaintext candidate.
+          const parent = path.join(owned.candidate.root, '.ruyi-skill-restore-' + row.backupId);
+          await fsp.mkdir(parent); await directory(parent);
+          target = await conversionNative.createOwnedPortable({ root:path.join(parent,row.skillId), snapshot:target, revision });
+        }
+        if (!capsule && !history) {
+          if (onPrepared && typeof conversionNative.retireCommittedSource !== 'function') migrationCapsuleFail('representation_host');
+          await fsp.mkdir(paths.capsule); await directory(paths.capsule);
+        }
         const info = await conversionNative.info(capsule || history ? paths.backup : paths.capsule);
-        const record = { schema: 1, operationId: journal.operationId, stamp: row.stamp, skillId: row.skillId, oldType: history ? 'history' : capsule ? 'capsule' : 'plain', oldMode,
+        const record = { schema: 1, operationId: journal.operationId, stamp: row.stamp, skillId: row.skillId, oldType: history ? 'history' : archiveOnly ? 'archive' : capsule ? 'capsule' : onPrepared ? 'plain-deferred' : 'plain', oldMode,
           oldPhase, eligibility, capsuleId: info.id, historyId: null, historyTree: null, revision, original, target, newTree, sourceGenerationId, archiveSha: '', intentSha: '', phase: 'prepared' };
         if (eligibility === 'terminal') await prepareHistory(paths, row, record, mode);
         else if (!capsule) await writeConversionCapsule(paths, row, record);
@@ -108068,7 +108381,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if(owned.legacy)durableDirectories.push(path.dirname(legacyRoot),path.dirname(control));
       for (let index = 0; index < journal.entries.length; index++) {
         const paths = representationPaths(journal, journal.entries[index],storeRoot), record = records[index];
-        durableDirectories.push(paths.anchor, path.dirname(paths.backup), record.oldType === 'plain' ? paths.capsule : paths.backup);
+        durableDirectories.push(paths.anchor, path.dirname(paths.backup), ['plain','plain-archive','plain-deferred'].includes(record.oldType) ? paths.capsule : paths.backup);
         if (record.sourceGenerationId) durableDirectories.push(path.join(control, 'intents', record.sourceGenerationId));
         if (record.eligibility === 'terminal') durableDirectories.push(paths.history);
       }
@@ -108141,6 +108454,61 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       migrationCapsuleFail('representation_prepared_changed',true);
     return relocation;
   }
+  // Once the target manifest is committed, cancellation can no longer require
+  // the cleared source objects. Resume partial removal against the sealed receipt.
+  async function verifyDeferredSource(paths, record) {
+    if (!eq(await conversionLocation(paths,record),paths.capsule)) migrationCapsuleFail('representation_location',true);
+    const source = await portableCapture(paths.backup, record.revision);
+    if (!sameLegacyRead(source,record.original)) migrationCapsuleFail('representation_source_changed',true);
+  }
+  async function publishDeferredArchive(journal,row,record,storeRoot,admit) {
+    const paths = representationPaths(journal,row,storeRoot);
+    await verifyConversionCarrier(journal,row,record,storeRoot);
+    const carrier=await conversionLocation(paths,record);
+    if (!await migrationArchiveOnly({backup:carrier})) migrationCapsuleFail('representation_carrier_changed',true);
+    if (eq(carrier,paths.capsule)) {
+      if (record.phase !== 'retiring') {
+        await verifyDeferredSource(paths,record);
+        await admit();
+        record.phase = 'retiring';
+        await representationRecordStore(journal,row).write(record);
+        await conversionNative.flush([paths.anchor],true);
+      }
+      if (await directory(paths.backup,true)) {
+        const remaining = await portableCapture(paths.backup,record.revision);
+        migrationAssertSurvivingTree(remaining,migrationCapsuleFingerprint(record.original),'representation_source_changed');
+        const id=rootId(record.original), parentId=journal.prepared.records.find(proof=>proof.backupId===row.backupId).parent.id;
+        await admit();
+        const retired=await conversionNative.retireCommittedSource({root:paths.backup,id,parentId,revision:record.revision,snapshot:remaining});
+        if(retired?.root!==paths.backup || retired.id!==id || retired.parentId!==parentId ||
+            retired.count!==remaining.entries.length || retired.removed!==true || await stat(paths.backup)) migrationCapsuleFail('representation_source_changed',true);
+        await conversionNative.flush([path.dirname(paths.backup)],true);
+      }
+      await moveConversionCapsule(paths,record,paths.backup,admit);
+    }
+    if (record.phase === 'retiring') {
+      await admit();
+      record.phase='forward'; await representationRecordStore(journal,row).write(record);
+      await conversionNative.flush([paths.anchor],true);
+    }
+  }
+  async function retireConvertedOriginals(journal, row, record, storeRoot, admit) {
+    const paths = representationPaths(journal, row, storeRoot), objects = path.join(paths.backup, 'objects');
+    await verifyConversionCarrier(journal, row, record, storeRoot);
+    if (!await directory(objects, true)) return;
+    const remaining = await portableCapture(objects, record.revision);
+    if (!migrationCapsuleShape(remaining)) migrationCapsuleFail('opaque_set', true);
+    const expected = new Map(record.target.entries.map(entry => [entry.opaque, entry]));
+    for (const entry of remaining.entries) {
+      if (!entry.rel && entry.dir && !entry.streams.length) continue;
+      const source = expected.get(entry.rel);
+      if (!source || entry.id !== source.id || entry.dir !== source.dir
+          || entry.streams.some(stream => stream.name !== '' || stream.size !== 0)) migrationCapsuleFail('opaque_set', true);
+    }
+    await admit();
+    await fsp.rm(objects, {recursive:true});
+    await conversionNative.flush([paths.backup], true);
+  }
   async function finishPreparedRepresentation(journal, selected, keep, assertUnchanged, verifyOnly=false, includePublishedProof=false) {
     const raw = keep ? journal.prepared.targetRaw : journal.prepared.sourceRaw, settled = keep ? 'kept' : 'canceled';
     const admitted = async () => {
@@ -108161,7 +108529,12 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         for (const [index, row] of journal.entries.entries()) {
           await admitted();
           const record=records[index];
-          if (keep && journal.phase === 'converted') await verifyConvertedObject(journal, row, record, true,storeRoot);
+          if (keep && journal.phase === 'converted') {
+            if (record.oldType === 'plain-deferred') await publishDeferredArchive(journal,row,record,storeRoot,admitted);
+            if (record.oldType === 'plain-archive' && record.eligibility !== 'terminal')
+              await retireConvertedOriginals(journal,row,record,storeRoot,admitted);
+            await verifyConvertedObject(journal,row,record,true,storeRoot,true);
+          }
           else if(!keep&&relocation&&eq(storeRoot,legacyRoot)){
             // The relocation never happened or was already inversed. Prove
             // the original legacy objects in place before recording cancel.
@@ -108246,9 +108619,10 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     }
     return rows;
   }
-  async function verifyConvertedObject(journal, row, record, keep,storeRoot=stableRoot) {
+  async function verifyConvertedObject(journal, row, record, keep,storeRoot=stableRoot,committed=false) {
     const paths = representationPaths(journal, row,storeRoot);
-    const capsule = keep ? journal.mode === 'encrypted' : record.oldType === 'capsule';
+    const capsule = keep ? journal.mode === 'encrypted' : ['archive','capsule'].includes(record.oldType);
+    if (record.oldType === 'plain-deferred' && keep && !committed && journal.phase !== 'kept') return verifyDeferredSource(paths,record);
     const carrier = record.eligibility==='terminal' ? (keep ? paths.capsule : paths.backup) : (capsule ? paths.backup : paths.capsule);
     if (!eq(await conversionLocation(paths,record),carrier)) migrationCapsuleFail('representation_location',true);
     if (record.eligibility === 'terminal') {
@@ -108262,7 +108636,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       const names = await fsp.readdir(paths.backup);
       if (names.some(name => ![MIGRATION_CAPSULE_MARKER, 'archive', 'intent', 'objects', 'restored'].includes(name))
         || names.includes('restored') && (await fsp.readdir(path.join(paths.backup, 'restored'))).length) migrationCapsuleFail('representation_census', true);
-      await migrationCapsuleVerifyReady({backup:paths.backup}, expected);
+      if (record.oldType === 'archive' && !keep || ['plain-archive','plain-deferred'].includes(record.oldType) && keep && (committed || journal.phase === 'kept')) {
+        if (names.sort().join() !== [MIGRATION_CAPSULE_MARKER, 'archive', 'intent'].sort().join()) migrationCapsuleFail('representation_census', true);
+      } else await migrationCapsuleVerifyReady({backup:paths.backup}, expected);
     } else {
       const actual=await portableCapture(paths.backup,record.revision);
       const legacyInverse=!keep&&journal.prepared?.relocation&&eq(storeRoot,legacyRoot);
@@ -108343,9 +108719,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       if (entry.kind==='history') continue;
       if (entry.kind==='plain') {
         const source=plainDescriptor(entry,journal.targetId);
-        await migrationCapsuleRead(capturedDescriptor(source));
+        const {intent}=await migrationCapsuleRead(capturedDescriptor(source));
         if(await fileHash(path.join(source.backup,'archive'))!==entry.archiveSha||await fileHash(path.join(source.backup,'intent'))!==entry.intentSha
-          ||(await fsp.readdir(path.join(source.backup,'objects'))).length) migrationCapsuleFail('binding_source_changed',true);
+          ||(intent.plainRename ? await stat(path.join(source.backup,'objects')) : (await fsp.readdir(path.join(source.backup,'objects'))).length)) migrationCapsuleFail('binding_source_changed',true);
         allow(path.join(control,'plain-v1'));allow(path.dirname(source.backup));allow(source.backup);
         for(const name of ['archive','intent','objects'])allow(path.join(source.backup,name));
       } else {
@@ -108363,8 +108739,11 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     }
     const after = await captureTransitionRows(Boolean(journal.prepared.relocation));
     const exactScope=[path.join(representationRoot,journal.operationId),path.join(control,'plain-v1',journal.targetId),path.join(control,'intents',journal.targetId)].map(transitionRelative);
-    const sealedObjects=journal.entries.filter((row,index)=>records[index].eligibility==='terminal'
-      ||(keep?journal.mode==='encrypted':records[index].oldType==='capsule')).map(row=>transitionRelative(representationPaths(journal,row,storeRoot).backup));
+    const sealedObjects=journal.entries.filter((row,index)=>{
+      const record=records[index];
+      if(record.oldType==='plain-deferred' && keep && journal.phase!=='kept')return false;
+      return record.eligibility==='terminal' || (keep?journal.mode==='encrypted':['archive','capsule'].includes(record.oldType));
+    }).map(row=>transitionRelative(representationPaths(journal,row,storeRoot).backup));
     const accepts=name=>allowed.has(name)||[...allowedSubtrees].some(root=>underTransition(name,root))
       ||journal.prepared.relocation&&[legacyRoot,stableRoot].some(root=>underTransition(name,transitionRelative(root)));
     for(const name of journal.prepared.createdParents){
@@ -108760,20 +109139,25 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
       }
       const terminal=['complete','aborted'].includes(selectedIntent.value.phase)?selectedIntent.value.phase:null;
       if(!terminal&&intent.value.phase!=='published'||terminal&&intent.value.phase!=='published'&&intent.value.phase!==terminal)migrationCapsuleFail('portable_binding');
-      await provenanceRefs(snapshot,slot,archive.path);const objects=wrapper+'/objects';dir(objects);
-      const physical=await evidenceFor(objects,hash('portable-objects:'+wrapper));
-      if(physical.entries.some(entry=>entry.rel===''?entry.streams.length!==0:entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
-      if(terminal){if(physical.entries.length!==1||physical.entries[0].rel!==''||!physical.entries[0].dir||physical.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}
-      else if(physical.entries.length!==snapshot.entries.length+1)migrationCapsuleFail('portable_objects');
-      for(const original of terminal?[]:snapshot.entries){const opaque=objects+'/'+original.opaque,current=physical.entries.find(entry=>entry.rel===original.opaque);
-        if(!current||current.id!==original.id||current.dir!==original.dir||current.streams.some(stream=>stream.name!==''||stream.size!==0))migrationCapsuleFail('portable_objects');
-        if(original.dir)dir(opaque);else if(take(opaque).data.length)migrationCapsuleFail('portable_objects');
+      await provenanceRefs(snapshot,slot,archive.path);
+      const objects = wrapper + '/objects';
+      const archiveOnly = !input.dirs.has(portableFold(objects));
+      if (!archiveOnly) {
+        dir(objects);
+        const physical=await evidenceFor(objects,hash('portable-objects:'+wrapper));
+        if(physical.entries.some(entry=>entry.rel===''?entry.streams.length!==0:entry.streams.some(stream=>stream.name!=='')))migrationCapsuleFail('portable_native_streams');
+        if(terminal){if(physical.entries.length!==1||physical.entries[0].rel!==''||!physical.entries[0].dir||physical.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}
+        else if(physical.entries.length!==snapshot.entries.length+1)migrationCapsuleFail('portable_objects');
+        for(const original of terminal?[]:snapshot.entries){const opaque=objects+'/'+original.opaque,current=physical.entries.find(entry=>entry.rel===original.opaque);
+          if(!current||current.id!==original.id||current.dir!==original.dir||current.streams.some(stream=>stream.name!==''||stream.size!==0))migrationCapsuleFail('portable_objects');
+          if(original.dir)dir(opaque);else if(take(opaque).data.length)migrationCapsuleFail('portable_objects');
+        }
       }
       if(terminal){const restored=wrapper+'/restored';if(input.dirs.has(portableFold(restored))){dir(restored);const empty=await evidenceFor(restored,hash('portable-terminal-restored:'+wrapper));if(empty.entries.length!==1||empty.entries[0].rel!==''||!empty.entries[0].dir||empty.entries[0].streams.length)migrationCapsuleFail('portable_terminal_objects');}}
       const livePrefix=authority.id?'.work-data/generations/'+authority.id+'/':'',liveName=livePrefix+'skills/'+skillId;let live=null;
       if(request.directories.some(name=>portableFold(name)===portableFold(liveName))){const actualName=request.directories.find(name=>portableFold(name)===portableFold(liveName));if(!liveTrees.has(portableFold(actualName))){live=await evidenceFor(actualName,hash('portable-live:'+actualName));await provenanceRefs(live,slot,archive.path);liveTrees.set(portableFold(actualName),{path:actualName,snapshot:live});}else live=liveTrees.get(portableFold(actualName)).snapshot;}
       let eligibility=terminal?'terminal':selectedIntent.value.conversion?.eligibility;if(!terminal&&!['edited','gone'].includes(eligibility))eligibility=live&&migrationCapsuleSame(live,selectedIntent.value.newTree)?'eligible':live?'edited':'gone';
-      const original={wrapper,stamp,skillId,backupId:backupRef.backupId,archive:archive.path,intent:intent.path,marker:{path:marker.path,sha256:hash(marker.data)},live:live?liveName:null,eligibility,...(terminal?{phase:terminal}:{})};
+      const original={wrapper,stamp,skillId,...(archiveOnly?{archiveOnly:true}:{}),backupId:backupRef.backupId,archive:archive.path,intent:intent.path,marker:{path:marker.path,sha256:hash(marker.data)},live:live?liveName:null,eligibility,...(terminal?{phase:terminal}:{})};
       if(originalByRef.has(stamp+'/'+portableFold(skillId)))migrationCapsuleFail('portable_binding');originalByRef.set(stamp+'/'+portableFold(skillId),original);originalSources.set(original,{snapshot,live});(terminal?terminalCapsules:originals).push(original);ancestors(wrapper);
     }
     // Whole raw legacy backups are user trees, not capsule/control records.
@@ -108888,7 +109272,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         const marker=[...input.files.values()].find(file=>hash(file.data)===record.intentSha&&file.path.endsWith('/'+MIGRATION_BACKUP_HISTORY_MARKER));if(!marker||!archiveCandidates.length)migrationCapsuleFail('portable_representation_carrier');row.archive=archiveCandidates[0].path;row.intent=marker.path;
       }else{
         if(!archiveCandidates.length||!intentCandidates.length)migrationCapsuleFail('portable_representation_carrier');row.archive=archiveCandidates[0].path;row.intent=intentCandidates[0].path;
-        const snapshot=archiveCandidates[0].value;if(portableJSON(snapshot)!==portableJSON(record.oldType==='plain'?record.target:record.original))migrationCapsuleFail('portable_representation_carrier');
+        const snapshot=archiveCandidates[0].value;if(portableJSON(snapshot)!==portableJSON(['plain','plain-archive','plain-deferred'].includes(record.oldType)?record.target:record.original))migrationCapsuleFail('portable_representation_carrier');
       }
       if(record.sourceGenerationId&&row.intent!==controlPrefix+'/intents/'+record.sourceGenerationId+'/'+row.backupId+'.sealed')migrationCapsuleFail('portable_binding');
       for(const relative of [row.archive.slice(0,row.archive.lastIndexOf('/')),...(record.oldType==='history'?[row.intent.slice(0,row.intent.lastIndexOf('/'))]:[])])
@@ -109030,6 +109414,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
   }
   async function stagePortableOriginals({target,keysFor,assertTargetExclusive,targetOwnership,assertTargetExclusiveSync,request,value}) {
     if(typeof conversionNative.createOwnedPortable!=='function')migrationCapsuleFail('portable_native_create_required');
+    if(value.originals.some(row=>!row.archiveOnly)) requireConversionNative('seal');
     const admission=async()=>{if(await assertTargetExclusive()!==true)migrationCapsuleFail('portable_owner');};
     await admission();await directory(path.dirname(target));if(await stat(target))migrationCapsuleFail('portable_target_exists');
     const stageRoot=path.join(path.dirname(target),'.ruyi-skill-portable-'+crypto.randomBytes(24).toString('hex')),input=portableInput(request),replacements=[],mappings=[],moves=[];let mutated=false;
@@ -109049,7 +109434,7 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
     };
     const extraArchive=async row=>{
       const record=recordByPath.get(portableFold(row.archive)),snapshot=translatedSnapshot(record.value),source=descriptor('',row.stamp,row.skillId),copy={...source,backup:stagePath(row.wrapper),archiveKeys:await keysFor(row.archive)};
-      await make(row.wrapper+'/objects');const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));try{await migrationCapsuleArchive(copy).write(bytes);}finally{bytes.fill(0);}
+      await make(input.dirs.has(portableFold(row.wrapper+'/objects')) ? row.wrapper+'/objects' : row.wrapper);const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));try{await migrationCapsuleArchive(copy).write(bytes);}finally{bytes.fill(0);}
       const reopened=await migrationCapsuleArchive(copy).read();try{if(portableJSON(migrationCapsuleDecode(reopened))!==portableJSON(snapshot))migrationCapsuleFail('portable_create_changed');}finally{reopened.fill(0);}
       archives.set(portableFold(row.archive),snapshot);
     };
@@ -109091,11 +109476,26 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         if(!migrationCapsuleShape(snapshot))migrationCapsuleFail('portable_create_changed');liveTrees.set(portableFold(row.path),snapshot);if(rawTrees.includes(row))rememberOriginal(row.snapshot,snapshot);
       }
       for(const original of originals){
-        const record=recordByPath.get(portableFold(original.archive)),old=record.value,scratch='.owned-originals/'+crypto.randomBytes(24).toString('hex');await make(scratch);const root=stagePath(scratch+'/'+original.skillId);await admission();
-        const snapshot=await conversionNative.createOwnedPortable({root,snapshot:old,revision:hash('portable-new-original:'+crypto.randomBytes(32).toString('hex'))});if(!migrationCapsuleShape(snapshot)||snapshot.entries.length!==old.entries.length)migrationCapsuleFail('portable_create_changed');
-        rememberOriginal(old,snapshot);archives.set(portableFold(original.archive),snapshot);await make(original.wrapper+'/objects');await admission();await conversionNative.seal({root,container:stagePath(original.wrapper+'/objects'),snapshot});
-        // This maps only owned opaque object names; semantic skill IDs stay exact.
-        for(const entry of old.entries){const next=snapshot.entries.find(row=>row.rel===entry.rel);if(!next||next.dir!==entry.dir)migrationCapsuleFail('portable_create_changed');mappings.push({source:original.wrapper+'/objects/'+entry.opaque,target:original.wrapper+'/objects/'+next.opaque,dir:entry.dir});}
+        const old = recordByPath.get(portableFold(original.archive)).value;
+        let snapshot = old;
+        await make(original.wrapper);
+        if (!original.archiveOnly) {
+          const scratch = '.owned-originals/' + crypto.randomBytes(24).toString('hex');
+          await make(scratch);
+          const root = stagePath(scratch + '/' + original.skillId);
+          await admission();
+          snapshot = await conversionNative.createOwnedPortable({root,snapshot:old,revision:hash('portable-new-original:'+crypto.randomBytes(32).toString('hex'))});
+          if(!migrationCapsuleShape(snapshot)||snapshot.entries.length!==old.entries.length)migrationCapsuleFail('portable_create_changed');
+          rememberOriginal(old,snapshot);
+          await make(original.wrapper+'/objects');await admission();await conversionNative.seal({root,container:stagePath(original.wrapper+'/objects'),snapshot});
+          const byPath = new Map(snapshot.entries.map(entry => [entry.rel, entry]));
+          for (const entry of old.entries) {
+            const next = byPath.get(entry.rel);
+            if (!next || next.dir !== entry.dir) migrationCapsuleFail('portable_create_changed');
+            mappings.push({source:original.wrapper+'/objects/'+entry.opaque,target:original.wrapper+'/objects/'+next.opaque,dir:entry.dir});
+          }
+        }
+        archives.set(portableFold(original.archive),snapshot);
         const marker=input.files.get(portableFold(original.marker.path));await write(marker.path,marker.data);
         const source=descriptor('',original.stamp,original.skillId),keys=await keysFor(original.archive),targetDescriptor={...source,backup:stagePath(original.wrapper),archiveKeys:keys};
         const bytes=require('node:zlib').gzipSync(Buffer.from(portableJSON(snapshot)));try{await migrationCapsuleArchive(targetDescriptor).write(bytes);}finally{bytes.fill(0);}
@@ -109151,6 +109551,9 @@ function createMigrationBackupOwner({ base, readActive, sourceKeys, targetKeys =
         if(record.kind==='representation-record'){
           const history=settled.find(row=>row.path===record.path);if(!history)migrationCapsuleFail('portable_binding');
           staged.original=translatedSnapshot(record.value.original);staged.target=translatedSnapshot(record.value.target);staged.revision=staged.original.revision;
+          // Archive reconstruction gives the plaintext tree fresh native IDs.
+          // Both sides of its conversion receipt still identify the same revision.
+          if(staged.oldType==='archive')staged.target.revision=staged.revision;
           if(staged.eligibility!=='terminal'){staged.eligibility=record.value.eligibility==='gone'?'gone':'edited';}
           staged.archiveSha=await fileHash(stagePath(history.archive));staged.intentSha=await fileHash(stagePath(history.intent));
           // Wrapper IDs are derived from the same closed source native evidence;

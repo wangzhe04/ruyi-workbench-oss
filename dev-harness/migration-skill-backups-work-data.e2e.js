@@ -14,9 +14,14 @@ const base = path.resolve(os.tmpdir()), root = fs.mkdtempSync(path.join(base, 'r
 const home = path.join(root, 'home'), data = path.join(root, 'data');
 Object.assign(process.env, releaseEnvironment(home, data));
 const names = ['flushWorkbenchLogs', 'readConfig', 'writeConfig', 'workDataKeys', 'migrationCopySkills', 'migrationLogs', 'migrationUndo',
-  'migrationUndoSkillCopy', 'migrationCapsuleRead', 'migrationCapsuleDescriptor', 'MigrationHooks', 'loadSkillRegistry', 'migrationCapsuleBroker'];
+  'migrationUndoSkillCopy', 'migrationCapsuleRead', 'migrationCapsuleWriteIntent', 'migrationCapsuleDescriptor', 'migrationCapsuleCreateOwnedPortable', 'MigrationHooks', 'loadSkillRegistry', 'migrationCapsuleBroker'];
 const runtimes = [];
-const load = () => { const api = loadServerInternals(names); runtimes.push(api); return api; };
+const load = (previewWriter = false) => {
+  const api = loadServerInternals(names, {withEval:previewWriter});
+  if (previewWriter) api.__eval('migrationCapsulePrepare = ' + require('./lib/legacy-skill-capsule-writer').toString());
+  runtimes.push(api);
+  return api;
+};
 const clearKeys = () => { for (const api of runtimes) api.workDataKeys.clear(); };
 const toggle = async (api, enabled) => {
   const config = await api.readConfig(); config.workDataEncryptionV1 = enabled; await api.writeConfig(config);
@@ -54,7 +59,7 @@ async function backupOf(api, result) {
 }
 
 (async () => {
-  const api = load(), offTarget = await initial(api, 'capsule-off'), beforeOff = ids(offTarget);
+  const api = load(true), offTarget = await initial(api, 'capsule-off'), beforeOff = ids(offTarget);
   const off = await api.migrationCopySkills({ keys: ['codex:capsule-off'], overwrite: true });
   const offBackup = await backupOf(api, off);
   assert.deepEqual(ids(offBackup), beforeOff);
@@ -87,6 +92,26 @@ async function backupOf(api, result) {
   const backup = await backupOf(api, copied), descriptor = api.migrationCapsuleDescriptor(backup);
   const record = await api.migrationCapsuleRead(descriptor);
   assert.equal(record.intent.phase, 'published');
+  assert.equal(record.intent.undoFormat, undefined);
+  const archiveOnly = path.join(root, 'archive-only'), rebuilt = path.join(root, 'rebuilt', 'capsule-on');
+  fs.mkdirSync(archiveOnly);
+  fs.mkdirSync(path.dirname(rebuilt));
+  for (const name of ['archive', 'intent']) fs.copyFileSync(path.join(backup, name), path.join(archiveOnly, name));
+  clearKeys();
+  const reader = load();
+  const { snapshot } = await reader.migrationCapsuleRead({ ...descriptor, backup: archiveOnly });
+  // The archive can list streams in a different order than the new NTFS objects.
+  for (const entry of snapshot.entries) entry.streams.reverse();
+  const reconstructed = await reader.migrationCapsuleCreateOwnedPortable(rebuilt, snapshot, require('node:crypto').randomBytes(32).toString('hex'));
+  assert.equal(reconstructed.entries.length, before.length);
+  assert.deepEqual(ids(rebuilt).map(row => row[0]), before.map(row => row[0]));
+  for (const entry of snapshot.entries) {
+    for (const stream of entry.streams) {
+      const file = path.join(rebuilt, ...entry.rel.split('/')) + stream.name;
+      assert.deepEqual(fs.readFileSync(file), Buffer.from(stream.data, 'base64'));
+    }
+  }
+  t.ok(true, 'cold reconstruction uses archive and intent alone and reproduces exact paths and every data stream');
   for (const name of ['archive', 'intent']) {
     const text = fs.readFileSync(path.join(backup, name), 'utf8');
     const header = JSON.parse(text.split('\n')[0]);
@@ -161,7 +186,7 @@ async function backupOf(api, result) {
   assert.deepEqual(fs.readFileSync(path.join(target, 'private-directory', 'arbitrary.bin')), Buffer.from([0, 255, 10, 13, 128, 42]));
   assert.equal(fs.readFileSync(path.join(target, 'private-directory', 'arbitrary.bin:private-ads'), 'utf8'), 'PRIVATE FILE STREAM');
   assert.equal(fs.readFileSync(target + ':directory-private-ads', 'utf8'), 'PRIVATE DIRECTORY STREAM');
-  clearKeys(); const afterUndo = load(); await afterUndo.MigrationHooks.recover();
+  clearKeys(); const afterUndo = load(true); await afterUndo.MigrationHooks.recover();
   const retry = await afterUndo.migrationUndo({ id: copied.id });
   assert.equal(retry.ok, true); assert.deepEqual(ids(target), before);
   fs.chmodSync(path.join(target, 'private-directory', 'arbitrary.bin'), 0o666);
@@ -185,6 +210,105 @@ async function backupOf(api, result) {
   assert.deepEqual(ids(interrupted), originalIds);
   assert.equal(fs.readFileSync(interrupted + ':directory-private-ads', 'utf8'), 'PRIVATE DIRECTORY STREAM');
   t.ok(true, 'cold DPAPI recovery repairs a durable preparing capsule after native clear without redoing the user copy');
+
+  for (const cut of ['before-publication', 'after-publication', 'after-cleanup-rename', 'partial-cleanup', 'complete-intent', 'uninterrupted']) {
+    const id = 'archive-' + cut, target = await initial(recovery, id);
+    const oldBytes = fs.readFileSync(path.join(target, 'SKILL.md'));
+    fs.mkdirSync(path.join(target, '空目录'));
+    fs.chmodSync(path.join(target, 'private-directory', 'arbitrary.bin'), 0o444);
+    await toggle(recovery, true);
+    const update = await recovery.migrationCopySkills({ keys: ['codex:' + id], overwrite: true });
+    const backup = await backupOf(recovery, update);
+    assert.deepEqual((await fsp.readdir(backup)).sort(), ['.ruyi-capsule-v1','archive','intent']);
+    clearKeys();
+    const owner = load();
+    await owner.MigrationHooks.recover();
+    let interrupted = false;
+    const remove = fsp.rm;
+    let interruptedDirectory;
+    fsp.rm = async (file, options) => {
+      if (cut === 'partial-cleanup' && path.basename(file).startsWith('.ruyi-copy-finished-')) {
+        interrupted = true;
+        interruptedDirectory = file;
+        await fsp.unlink(path.join(file, 'previous', 'SKILL.md'));
+        throw Object.assign(new Error('fixture cleanup cut'), { code: 'EIO' });
+      }
+      return remove(file, options);
+    };
+    fsp.rename = async (from, to) => {
+      const publishing = path.basename(path.dirname(from)) === 'rebuilt' && to === target;
+      const retiring = path.basename(to).startsWith('.ruyi-copy-finished-');
+      const completing = to === path.join(backup, 'intent') && fs.existsSync(path.join(target, '空目录'));
+      if ((publishing && cut === 'after-publication') || (retiring && cut === 'after-cleanup-rename')) await rename(from, to);
+      if ((publishing && ['before-publication', 'after-publication'].includes(cut))
+          || (retiring && cut === 'after-cleanup-rename') || (completing && cut === 'complete-intent')) {
+        interrupted = true;
+        throw Object.assign(new Error('fixture publication cut'), { code: 'EIO' });
+      }
+      return rename(from, to);
+    };
+    let result;
+    try { result = await owner.migrationUndo({ id: update.id }); }
+    finally { fsp.rename = rename; fsp.rm = remove; }
+    assert.equal(interrupted, cut !== 'uninterrupted');
+    if (interrupted) {
+      assert.equal(result.operationMayHaveExecuted, true);
+      assert.equal(result.retry, false);
+    } else assert.equal(result.ok, true);
+    assert.equal(fs.existsSync(target), cut !== 'before-publication');
+    if (cut === 'before-publication') {
+      // A new OS process takes the durable receipt, publishes, and exits
+      // immediately. A second process has only disk state and CurrentUser DPAPI.
+      const program = `
+        const fs = require('node:fs/promises'), path = require('node:path');
+        const api = require('./dev-harness/lib/server-internals').loadServerInternals(['MigrationHooks']);
+        const rename = fs.rename;
+        fs.rename = async (from, to) => {
+          await rename(from, to);
+          if (process.argv[1] === 'cut' && path.basename(path.dirname(from)) === 'rebuilt' && to === process.argv[2]) process.exit(73);
+        };
+        api.MigrationHooks.recover().catch(error => { console.error(error); process.exitCode = 1; });`;
+      for (const [mode, expected] of [['cut', 73], ['resume', 0]]) {
+        const child = require('node:child_process').spawnSync(process.execPath, ['-e', program, mode, target],
+          { cwd: repo, env: releaseEnvironment(home, data), encoding: 'utf8', windowsHide: true, timeout: 120000 });
+        assert.equal(child.status, expected, child.error?.message || child.stderr);
+      }
+    }
+    const interruptedId = fs.existsSync(target) && fs.statSync(target, { bigint: true }).ino;
+    if (cut === 'partial-cleanup') {
+      const added = path.join(interruptedDirectory, 'foreign.txt');
+      write(added, 'preserve');
+      clearKeys();
+      await assert.rejects(load().MigrationHooks.recover(), { code: 'work_data_backup.restore_cleanup_changed' });
+      assert.equal(fs.readFileSync(added, 'utf8'), 'preserve');
+      await rename(added, path.join(root, 'fixture-foreign-file'));
+    }
+    if (cut === 'after-publication') {
+      const saved = path.join(root, 'fixture-published-tree');
+      await rename(target, saved);
+      write(path.join(target, 'SKILL.md'), 'foreign tree');
+      clearKeys();
+      await assert.rejects(load().MigrationHooks.recover(), workError);
+      assert.equal(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8'), 'foreign tree');
+      await rename(target, path.join(root, 'fixture-foreign-tree'));
+      await rename(saved, target);
+    }
+    clearKeys();
+    const resumed = load();
+    await resumed.MigrationHooks.recover();
+    const recoveredIds = ids(target);
+    if (interruptedId) assert.equal(fs.statSync(target, { bigint: true }).ino, interruptedId);
+    assert.deepEqual(fs.readFileSync(path.join(target, 'SKILL.md')), oldBytes);
+    assert.deepEqual(fs.readdirSync(path.join(target, '空目录')), []);
+    assert.deepEqual(fs.readFileSync(path.join(target, 'private-directory', 'arbitrary.bin')), Buffer.from([0,255,10,13,128,42]));
+    assert.equal(fs.readFileSync(path.join(target, 'private-directory', 'arbitrary.bin:private-ads'), 'utf8'), 'PRIVATE FILE STREAM');
+    assert.equal(fs.readFileSync(target + ':directory-private-ads', 'utf8'), 'PRIVATE DIRECTORY STREAM');
+    assert.equal(fs.existsSync(path.join(backup, 'objects')), false);
+    if (interrupted) assert.equal((await resumed.migrationUndo({ id: update.id })).ok, true);
+    assert.deepEqual(ids(target), recoveredIds);
+    assert.equal(fs.readdirSync(path.dirname(target)).some(name => name.startsWith('.ruyi-copy-')), false);
+    t.ok(true, 'archive-only undo resumes ' + cut + ' and acknowledges the same restored tree');
+  }
 })().catch(error => t.fail(error.stack || String(error))).finally(async () => {
   await Promise.all(runtimes.map(api => api.flushWorkbenchLogs({ allowFailure: true })));
   clearKeys(); assert.equal(path.dirname(root), base); fs.rmSync(root, { recursive: true, force: true }); t.done();

@@ -231,9 +231,8 @@ async function verifyCapsuleCold() {
     const { snapshot: archive, intent } = await api.migrationCapsuleRead(api.migrationCapsuleDescriptor(receipt.backup));
     assert.equal(intent.phase, 'published');
     assert.deepEqual(logicalCapsule(archive), expected.original);
-    assert.ok(capsuleIds(archive).every(id => !expected.ids.includes(id)), 'portable restore owns new object identities');
-    const objects = await api.migrationCapsuleCapturePreserved(path.join(receipt.backup, 'objects'), digest('cold portable objects'));
-    assert.deepEqual(objects.entries.filter(row => row.rel).map(row => row.id).sort(), capsuleIds(archive).sort());
+    assert.deepEqual(capsuleIds(archive), expected.ids, 'archive IDs remain historical until undo');
+    assert.deepEqual((await fsp.readdir(receipt.backup)).sort(), ['.ruyi-capsule-v1','archive','intent']);
     console.log('COLD NATIVE CAPSULE VERIFIED');
     const undone = await api.migrationUndoSkillCopy(receipt);
     assert.equal(undone.outcome, 'restored-previous');
@@ -289,8 +288,7 @@ async function capsuleExport(t, {base, owner, native, receipt, wrapper, original
       const prefix = wrapper + '/objects/';
       const newNames = [...value.snapshot.directories, ...value.snapshot.files.map(row => row.path)]
         .filter(name => name.startsWith(prefix)).map(name => name.slice(prefix.length));
-      assert.equal(newNames.length, original.entries.length);
-      assert.ok(newNames.every(name => /^[a-f0-9]{64}$/.test(name) && original.entries.every(row => row.opaque !== name)));
+      assert.equal(newNames.length, 0);
       assert.equal(await production.verifyDisposableNativeTree(value), true);
       events.push('exact mapped census');
       return true;
@@ -349,7 +347,7 @@ async function capsuleMain(t, exporting) {
     const { snapshot: original } = await api.migrationCapsuleRead(api.migrationCapsuleDescriptor(receipt.backup));
     const originalSkill = original.entries.find(row => row.rel === 'SKILL.md');
     assert.deepEqual(Buffer.from(originalSkill.streams.find(row => row.name === ':owned-ads:$DATA').data, 'base64'), capsuleAds);
-    assert.ok((await fsp.readdir(path.join(receipt.backup, 'objects'))).length >= 2);
+    assert.deepEqual((await fsp.readdir(receipt.backup)).sort(), ['.ruyi-capsule-v1','archive','intent']);
     await api.flushWorkbenchLogs({ allowFailure: false });
     t.ok(true, 'production skill overwrite creates a non-empty authenticated native capsule and named DATA stream');
 
@@ -388,7 +386,7 @@ async function capsuleMain(t, exporting) {
       assert.match(output, /^COLD NATIVE CAPSULE VERIFIED$/m);
       assert.match(output, /^COLD NATIVE CAPSULE UNDO VERIFIED$/m);
     } finally { clearTimeout(timer); killOwnTree(child); }
-    t.ok(true, 'fresh process authenticates the restored capsule, its new native objects and real undo with named DATA');
+    t.ok(true, 'fresh process authenticates the restored capsule, its archive-only layout and real undo with named DATA');
 
     const unchanged = await seal();
     assert.deepEqual(unchanged.sourceFiles, sealed.sourceFiles);

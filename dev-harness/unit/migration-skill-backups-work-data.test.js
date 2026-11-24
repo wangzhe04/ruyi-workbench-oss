@@ -16,9 +16,31 @@ after(() => {
   assert.equal(path.dirname(root), path.resolve(os.tmpdir()));
   fs.rmSync(root, { recursive: true, force: true });
 });
-const fixture = options => { const value = createMigrationSkillBackupFixture(root, options); fixtures.push(value); return value; };
+const fixture = options => {
+  const value = createMigrationSkillBackupFixture(root, { previewWriter:true, ...options });
+  fixtures.push(value);
+  return value;
+};
 const stamp = '2026-10-23T00-00-00-000Z';
 const win = process.platform === 'win32';
+test('committed source retirement verifies Windows handles, readonly files and directory streams', {skip:!win}, async () => {
+  const f=fixture({previewWriter:false}), parent=path.join(f.dir,'.work-data','skill-backups','objects-v1',stamp);
+  const source=path.join(parent,'one'), revision='9'.repeat(64);
+  await fsp.mkdir(source,{recursive:true});
+  const file=path.join(source,'SKILL.md');
+  await fsp.writeFile(file,'old bytes'); await fsp.writeFile(file+':extra','file stream');
+  await fsp.writeFile(source+':extra','directory stream'); await fsp.chmod(file,0o444);
+  const snapshot=await f.api.migrationCapsuleCapture(source,revision);
+  const parentSnapshot=await f.api.migrationCapsuleCapture(parent,revision);
+  const request={cmd:'retire-committed-source',root:source,revision,snapshot,
+    id:snapshot.entries.find(row=>!row.rel).id,parentId:parentSnapshot.entries.find(row=>!row.rel).id};
+  const run=async()=>{const broker=await f.api.migrationCapsuleBroker();try{return await broker.command(request);}finally{await broker.close();}};
+  await fsp.writeFile(source+':extra','edited');
+  await assert.rejects(run);assert.equal(await fsp.readFile(file,'utf8'),'old bytes');
+  await fsp.writeFile(source+':extra','directory stream');
+  const receipt=await run();assert.equal(receipt.removed,true);assert.equal(receipt.count,2);
+  assert.deepEqual(await fsp.readdir(parent),[]);
+});
 const ids = root => {
   const entries = [];
   const visit = relative => {
@@ -30,8 +52,8 @@ const ids = root => {
   return entries.sort((a, b) => a[0].localeCompare(b[0]));
 };
 
-test('ON copy and undo retain original IDs and bytes below an owned path longer than MAX_PATH', { skip: !win }, async () => {
-  const f = fixture();
+test('ON archive undo reconstructs paths and exact bytes beyond MAX_PATH', { skip: !win }, async () => {
+  const f = fixture({previewWriter:false});
   // Node's own mkdtemp has a separate Windows length limit. Keep fixture control
   // short while exercising the actual skills/copy/undo paths beyond MAX_PATH.
   f.paths.skills = path.join(f.dir, 'long-owner', 'P'.repeat(90), 'Q'.repeat(90), 'R'.repeat(60));
@@ -44,10 +66,44 @@ test('ON copy and undo retain original IDs and bytes below an owned path longer 
   const undo = await f.api.migrationUndoSkillCopy({ file: dest, backup: copied.backup,
     items: [{ id: 'long-path', copyTreeHash: copied.copyTreeHash }] });
   assert.equal(undo.outcome, 'restored-previous');
-  assert.deepEqual(ids(dest), before);
+  const restored = ids(dest);
+  assert.deepEqual(restored.map(([name]) => name), before.map(([name]) => name));
+  assert.notEqual(restored[0][1], before[0][1]);
   assert.deepEqual(fs.readFileSync(path.join(dest, 'sub', 'binary.bin')), bytes);
   assert.deepEqual(fs.readFileSync(path.join(dest, 'sub', 'binary.bin:long-path-stream')), Buffer.from([0, 255, 128, 13, 10]));
   assert.equal(f.state.acquires, f.state.releases);
+});
+
+for (const cut of ['retire', 'publish', 'cleanup']) test('archive writer recovers after ' + cut, {skip:!win}, async () => {
+  const f = fixture({previewWriter:false}), dest = f.skill('one'), row = f.row('one');
+  const rename = fsp.rename, rm = fsp.rm;
+  const io = {...fsp, rename:async (from,to) => {
+    await rename(from,to);
+    if (cut === 'retire' && from === dest || cut === 'publish' && to === dest) throw new Error('publication interrupted');
+  }, rm:async (file, options) => {
+    if (cut === 'cleanup' && path.basename(file).startsWith('.ruyi-retired-')) {
+      await fsp.unlink(path.join(file,'SKILL.md'));
+      throw new Error('cleanup interrupted');
+    }
+    return rm(file,options);
+  }};
+  f.context.fsp = io;
+  await assert.rejects(f.api.migrationCopyOneSkill(row,stamp), {operationMayHaveExecuted:true,retry:false});
+  f.context.fsp = fsp;
+  if (cut === 'cleanup') {
+    const retired = fs.readdirSync(f.paths.skills).find(name => name.startsWith('.ruyi-retired-'));
+    const extra = path.join(f.paths.skills,retired,'user-added.bin');
+    await fsp.writeFile(extra,'keep this edit');
+    await assert.rejects(f.api.migrationRecoverSkillBackups(), {code:'work_data_backup.archive_cleanup_changed'});
+    assert.equal(await fsp.readFile(extra,'utf8'),'keep this edit');
+    await fsp.unlink(extra);
+  }
+  await f.api.migrationRecoverSkillBackups();
+  const record = await f.api.migrationCapsuleRead(f.api.migrationCapsuleDescriptor(f.backup()));
+  assert.equal(record.intent.phase, cut === 'retire' ? 'aborted' : 'published');
+  assert.equal(fs.readFileSync(path.join(dest,'SKILL.md'),'utf8'), cut === 'retire' ? '# ORIGINAL PRIVATE NAME\n' : '# REPLACEMENT\n');
+  assert.deepEqual(fs.readdirSync(f.backup()).sort(),['.ruyi-capsule-v1','archive','intent']);
+  assert.deepEqual(fs.readdirSync(f.paths.skills),['one']);
 });
 
 test('OFF retains original directory rename and exact arbitrary bytes/ADS with no key acquisition', { skip: !win }, async () => {

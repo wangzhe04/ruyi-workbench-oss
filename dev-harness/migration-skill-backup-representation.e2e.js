@@ -10,7 +10,7 @@ const {releaseEnvironment}=require(path.join(repo,'dev-harness/lib/release-check
 const {basicMetadata,setShortNames}=require(path.join(repo,'dev-harness/lib/skill-capsule-native-fixture'));
 const t=require(path.join(repo,'dev-harness/lib/harness')).createRunner('MIGRATION BACKUP REPRESENTATION');
 const names=['flushWorkbenchLogs','readConfig','writeConfig','workDataKeys','WorkDataKeys','DurableJsonStore','LocalSecretCrypto','paths','WorkDataStore','MigrationHooks','migrationCopySkills','migrationLogs',
- 'migrationUndoSkillCopy','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','skillImportRecordStore','migrationReadBackupHistory','migrationCapsuleCode'];
+ 'migrationUndoSkillCopy','migrationCapsuleRead','migrationCapsuleDescriptor','migrationCapsuleCapturePreserved','skillImportRecordStore','migrationReadBackupHistory','migrationCapsuleCode','WorkDataTree','WorkDataRecovery'];
 const runtimes=[];
 // server-internals captures the generated-server override at require time. Load
 // it only after replacing the complete environment, including removed keys.
@@ -72,6 +72,42 @@ async function cold(payload){
   const candidate=mode=>{const value={id:crypto.randomBytes(24).toString('hex'),mode};value.root=path.join(data,'.work-data','generations',value.id);fs.mkdirSync(value.root,{recursive:true});return value;};
   async function shadow(source,next,encrypted){const target=path.join(next.root,'skills',skillId);fs.mkdirSync(path.dirname(target),{recursive:true});await fsp.cp(source,target,{recursive:true});const logical=await api.skillImportRecordStore(source,skillId).read();if(encrypted)await api.skillImportRecordStore(target,skillId,true).write(logical);else fs.writeFileSync(path.join(target,'.ruyi-import.json'),logical);return target;}
 
+  if(process.argv.includes('--deferred')){
+   const next=candidate('encrypted'),active=select(next,1);
+   next.pointerProof=active.proof;
+   await shadow(live,next,true);
+   const ownership={roots:[data]},assertExclusive=()=>true,assertExclusiveSync=()=>true;
+   const preservedRead={profile:'bounded-native-v1',capturePreserved:api.migrationCapsuleCapturePreserved};
+   const owner=api.MigrationHooks.createBackupOwner({base:data,readActive:async()=>selected,sourceKeys:keys,ownership,assertExclusive,assertExclusiveSync,preservedRead});
+   const tree=api.WorkDataTree.createPreserved({ownership,assertExclusive,assertExclusiveSync,capturePreserved:preservedRead.capturePreserved});
+   const captured=await tree.capture(data);
+   let legacyWitnessSha256;
+   try {
+    const outside=name=>!name.startsWith('.work-data/generations/'+next.id);
+    const files=captured.files.filter(row=>outside(row.path)),directories=captured.directories.filter(outside);
+    const source=api.WorkDataRecovery.skillBackupSource(files,directories);
+    const portable=await owner.capturePortable({expected:selected,files,directories,source,readCaptured:async row=>({text:row.data.toString('utf8'),authenticated:false})});
+    try{legacyWitnessSha256=portable.nativeWitnessSha256;}finally{portable.release();}
+   }finally{captured.release();}
+   const token=await owner.prepare({expected:selected,candidate:next,requireEstablished:true,deferLegacyRelocation:true});
+   const state={expectedAuthority:{id:null,sha256:null},candidate:{id:next.id,mode:next.mode,pointerSha256:active.proof.sha256}};
+   await owner.prepareRepresentation(token,{mode:'encrypted',legacyWitnessSha256,assertPrepared:async()=>true,onPrepared:async transition=>{
+    state.transition=transition;return true;
+   }});
+   const stable=path.join(token.root,copied.id,skillId);
+   assert.equal(id(stable),originalId);assert.equal(fs.existsSync(path.join(stable,'objects')),false);
+   assert.equal((await owner.prepareBindings(token)).ready,true);
+   await owner.preparedDelta(token);
+   selected=active;
+   const result=await owner.recoverPreparedTransition({state,disposition:'forward',includePublishedProof:true,assertUnchanged:async()=>true});
+   assert.equal(result.publishedProof.entries,1);
+   assert.deepEqual(fs.readdirSync(stable).sort(),['.ruyi-capsule-v1','archive','intent']);
+   const restored=await api.migrationCapsuleRead(descriptor(stable,copied.id,skillId,keys));
+   const streams=tree=>tree.entries.filter(row=>row.rel!=='.ruyi-import.json').map(row=>[row.rel,row.streams]);
+   assert.deepEqual(streams(restored.snapshot),streams(before));
+   t.ok(true,'durable enable keeps NTFS originals during preparation and commits an archive with exact file and directory streams');
+   return;
+  }
   const abandoned=candidate('encrypted'),token=await owner.prepare({expected:selected,candidate:abandoned});await owner.prepareRepresentation(token,{mode:'encrypted'});const stable=path.join(token.root,copied.id,skillId),record=await api.migrationCapsuleRead(descriptor(stable,copied.id,skillId,keys));assert.equal(record.intent.conversion.eligibility,'eligible');assert.equal(record.snapshot.entries[0].id,before.entries[0].id);for(const carrier of ['archive','intent']){const text=fs.readFileSync(path.join(stable,carrier),'utf8');assert.equal(JSON.parse(text.split('\n')[0]).workData,3);assert.equal(text.includes('SYNTH_CAPSULE'),false);}
   await delay(24000);assert.equal((await owner.recoverRepresentation()).phase,'canceled');await owner.recover();assert.equal((await api.readConfig()).workDataEncryptionV1,false,'cancellation preserves the original OFF active policy');checkMetadata(legacyBackup,before,security);checkObjects(legacyBackup,before);t.ok(true,'plain to sealed cancellation after delayed alias window restores original IDs/DATA/ADS/readonly/Basic four times/readable SDDL');
 
@@ -86,4 +122,4 @@ async function cold(payload){
   const finalSnapshot=await api.migrationCapsuleCapturePreserved(g2Live,'4'.repeat(64));await flush();clear();const payload={home,data,selected,receipt:undoReceipt,live:g2Live,backup,historyId:id(backup),snapshot:finalSnapshot,security};
   const restarted=cp.spawnSync(process.execPath,[__filename,'--cold'],{env:{...releaseEnvironment(home,data),MIGRATION_REPO:repo},input:JSON.stringify(payload),encoding:'utf8',windowsHide:true,timeout:120000});assert.equal(restarted.status,0,(restarted.stderr||'')+(restarted.stdout||''));assert.match(restarted.stdout,/COLD NODE HISTORY PASS/);assert.equal(id(g2Live),originalId);const coldCodeLine=restarted.stdout.split(/\r?\n/).find(line=>line.startsWith('NATIVE CODE CACHE cold '));assert.ok(coldCodeLine);console.log(coldCodeLine);await proveCodeCache(api,'parent');t.ok(true,'fresh Node DPAPI owner authenticates receipts and repeats terminal undo/recover without copying, recreating originals or changing history identity');
  }catch(error){failed=true;throw error;}finally{await flush();clear();if(!failed&&!keepArtifacts){assert.equal(path.dirname(root),temp);assert.ok(path.basename(root).startsWith('ruyi-skill-representation-native-'));const writable=async directory=>{for(const name of await fsp.readdir(directory)){const file=path.join(directory,name),stat=await fsp.lstat(file);assert.equal(stat.isSymbolicLink(),false,'no unknown link in owned cleanup');if(stat.isDirectory())await writable(file);else await fsp.chmod(file,0o666);}};await writable(root);await fsp.rm(root,{recursive:true,force:true});}else console.error('Retained owned native fixture '+root);}
-})().catch(error=>{t.fail(error?.stack||String(error));}).finally(()=>t.done());
+})().catch(error=>{t.fail(require('node:util').inspect(error,{depth:5}));}).finally(()=>t.done());

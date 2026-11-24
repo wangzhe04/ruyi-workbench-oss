@@ -17,6 +17,40 @@ function fixture(){
 }
 const privateError=error=>String(error?.code||'').startsWith('work_data');
 
+test('plain skill undo with a missing backup preserves the live copy and can resume after recovery', async () => {
+  const f = fixture(), src = path.join(f.dir, 'source'), target = f.skill('one');
+  fs.mkdirSync(src);
+  fs.writeFileSync(path.join(src, 'SKILL.md'), 'new');
+  fs.writeFileSync(path.join(target, 'SKILL.md'), 'old');
+  f.state.rows = [{ key: 'codex:one', id: 'one', _dir: src, source: 'codex', status: 'source-updated' }];
+  const copy = await f.api.migrationCopySkills({ keys: ['codex:one'] });
+  assert.equal(copy.copied, 1);
+  const backup = (await f.api.migrationLogs())[0].files[0].backup;
+  const saved = path.join(f.dir, 'saved');
+  fs.renameSync(backup, saved);
+  assert.equal((await f.api.migrationUndo({ id: copy.id })).error, 'undo-incomplete');
+  assert.equal(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8'), 'new');
+  fs.renameSync(saved, backup);
+  assert.equal((await f.api.migrationUndo({ id: copy.id })).ok, true);
+  assert.equal(fs.readFileSync(path.join(target, 'SKILL.md'), 'utf8'), 'old');
+});
+
+test('plain skill copy reports uncertainty when both publication and rollback fail', async () => {
+  const f = fixture(), src = path.join(f.dir, 'source'), target = f.skill('one');
+  fs.mkdirSync(src);
+  fs.writeFileSync(path.join(src, 'SKILL.md'), 'new');
+  fs.writeFileSync(path.join(target, 'SKILL.md'), 'old');
+  let backup;
+  f.ctx.fsp = { ...fsp, rename: async (from, to) => {
+    if (to === target) throw Object.assign(new Error('busy'), { code: 'EBUSY' });
+    await fsp.rename(from, to);
+    if (from === target) backup = to;
+  } };
+  await assert.rejects(f.api.migrationCopyOneSkill({ id: 'one', _dir: src, source: 'codex' }, f.log().id),
+    { operationMayHaveExecuted: true, resultUnavailable: true, retry: false });
+  assert.equal(fs.readFileSync(path.join(backup, 'SKILL.md'), 'utf8'), 'old');
+});
+
 test('OFF log and skill-record bytes remain identical, large ordinary logs have no new cap or key access',async()=>{
  const f=fixture(),skill=f.skill('plain');await f.api.writeSkillImportRecord(skill,f.record,'plain');assert.equal(fs.readFileSync(path.join(skill,'.ruyi-import.json'),'utf8'),JSON.stringify(f.record,null,2)+'\n');assert.deepEqual(JSON.parse(JSON.stringify(await f.api.readSkillImportRecord(skill))),f.record);
  const log=f.log();log.note='x'.repeat(1024*1024+123);fs.mkdirSync(path.join(f.dir,'migrations'));await f.api.writeMigrationLog(log);assert.equal(fs.readFileSync(path.join(f.dir,'migrations',log.id+'.json'),'utf8'),JSON.stringify(log,null,2));assert.equal((await f.api.migrationLogs())[0].note.length,log.note.length);assert.equal(f.state.acquires,0);
