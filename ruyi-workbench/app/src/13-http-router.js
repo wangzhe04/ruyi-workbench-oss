@@ -1541,16 +1541,16 @@ async function handleApi(req, res, pathname) {
     return send(res, { status: 206, headers: { ...baseHeaders, 'content-range': `bytes ${start}-${end}/${buffer.length}`, 'content-length': String(slice.length) }, body: slice });
   }
   if (req.method === 'POST' && pathname === '/api/chat/stream') {
-    // 116-3 A2:管家会话不接受普通聊天入口发起的回合(判据与抛点在 10 的 runSessionTurn 顶部;
-    // 那里抛得比 onStart 早,响应头还没发出,所以这里能给一条正经的 403 稳定信封)。
+    // runSessionTurn 在 onStart 前拒绝策略未确认、管家专用会话（116-3 A2）和其他入口持有的回合（117s-G）。
     try {
       return await streamChat(req, res);
     } catch (error) {
+      if (!res.headersSent && error?.code === 'privacy.policy_unavailable') {
+        return send(res, apiFailure(error.code, {}, error.code, 409));
+      }
       if (error && error.code === 'STEWARD_SESSION_FORBIDDEN') {
         return send(res, apiFailure('steward.forbidden', {}, String(error.message || 'forbidden'), 403));
       }
-      // 117s-G:活回合是【别处】起的 —— 回「忙」,不杀。判据与抛点同在 10 的 runSessionTurn 顶部,
-      // 抛得比 onStart 早,所以这里响应头还没发出,能给一条正经的 409 稳定信封。
       if (error && error.code === 'SESSION_TURN_BUSY_ELSEWHERE') {
         return send(res, apiFailure('session.turn_busy_elsewhere', { turnSource: String(error.turnSource || '') },
           String(error.message || 'the session is running a turn started elsewhere'), 409));

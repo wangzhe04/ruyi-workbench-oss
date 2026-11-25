@@ -32,12 +32,13 @@ async function bounded(promise, ms, description) {
   try { return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(Error(description)), ms); })]); }
   finally { clearTimeout(timer); }
 }
-function action(body, url) {
+function action(body, url, raw) {
   const tag = body.metadata || {};
   const request = { url, case: tag.ruyiFixtureCase, kind: tag.ruyiFixtureKind, attempt: Number(tag.ruyiFixtureAttempt), body };
   requests.push(request);
   assert.equal(request.case, selected.id, 'unlabelled/unexpected provider POST');
   assert.ok(['main', 'child'].includes(request.kind));
+  if (selected.kind === 'recovery') request.raw = raw;
   if (selected.kind === 'child' && request.kind === 'main' && request.attempt === 1) {
     return { name: 'orchestrate_agents', args: { task: 'Complete the bounded synthetic child task.', toolTier: 'edit', maxIters: 3, background: false, engine: 'openai' } };
   }
@@ -51,13 +52,15 @@ async function fakeProvider() {
   const fake = await startFakeProvider({
     models: ['fixture-model'],
     handler(req) {
-      const next = action(req.body, req.url), id = 'fixture_' + requests.length;
+      const next = action(req.body, req.url, req.raw), id = 'fixture_' + requests.length;
       return next.final ? textFrames('fixture complete') : toolCallFrames(next.name, next.args, id);
     },
     fallback: async (req, res) => { try {
       if (req.method !== 'POST') { res.writeHead(404); res.end(); return; }
-      let raw = ''; for await (const part of req) raw += part;
-      const body = JSON.parse(raw), next = action(body, req.url);
+      const parts = [];
+      for await (const part of req) parts.push(part);
+      const raw = Buffer.concat(parts);
+      const body = JSON.parse(raw.toString('utf8')), next = action(body, req.url, raw);
       const id = 'fixture_' + requests.length;
       res.writeHead(200, { 'content-type': 'text/event-stream', 'cache-control': 'no-cache' });
       if (req.url.endsWith('/messages')) {
@@ -116,6 +119,53 @@ function streamChat(port, token, sessionId, work) {
   done.catch(() => {});
   client.end(JSON.stringify({ sessionId, message: 'Complete the synthetic bounded fixture task.', cwd: work, permissionMode: 'bypass' }));
   return { events, done, disconnect() { closed = true; response?.destroy(); client.destroy(); } };
+}
+async function checkPolicyRecovery({ style, api, box, port, token, data, work, fake }) {
+  const id = style + '-policy-recovery', original = 'recovery-' + style + '@example.test';
+  const marker = 'MANUAL_RECOVERY_' + style.toUpperCase();
+  const session = (await api('POST', '/api/sessions', { title: id, cwd: work })).session;
+  async function turn(message) {
+    const response = await fetch('http://127.0.0.1:' + port + '/api/chat/stream', { method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-wcw-token': token },
+      body: JSON.stringify({ sessionId: session.id, message, cwd: work }), signal: AbortSignal.timeout(15000) });
+    if (!response.ok) return { status: response.status, denial: await response.json() };
+    const events = (await response.text()).trim().split(/\r?\n/).filter(Boolean).map(line => JSON.parse(line));
+    return { status: response.status, result: events.findLast(event => event.type === 'result') };
+  }
+  // Label each real boundary without pausing any main or child request.
+  selected = { id, kind: 'recovery' };
+  await box.rpc('arm', { scenario: selected });
+  const before = requests.length;
+  assert.ok(fs.existsSync(path.join(data, 'config.json.prev')), 'previous config exists before damage');
+  fs.writeFileSync(path.join(data, 'config.json'), '{"broken":');
+  const settings = await api('GET', '/api/privacy/settings');
+  assert.equal(settings.recoveryRequired, true);
+  assert.equal(settings.mode, 'enhanced');
+  assert.equal(settings.encryption, true);
+  const denied = await turn('Blocked synthetic contact ' + original);
+  assert.equal(denied.status, 409); assert.equal(denied.denial?.ok, false);
+  assert.equal(denied.denial?.error?.code, 'privacy.policy_unavailable', JSON.stringify(denied));
+  assert.equal(requests.length, before, 'unconfirmed policy sends zero provider requests');
+  const saved = await api('POST', '/api/privacy/settings', { mode: 'strict', technical: false, rules: [],
+    expectedRuleVersion: settings.ruleVersion, expectedEncryption: settings.encryption });
+  const confirmed = await api('GET', '/api/privacy/settings');
+  assert.equal(saved.ok, true); assert.equal(confirmed.ruleVersion, saved.ruleVersion);
+  assert.equal(confirmed.recoveryRequired, false); assert.equal(confirmed.mode, 'strict'); assert.equal(confirmed.encryption, true);
+  assert.equal(requests.length, before, 'settings confirmation does not resend the failed turn');
+  const result = await turn(marker + ' ' + original);
+  assert.equal(result.status, 200);
+  assert.equal(result.result?.ok, true, JSON.stringify(result));
+  assert.equal(requests.length, before + 1);
+  const sent = requests[before];
+  assert.equal(sent.kind, 'main'); assert.equal(sent.attempt, 1); assert.ok(!sent.url.includes('/fallback'));
+  assert.ok(!sent.raw.includes(original), 'original contact never reaches the provider');
+  const userRows = (style === 'responses' ? sent.body.input : sent.body.messages).filter(row => row.role === 'user');
+  const protectedContact = new RegExp(marker + ' \\[\\[RUYI_PVT:EMAIL:[a-f0-9]{32}\\]\\]');
+  assert.match(JSON.stringify(userRows.at(-1)?.content), protectedContact, 'explicit retry carries the protected contact');
+  assert.deepEqual(fake.errors, []);
+  results.push({ id, denial: denied.denial.error.code, confirmedMode: confirmed.mode, postCount: requests.length - before,
+    receivedSha256: crypto.createHash('sha256').update(sent.raw).digest('hex'), pass: true });
+  runner.ok(true, id);
 }
 async function runStyle(style, fake) {
   const dir = path.join(root, style), home = path.join(dir, 'home'), data = path.join(dir, 'data'), work = path.join(dir, 'work');
@@ -203,6 +253,7 @@ async function runStyle(style, fake) {
         results.push(result); runner.ok(true, id);
       } finally { chat.disconnect(); await box.rpc('release').catch(() => {}); }
     }
+    await checkPolicyRecovery({ style, api, box, port, token, data, work, fake });
   } finally {
     killOwnTree(child); await until(() => child.exitCode !== null || child.signalCode !== null, 'owned worker exit'); log.end();
   }

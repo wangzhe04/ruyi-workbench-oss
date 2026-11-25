@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 202(精确 175 / 前缀 15 / 正则 12),ROUTE_AUTH 188 条,生成于 2026-11-25T12:16:19.320Z。
+> 判定点 202(精确 175 / 前缀 15 / 正则 12),ROUTE_AUTH 188 条,生成于 2026-11-25T15:17:40.780Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -10,9 +10,9 @@
 | 方法 | 路径 | 形态 | auth | handler | 测试覆盖 |
 |---|---|---|---|---|---|
 | GET | `/api/privacy/status` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | config-read-safety.e2e.js, privacy-failure.browser.e2e.js, privacy-gateway.e2e.js 等 4 件 |
-| GET | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 7 件 |
+| GET | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 8 件 |
 | POST | `/api/privacy/export` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | audit-log-work-data.e2e.js, privacy-clipboard-copy.e2e.js, privacy-mermaid-export.e2e.js 等 5 件 |
-| POST | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 7 件 |
+| POST | `/api/privacy/settings` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | media-image-http-lifecycle.e2e.js, media-resource-profile.e2e.js, privacy-failure.browser.e2e.js 等 8 件 |
 | POST | `/api/privacy/encryption` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | offline-upgrade-drill.e2e.js, onboard.e2e.js, privacy-gateway.e2e.js 等 4 件 |
 | POST | `/api/privacy/rules/test` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js |
 | POST | `/api/privacy/use-native` | exact | token | 13ab-privacy-api.js · `PrivacyTextExports` | privacy-gateway.e2e.js |
