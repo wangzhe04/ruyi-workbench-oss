@@ -336,7 +336,12 @@ namespace RuyiDesktop
                 input = CreateFile("NUL", 0x80000000, 3, ref attributes, 3, 0, IntPtr.Zero); if (input == new IntPtr(-1)) throw new Win32Exception();
                 var startup = new STARTUPINFO { Size = Marshal.SizeOf(typeof(STARTUPINFO)), Flags = 0x100, Input = input, Output = outputWrite, Error = errorWrite };
                 if (!CreateProcess(null, new StringBuilder(Quote(node) + " " + Quote(script) + " serve"), IntPtr.Zero, IntPtr.Zero, true,
-                    0x00000004 | 0x00000400 | 0x00000008, environment.ToString(), baseDir, ref startup, out created)) throw new Win32Exception();
+                    0x00000004 | 0x00000400 | 0x00000008, environment.ToString(), baseDir, ref startup, out created))
+                {
+                    var failure = new Win32Exception(Marshal.GetLastWin32Error());
+                    Observe("create-process-failed", null);
+                    throw failure;
+                }
                 FILETIME born,ended,kernel,user;if(!GetProcessTimes(created.Process,out born,out ended,out kernel,out user))throw new Win32Exception();
                 startupWitness=new Client{Pid=(int)created.Pid,Created=((long)born.High<<32)|born.Low,Grant=grant};Observe("created-suspended",startupWitness);
                 if (!Native.AssignProcessToJobObject(job, created.Process)) throw new Win32Exception();

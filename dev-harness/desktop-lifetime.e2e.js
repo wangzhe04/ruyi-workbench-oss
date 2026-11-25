@@ -8,6 +8,7 @@
 // --owner-exit tests abrupt termination of this fixture's console owner.
 // --handoff requests a real export through the production maintenance API.
 // --dual starts a second console owner with its own data root and the same model profile.
+// --idle --nested-job / --outer-quota places only the fixture host in an extra Windows Job.
 // On any unknown/failure the detached owner and its scene are retained, never killed.
 require('./lib/self-isolate-home.js');
 const fs=require('node:fs'),p=require('node:path'),os=require('node:os'),cp=require('node:child_process'),http=require('node:http');
@@ -22,6 +23,7 @@ const runner=createRunner('DESKTOP LIFETIME'),root=p.resolve(__dirname,'..'),wb=
 const args=process.argv.slice(2),flags=new Set(args);
 const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has('--hold-ui'),semantic=flags.has('--semantic');
 const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual');
+const nestedJob=flags.has('--nested-job'),outerQuota=flags.has('--outer-quota');
 if(flags.has('--desktop-app')){
  if(process.platform!=='win32'||flags.size!==args.length||args.some(value=>!['--desktop-app','--dual','--owner-exit'].includes(value)))
   throw Error('Use --desktop-app [--owner-exit] [--dual] on Windows with RUYI_TEST_GEMMA2_ROOT');
@@ -29,9 +31,10 @@ if(flags.has('--desktop-app')){
   .then(()=>runner.ok(true,'production desktop window, service, model and WebView lifetime verified'))
   .catch(error=>runner.fail(error.stack)).finally(()=>runner.done());
 }else{
- if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual'].includes(value))
+ if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual','--nested-job','--outer-quota'].includes(value))
+  ||(nestedJob||outerQuota)&&(!idle||windowMode||dual||ownerExit||handoff||nestedJob&&outerQuota)
   ||holdUI&&!windowMode||semantic&&(!idle||windowMode)||(ownerExit||handoff||dual)&&!semantic||handoff&&(ownerExit||dual))
-  throw Error('Use --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --idle, --window, or --window --hold-ui');
+  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --window, or --window --hold-ui');
  if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
  else void main();
 }
@@ -50,8 +53,8 @@ function prepareScene(dir){
   autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:dir}));
  return {data,env,actorFile};
 }
-function startProbe(exe,scene,visible=false){
- const child=cp.spawn(exe,[wb,...(visible?['window']:[])],{env:scene.env,cwd:wb,windowsHide:!visible,detached:true,stdio:['pipe','pipe','pipe']});
+function startProbe(exe,scene,mode){
+ const child=cp.spawn(exe,[wb,...(mode?[mode]:[])],{env:scene.env,cwd:wb,windowsHide:mode!=='window',detached:true,stdio:['pipe','pipe','pipe']});
  const probe={child,data:scene.data,events:[],terminal:null,stderr:'',pending:'',stdoutEOF:false,stderrEOF:false,observationFailure:null};
  child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');
  child.stdout.on('data',chunk=>{
@@ -132,6 +135,18 @@ async function exitedProcesses(probe,originals){
  },15000,'owned serve and semantic worker exit',true);
  return remaining;
 }
+function assertOuterJob(probe,denied){
+ const event=phase=>probe.events.find(row=>row.phase===phase);
+ const owner=event('outer-owner'),created=event('created-suspended'),held=event('outer-serve'),drained=event('outer-drained');
+ assert.ok(owner?.pid===probe.child.pid&&owner.member&&owner.processLimit===(denied?1:0),'the console owner enters the requested outer Job');
+ assert.equal(drained?.active,1,'only the fixture owner remains before closing the outer handle');
+ if(denied){
+  assert.ok(!created&&!held&&drained.total===1&&drained.pid===0&&drained.code===null,'no service handle was returned by CreateProcess');
+  return;
+ }
+ assert.ok(created&&held?.member&&sameProcess(held,created),'the original suspended serve inherited the outer Job');
+ assert.ok(sameProcess(drained,held)&&drained.code===0&&drained.total>=2,'held original serve exited normally');
+}
 async function main(){
  const dir=fs.mkdtempSync(p.join(os.tmpdir(),'ruyi-desktop-lifetime-'));
  const scene=prepareScene(dir),{data,env,actorFile}=scene;
@@ -152,10 +167,27 @@ async function main(){
   }
   cp.execFileSync(csc,['/nologo','/target:exe','/platform:x64','/codepage:65001','/main:RuyiDesktop.DesktopLifetimeProbe','/out:'+exe,
    '/r:System.dll','/r:System.Core.dll','/r:System.Windows.Forms.dll','/r:System.Drawing.dll','/r:System.Web.Extensions.dll',
-   p.join(wb,'desktop/RuyiDesktop.cs'),p.join(wb,'desktop/DesktopLifetimeHost.cs'),p.join(__dirname,'fixtures/desktop-lifetime-probe.cs')],{windowsHide:true,timeout:30000,stdio:'pipe'});
+   p.join(wb,'desktop/RuyiDesktop.cs'),p.join(wb,'desktop/DesktopLifetimeHost.cs'),p.join(__dirname,'fixtures/desktop-lifetime-probe.cs'),p.join(__dirname,'fixtures/desktop-nested-job.cs')],{windowsHide:true,timeout:30000,stdio:'pipe'});
   if(windowMode)fs.copyFileSync(p.join(wb,'desktop/WebView2Loader.dll'),p.join(dir,'WebView2Loader.dll'));
-  primary=startProbe(exe,scene,windowMode);
+  const mode=windowMode?'window':outerQuota?'outer-quota':nestedJob?'nested-job':undefined;
+  primary=startProbe(exe,scene,mode);
   const {child,events}=primary;
+  if(outerQuota){
+   await waitFor(primary,()=>primary.terminal||events.some(row=>row.phase==='ready'),65000,'restricted Job startup',true);
+   if(!primary.terminal)await closeProbe(primary,false);
+   checkpoint('events',events);checkpoint('terminal',receipt(primary));
+   assert.deepEqual(primary.terminal,{code:0,signal:null});
+   assert.ok(primary.stdoutEOF&&primary.stderrEOF&&!primary.pending,'complete probe output');
+   assertOuterJob(primary,true);
+   const creationFailure=events.findIndex(row=>row.phase==='create-process-failed');
+   const quotaError=events.findIndex(row=>row.phase==='startup-denied'&&row.nativeCode===1816);
+   assert.ok(creationFailure>=0&&quotaError>creationFailure,'CreateProcess failed before the host returned Win32 not enough quota');
+   assert.ok(!events.some(row=>['assigned-before-resume','resumed','registered','ready'].includes(row.phase)||uncertain(row)),'no assignment, resume, fallback readiness or retained startup');
+   assert.ok(events.some(row=>row.phase==='job-closed'),'the product closed its empty Job');
+   assert.ok(!fs.existsSync(p.join(data,'runtime.json')),'the service never published a runtime');
+   runner.ok(true,'outer Job process quota refuses serve creation; no service starts and only the original owner remains');
+   return;
+  }
   const {registered,url}=await readyProbe(primary,windowMode);
   runner.ok(true,'actual serve is assigned to its Job before resume and registered with the same kernel identity');
   let originals,initial,second,closingRole=registered;
@@ -297,6 +329,10 @@ async function main(){
   await closeProbe(primary,ownerExit);
   checkpoint('events',events);checkpoint('terminal',{...receipt(primary),chatClosed,mode:windowMode?'window':'host'});
   assertClosed(primary,closingRole,ownerExit);
+  if(nestedJob){
+   assertOuterJob(primary,false);
+   runner.ok(true,'the real serve belongs to both Jobs, closes normally and leaves only the fixture owner in the outer Job');
+  }
   runner.ok(true,ownerExit?'the original fixture owner was terminated and both streams reached EOF':'probe closes after ACK, stream EOF and Job drain');
   if(!idle)runner.ok(chatClosed,'no synthetic chat connection remains open');
   if(originals){
