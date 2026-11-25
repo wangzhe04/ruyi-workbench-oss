@@ -1,0 +1,30 @@
+  static object RetirePortableStage(Dictionary<string,object> args) {
+    string root=Str(args["root"]), id=Str(args["id"]), ancestorId=Str(args["parentId"]);
+    string parent=System.IO.Path.GetDirectoryName(root);
+    if(parent==null || System.IO.Path.GetFullPath(root)!=root
+      || !System.Text.RegularExpressions.Regex.IsMatch(System.IO.Path.GetFileName(root),@"^[.]ruyi-skill-portable-[a-f0-9]{48}$")
+      || !System.Text.RegularExpressions.Regex.IsMatch(id,@"^[a-f0-9]{24}$")
+      || !System.Text.RegularExpressions.Regex.IsMatch(ancestorId,@"^[a-f0-9]{24}$"))Reject("portable_retire_scope");
+    using(var ancestor=OpenPreservedHandle(null,null,NativePath(parent),0x00100180u,3)) {
+      PreserveHandleTimes(ancestor);
+      if(CandidateDirectoryId(ancestor)!=ancestorId || !String.Equals(PathOf(ancestor),NativePath(parent),StringComparison.OrdinalIgnoreCase))Reject("portable_retire_changed");
+      bool previous=PreserveTimeHandles;
+      PreserveTimeHandles=true;RetiringPortableStage=true;
+      try {
+        var captured=Dict(CapturePreserved(args));var expected=Dict(args["snapshot"]);
+        if(RootNode().Entry["id"].ToString()!=id || Str(captured["revision"])!=Str(expected["revision"]))Reject("portable_retire_changed");
+        VerifyPortableReadback(expected,captured);
+        var nodes=Expected();
+        if(nodes.Exists(n=>(Convert.ToUInt32(n.Entry["attrs"])&1u)!=0))Reject("portable_retire_readonly");
+        nodes.Sort((a,b)=>Str(b.Entry["rel"]).Length.CompareTo(Str(a.Entry["rel"]).Length));
+        VerifyOriginalLayout();VerifyEntries(nodes);VerifyCapturedBasicUnchanged(nodes);
+        if(CandidateDirectoryId(ancestor)!=ancestorId || !String.Equals(PathOf(ancestor),NativePath(parent),StringComparison.OrdinalIgnoreCase))Reject("portable_retire_changed");
+        Step="portable-retire";
+        foreach(var node in nodes) {
+          if(Id(node.Handle)!=Str(node.Entry["id"]))Reject("portable_retire_changed");
+          DeleteStream(node.Handle);
+        }
+        return new Dictionary<string,object>{{"root",root},{"id",id},{"parentId",ancestorId},{"count",nodes.Count},{"removed",true}};
+      }finally{RetiringPortableStage=false;PreserveTimeHandles=previous;}
+    }
+  }

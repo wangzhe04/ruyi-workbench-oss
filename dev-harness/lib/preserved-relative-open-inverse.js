@@ -209,6 +209,37 @@ function removePortableMoveAncestorReceipt(native) {
   return native;
 }
 
+// bc5ee425 extends the earlier stage-retirement method and its call sites to
+// handle committed source directories. Restore the exact 9a9cf068 method first
+// so the existing inverse still verifies its original method and dispatch.
+function removeCommittedSourceRetirement(native) {
+  const marker = '  static object RetirePortableStage(Dictionary<string,object> args, bool committedSource=false)';
+  const method = pinnedNativeMethod(native, marker,
+    'd4d1be2def885cff96e062613401df6af3f4639ce5f6873c2d55aeb4c80c9b51', 'committed-source retirement method');
+  const file = require('node:path').join(__dirname, '../fixtures/pre-p1-portable-stage-retirement.txt');
+  const previousMethod = require('node:fs').readFileSync(file, 'utf8').replace(/\n$/, '');
+  const dispatch = [
+    '          else if(command=="retire-committed-source") {',
+    '            if(!firstCommand)Reject("portable_retire_scope");',
+    '            result=RetirePortableStage(args,true);',
+    '          }', '',
+  ].join('\n');
+  for (const [current, previous] of [
+    [method, previousMethod],
+    [dispatch, ''],
+    ['  static bool RetiringCommittedSource = false;\n', ''],
+    ['      if(RetiringCommittedSource)access=dataStream ? 0x80000100u : 0x80010100u;\n', ''],
+    ['uint share = RetiringCommittedSource ? (dataStream ? 5u : 1u) : RetiringPortableStage',
+      'uint share = RetiringPortableStage'],
+    ['if(RetiringPortableStage && !RetiringCommittedSource && streamName!="")',
+      'if(RetiringPortableStage && streamName!="")'],
+  ]) {
+    assert.equal(native.split(current).length, 2, 'unique committed-source retirement change');
+    native = native.replace(current, () => previous);
+  }
+  return native;
+}
+
 function removePortableStageRetirement(native) {
   const dispatch = [
     '          else if (command == "retire-portable-stage") {',
@@ -379,6 +410,7 @@ function removeNativeCensusBudget(native) {
 
 function restorePreRelativeOpenNative(native) {
   for (const undo of [
+    removeCommittedSourceRetirement,
     removeNativeHeartbeatAndHashOnly,
     removeNativeCensusBudget,
     removeForwardPlainPublication,
@@ -391,4 +423,4 @@ function restorePreRelativeOpenNative(native) {
   return native;
 }
 
-module.exports = { removeNativeCensusBudget, removeForwardPlainPublication, removePortableBasicPublication, removePortableMoveAncestorReceipt, removePortableMoveParentReceipt, removePortableStageRetirement, removePreservedCloseCertification, removePreservedRelativeOpen, restorePreRelativeOpenNative };
+module.exports = { removeCommittedSourceRetirement, removeNativeCensusBudget, removeForwardPlainPublication, removePortableBasicPublication, removePortableMoveAncestorReceipt, removePortableMoveParentReceipt, removePortableStageRetirement, removePreservedCloseCertification, removePreservedRelativeOpen, restorePreRelativeOpenNative };

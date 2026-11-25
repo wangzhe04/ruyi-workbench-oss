@@ -2,7 +2,7 @@
 // Source and pure construction controls only. No C# method, DLL or Win32 API runs.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const {constBlock,sliceBlock,bracedBlock}=require('../lib/source-slice'),before=require('../fixtures/work-data-bound-directory-native-before.json');
-const {removeForwardPlainPublication,removePortableBasicPublication,removePortableMoveParentReceipt,removePortableStageRetirement,removePreservedCloseCertification,restorePreRelativeOpenNative}=require('../lib/preserved-relative-open-inverse');
+const {removeCommittedSourceRetirement,removeForwardPlainPublication,removePortableBasicPublication,removePortableMoveParentReceipt,removePortableStageRetirement,removePreservedCloseCertification,restorePreRelativeOpenNative}=require('../lib/preserved-relative-open-inverse');
 const {edits,guardNew,guardOld}=require('../lib/owned-restore-historical-inverse-fixture');
 const source=fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/src/13u-migration-center.js'),'utf8'),box=vm.createContext({});
 vm.runInContext(constBlock(source,'MIGRATION_SKILL_CAPSULE_NATIVE')+'\nglobalThis.native=MIGRATION_SKILL_CAPSULE_NATIVE;',box);
@@ -51,14 +51,25 @@ test('portable Basic publication inverse refuses weakened deletion sharing',()=>
  assert.notEqual(changed,guard);
  assert.throws(()=>removePortableBasicPublication(native.replace(guard,changed)),/reviewed portable Basic guard open/);
 });
+test('P1 inverse recovers pre-P1 native bytes and refuses a changed guard or dispatch',()=>{
+ const beforeP1=removeCommittedSourceRetirement(native);
+ assert.equal(sha(beforeP1),'4d5e5f4cb4be6605caace85b18d1b40ebb9507ce0469eb9d1620ac561dd06f34','complete native payload in 9a9cf068');
+ const altered=native.replace('if(committedSource)Verify(false,true);','if(committedSource)Verify(false,false);');
+ assert.notEqual(altered,native);
+ assert.throws(()=>removeCommittedSourceRetirement(altered),/reviewed committed-source retirement method/);
+ const dispatch=native.replace('result=RetirePortableStage(args,true);','result=RetirePortableStage(args,false);');
+ assert.notEqual(dispatch,native);
+ assert.throws(()=>removeCommittedSourceRetirement(dispatch),/unique committed-source retirement change/);
+});
 test('portable stage retirement inverse refuses drift in the reviewed method and dispatch',()=>{
+ const previous=removeCommittedSourceRetirement(native);
  const marker='  static object RetirePortableStage(Dictionary<string,object> args)';
- const retirement=bracedBlock(native,marker);
+ const retirement=bracedBlock(previous,marker);
  const changed=retirement.replace('parent==null','parent!=null');
  assert.notEqual(changed,retirement);
- assert.throws(()=>removePortableStageRetirement(native.replace(retirement,changed)),/reviewed portable-stage retirement method/);
- assert.throws(()=>removePortableStageRetirement(native+'\n'+retirement),/unique portable-stage retirement method/);
- assert.throws(()=>removePortableStageRetirement(native.replace('result=RetirePortableStage(args);','result=Capture(args);')),/unique portable-stage retirement addition/);
+ assert.throws(()=>removePortableStageRetirement(previous.replace(retirement,changed)),/reviewed portable-stage retirement method/);
+ assert.throws(()=>removePortableStageRetirement(previous+'\n'+retirement),/unique portable-stage retirement method/);
+ assert.throws(()=>removePortableStageRetirement(previous.replace('result=RetirePortableStage(args);','result=Capture(args);')),/unique portable-stage retirement addition/);
 });
 test('qualification remains after original typed DOS root, volume, identity, role and ordinal admission',()=>{const binding=method.slice(0,method.indexOf('// Ordinary directory durability'));assert.equal(binding,before.method.slice(0,before.method.indexOf('// Ordinary directory durability')));for(const text of ["root.Length<3 || root.Length>32763","!Char.IsLetter(root[0]) || root[1]!=':' || root[2]!='\\\\'",'System.IO.Path.GetFullPath(root),root,StringComparison.OrdinalIgnoreCase','^[a-f0-9]{24}$','volume.Length<1 || volume.Length>128','role!="external-parent" && role!="new-target-ancestor"','ordinal<0 || ordinal>=10000'])assert.ok(binding.includes(text),text);assert.ok(binding.indexOf('Reject("bound_flush_binding")')<method.indexOf(qualified));assert.equal(binding.includes('NativePath('),false,'namespace conversion cannot precede admission');});
 test('external namespace and relative forms still fail the unchanged initial DOS shape; no permissive branch is added',()=>{const originalShape=root=>root.length>=3&&root.length<=32763&&/\p{L}/u.test(root[0])&&root[1]===':'&&root[2]==='\\';for(const invalid of ['\\\\?\\C:\\fresh','\\\\?\\UNC\\host\\share','\\\\.\\C:','\\??\\C:\\fresh','\\\\host\\share','C:relative','C:/fresh','relative','', 'C:\\'+'a'.repeat(32761)])assert.equal(originalShape(invalid),false);assert.throws(()=>constructionGuard(method.replace("root[2]!='\\\\'","false")),/original bindings/);assert.equal(helper,before.helper,'existing generic helper is not widened by this fix');});

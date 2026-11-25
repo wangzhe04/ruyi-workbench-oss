@@ -24,10 +24,29 @@ test('malformed or unbounded batches issue no helper while the original single A
  const {api,calls}=load();for(const bad of [null,[],pairs.slice(1),[...pairs,pairs[0]],Object.assign(new Array(4),{0:pairs[0]}),[[null,'x'],...pairs.slice(1)],[[pairs[0][0],4],...pairs.slice(1)]])assert.throws(()=>api.setShortNames(bad),/exactly four setup alias pairs/);
  assert.equal(calls.length,0);api.setShortName(pairs[0][0],pairs[0][1]);assert.equal(calls.length,1);assert.equal(calls[0][2].env.RUYI_NATIVE_FIXTURE_ALIAS,'OLDROOT');
 });
+// Undo only the separate P1 path, its two imports and its error reporter.
+function beforeDeferredRepresentation(current) {
+ const {bracedBlock}=require('../lib/source-slice');
+ const marker="  if(process.argv.includes('--deferred'))";
+ const branch=bracedBlock(current,marker);
+ assert.equal(sha(branch),'74cfc8fba39b1b3b26cd023282ea94ca7b8366306a9663554d372bfa3349d494','reviewed deferred representation path');
+ for(const [from,to] of [[branch+'\n',''],["'migrationCapsuleCode','WorkDataTree','WorkDataRecovery'","'migrationCapsuleCode'"],
+   ["t.fail(require('node:util').inspect(error,{depth:5}))","t.fail(error?.stack||String(error))"]]){
+   assert.equal(current.split(from).length,2,'one P1 representation change');
+   current=current.replace(from,()=>to);
+ }
+ assert.equal(sha(current),'18295e1808f36e6bd082def1f89bc6a00ab77894b3444443798c2659916991ed','complete representation fixture in 9a9cf068');
+ return current;
+}
+test('archived representation inverse rejects drift in the P1 recovery proof',()=>{
+ const changed=entry.replace('assert.equal(result.publishedProof.entries,1);','assert.ok(result.publishedProof);');
+ assert.notEqual(changed,entry);
+ assert.throws(()=>beforeDeferredRepresentation(changed),/reviewed deferred representation path/);
+});
 test('long representation keeps both24s waits and complete original metadata, object and cold verification bodies',()=>{
  const {functionBlock}=require('../lib/source-slice');
  assert.equal((entry.match(/await delay\(24000\)/g)||[]).length,2);assert.match(entry,/timeout:120000/);
- const originalEntry=entry.replace(/async function proveCodeCache[^\n]*\n/,'').replace("'migrationReadBackupHistory','migrationCapsuleCode'","'migrationReadBackupHistory'").replace("await proveCodeCache(api,'cold');",'').replace("const coldCodeLine=restarted.stdout.split(/\\r?\\n/).find(line=>line.startsWith('NATIVE CODE CACHE cold '));assert.ok(coldCodeLine);console.log(coldCodeLine);await proveCodeCache(api,'parent');",'');
+ const originalEntry=beforeDeferredRepresentation(entry).replace(/async function proveCodeCache[^\n]*\n/,'').replace("'migrationReadBackupHistory','migrationCapsuleCode'","'migrationReadBackupHistory'").replace("await proveCodeCache(api,'cold');",'').replace("const coldCodeLine=restarted.stdout.split(/\\r?\\n/).find(line=>line.startsWith('NATIVE CODE CACHE cold '));assert.ok(coldCodeLine);console.log(coldCodeLine);await proveCodeCache(api,'parent');",'');
  const inverse=originalEntry.replace('{basicMetadata,setShortNames}','{basicMetadata,setShortName}').replace("setShortNames([[live,'OLDROOT'],[path.join(live,'original-directory'),'OLDDIR'],[path.join(live,'original-directory','private.bin'),'OLDBIN.BIN'],[path.join(live,'original-directory','long-empty-alias-file.txt'),'']]);","setShortName(live,'OLDROOT');setShortName(path.join(live,'original-directory'),'OLDDIR');setShortName(path.join(live,'original-directory','private.bin'),'OLDBIN.BIN');setShortName(path.join(live,'original-directory','long-empty-alias-file.txt'),'');");
  assert.equal(sha(inverse),'f5d732c5c143b9bd0ac102196def38ce7b0bef2b54cc686156961cedec755627','the exact complete archived R1 entry returns after only batching inverses');
  assert.ok(functionBlock(entry,'checkObjects').includes("Buffer.from(stream.data,'base64')"));

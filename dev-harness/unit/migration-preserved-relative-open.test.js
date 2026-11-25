@@ -51,24 +51,29 @@ test('first census proves closure through the original owned handle', () => {
 
 test('directory, readonly and named DATA streams retain exact access and sharing', () => {
   const open = block('static SafeFileHandle OpenPreserved(');
-  const classification = open.match(/bool directory = ([^;]+);\s+writable = ([^;]+);/);
-  const expression = name => open.match(new RegExp('uint ' + name + ' = ([^;]+);'))[1].replace(/(\b(?:0x[\da-f]+|\d+))u\b/gi, '$1');
-  const access = expression('access');
-  const share = expression('share');
-  for (const CapturedDirectoryWrite of [false, true]) {
-    for (const dataStream of [false, true]) {
-      for (const Attr of [0, 1, 16, 17]) {
-        const actual = vm.runInNewContext(
-          'const directory = ' + classification[1].replace(/(\b(?:0x[\da-f]+|\d+))u\b/gi, '$1')
-            + '; const writable = ' + classification[2] + '; [' + access + ', ' + share + ']',
-          { before: { Attr }, CapturedDirectoryWrite, dataStream, RetiringPortableStage: false }
-        );
-        const directory = !dataStream && (Attr & 16) !== 0;
-        const expectedAccess = directory ? (CapturedDirectoryWrite ? 0xC0010100 : 0x80010100)
-          : (Attr & 1) !== 0 ? 0x80010100 : 0xC0010000;
-        assert.deepEqual(Array.from(actual), [expectedAccess, directory ? 6 : 5]);
+  const start = open.indexOf('bool directory = ');
+  const end = open.indexOf('actual = OpenPreservedHandle(parent, name, path, access, share);', start);
+  assert.ok(start >= 0 && end > start, 'classify the captured object and pass both masks to the real open');
+  const declarations = open.slice(start, end)
+    .replace(/\b(?:bool|uint) /g, 'let ')
+    .replace(/(\b(?:0x[\da-f]+|\d+))u\b/gi, '$1');
+  const masks = vm.compileFunction('let writable;\n' + declarations + '\nreturn [access, share];',
+    ['before', 'CapturedDirectoryWrite', 'dataStream', 'RetiringPortableStage', 'RetiringCommittedSource']);
+
+  for (const mode of ['capture', 'stage-retirement', 'committed-source-retirement']) {
+    const stage = mode !== 'capture', committed = mode === 'committed-source-retirement';
+    for (const directoryWrite of [false, true]) {
+      for (const stream of [false, true]) {
+        for (const attr of [0, 1, 16, 17]) {
+          const directory = !stream && Boolean(attr & 16);
+          const ordinaryAccess = directory ? (directoryWrite ? 0xC0010100 : 0x80010100)
+            : (attr & 1) ? 0x80010100 : 0xC0010000;
+          const expected = committed ? (stream ? [0x80000100, 5] : [0x80010100, 1])
+            : [ordinaryAccess, stage ? 0 : directory ? 6 : 5];
+          assert.deepEqual(masks({ Attr: attr }, directoryWrite, stream, stage, committed), expected,
+            JSON.stringify({ mode, directoryWrite, stream, attr }));
+        }
       }
     }
   }
-  assert.equal(vm.runInNewContext(share, { RetiringPortableStage: true }), 0);
 });
