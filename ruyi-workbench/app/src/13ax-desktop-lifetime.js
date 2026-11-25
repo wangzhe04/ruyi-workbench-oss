@@ -94,6 +94,7 @@ const DesktopLifetime = (() => {
       if (value.kind === 'error') row.reject(retain(fail('owner_refused'))); else row.resolve(value);
     }
     function open() {
+      if (unknownSet) return Promise.reject(unknown);
       if (connected) return connected;
       connected = new Promise((resolve, reject) => {
         try { socket = connect('\\\\.\\pipe\\' + config.pipe); } catch (error) { reject(retain(error)); return; }

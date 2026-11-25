@@ -14,13 +14,13 @@ const causesLine=codes=>'RUYI-RECOVERY-CAUSES '+JSON.stringify(codes);
 // `starts` is the sequence of readonly gate verdicts: an Error is a refusal, anything else
 // passes. The single real serve start happens afterwards and returns {server:true}.
 // `doctor(flag,attempt,timeoutMs,calls)` returns {code,stderr[,timedOut]}; it may advance calls.clock.
-function load({starts=[],doctor,rootReady=false,helper=false,acquireFails=false,helperUnknown=()=>false}={}){
- const calls={doctor:[],timeouts:[],starts:0,inspections:0,releases:0,errors:[],announced:[],logs:[],pauses:[],clock:1000,held:0};
- const context={Object,Error,String,Promise,JSON,Set,Array,Number,
+function load({starts=[],doctor,connect=async()=>false,rootReady=false,helper=false,acquireFails=false,helperUnknown=()=>false}={}){
+ const calls={doctor:[],timeouts:[],starts:0,acquisitions:0,inspections:0,releases:0,errors:[],announced:[],logs:[],pauses:[],clock:1000,held:0};
+ const context={Object,Error,String,Promise,JSON,Set,Array,Number,DesktopLifetimeHooks:{connect},
   Date:{now:()=>calls.clock},setTimeout:(fn,ms)=>{calls.pauses.push(ms);calls.clock+=ms;fn();},
   console:{log:line=>calls.logs.push(line),error:line=>(/RUYI-BOOT-HEALING v1/.test(line)?calls.announced:calls.errors).push(line)},
   dataRoot:()=>'C:\\synthetic\\data',
-  ServerOwnership:{acquire:async roots=>{if(acquireFails)throw Error('busy');return {roots,release:async()=>{calls.releases++;}};},canonicalRoot:async value=>value},
+  ServerOwnership:{acquire:async roots=>{calls.acquisitions++;if(acquireFails)throw Error('busy');return {roots,release:async()=>{calls.releases++;}};},canonicalRoot:async value=>value},
   WorkDataRootHooks:{ready:()=>rootReady},
   WorkDataMaintenanceRuntimeHooks:{helperMayStillRun:()=>helper,inspectBoot:async()=>{const next=starts[calls.inspections++];if(next instanceof Error)throw next;return true;}},
   workDataCliHelperUnknown:error=>helperUnknown(error),holdWorkDataCliOwner:()=>{calls.held++;},
@@ -29,6 +29,36 @@ function load({starts=[],doctor,rootReady=false,helper=false,acquireFails=false,
  const source=[...CONSTS.map(name=>constBlock(mainSource,name)),...FUNCTIONS.map(name=>functionBlock(mainSource,name))].join('\n');
  vm.runInNewContext(source+'\nthis.serve=serveWithWorkDataBootRecovery;this.codes=workDataRecoveryCauseCodes;this.report=reportWorkDataRecoveryCauses;this.BUDGET=WORK_DATA_BOOT_HEAL_BUDGET_MS;',context);
  return {serve:context.serve,codes:context.codes,report:context.report,BUDGET:context.BUDGET,calls};
+}
+test('declared desktop host settles before the root lease, recovery doctor and serve',async()=>{
+ let accept;
+ const handshake=new Promise(resolve=>{accept=resolve;});
+ const f=load({starts:[refusal('work_data_setup.intent_pending')],connect:()=>handshake});
+ const serving=f.serve({});
+ await Promise.resolve();
+ assert.equal(f.calls.acquisitions,0);assert.equal(f.calls.inspections,0);
+ assert.deepEqual(f.calls.doctor,[]);assert.equal(f.calls.starts,0);
+ accept(true);
+ await serving;
+ assert.equal(f.calls.acquisitions,1);assert.equal(f.calls.inspections,1);assert.equal(f.calls.releases,1);
+ assert.deepEqual(f.calls.doctor,['--recover-work-data-intent']);assert.equal(f.calls.starts,1);
+});
+for (const completed of [0,1]) {
+ test('known host disconnect stops recovery before doctor attempt '+(completed+1),async()=>{
+  const closed=refusal('desktop_lifetime.channel_closed');
+  const f=load({
+   starts:[refusal('work_data_setup.intent_pending')],
+   connect:async()=>{
+    if (f.calls.releases && f.calls.doctor.length===completed) throw closed;
+    return true;
+   },
+   doctor:async()=>({code:1,stderr:causesLine(['work_data_claim.recovery_process_pending'])})
+  });
+  await assert.rejects(f.serve({}),error=>error===closed);
+  assert.equal(f.calls.inspections,1);assert.equal(f.calls.releases,1);
+  assert.equal(f.calls.doctor.length,completed);assert.equal(f.calls.starts,0);
+  assert.equal(f.calls.announced.length,completed);
+ });
 }
 for(const [code,flag] of [['work_data_setup.intent_pending','--recover-work-data-intent'],['work_data_setup.handoff_pending','--recover-work-data-source']])
  test('3A W5: a '+code+' boot refusal is completed by a fresh doctor '+flag+' child before the single serve start',async()=>{

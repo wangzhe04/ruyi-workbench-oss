@@ -123347,6 +123347,7 @@ const DesktopLifetime = (() => {
       if (value.kind === 'error') row.reject(retain(fail('owner_refused'))); else row.resolve(value);
     }
     function open() {
+      if (unknownSet) return Promise.reject(unknown);
       if (connected) return connected;
       connected = new Promise((resolve, reject) => {
         try { socket = connect('\\\\.\\pipe\\' + config.pipe); } catch (error) { reject(retain(error)); return; }
@@ -124868,9 +124869,6 @@ async function recoverWorkDataBoot(error) {
   try {
     if (typeof WorkDataMaintenanceRuntimeHooks.helperMayStillRun === 'function' && WorkDataMaintenanceRuntimeHooks.helperMayStillRun() !== false) return false;
   } catch { return false; }
-  // Announced on stderr first, with the machine-readable marker the desktop shell uses to
-  // extend its boot window; the stderr tail it shows also explains the longer start.
-  console.error(`[start] ${WORK_DATA_BOOT_HEALING_MARKER} ${code}: 正在自动收尾上一次没有完成的工作数据维护… / completing the unfinished work data maintenance automatically…`);
   const started = Date.now();
   let outcome = null, detail = '';
   for (const pause of WORK_DATA_BOOT_RECOVERY_PAUSES_MS) {
@@ -124878,8 +124876,12 @@ async function recoverWorkDataBoot(error) {
       if (Date.now() - started + pause >= WORK_DATA_BOOT_HEAL_BUDGET_MS) break;
       await new Promise(resolve => setTimeout(resolve, pause));
     }
+    // Recheck the existing host after the lease release or retry delay, before starting a new doctor.
+    await DesktopLifetimeHooks.connect();
     const remaining = WORK_DATA_BOOT_HEAL_BUDGET_MS - (Date.now() - started);
     if (remaining <= 0) break;
+    // Extend the desktop boot window only when this process is actually starting recovery.
+    if (!outcome) console.error(`[start] ${WORK_DATA_BOOT_HEALING_MARKER} ${code}: 正在自动收尾上一次没有完成的工作数据维护… / completing the unfinished work data maintenance automatically…`);
     outcome = await runWorkDataRecoveryDoctor(flag, remaining);
     if (outcome.code === 0) break;
     if (outcome.timedOut) { detail = 'work_data_setup.boot_recovery_timeout'; break; }
@@ -124914,6 +124916,9 @@ async function preflightWorkDataBoot() {
   return refusal ? recoverWorkDataBoot(refusal) : false;
 }
 async function serveWithWorkDataBootRecovery(argv) {
+  // The preflight takes a data-root IPC lease and can launch a recovery doctor.
+  // Settle any declared desktop host first. startServer reuses this connection.
+  await DesktopLifetimeHooks.connect();
   await preflightWorkDataBoot();
   return startWorkbenchServe(argv);
 }

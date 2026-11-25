@@ -80,6 +80,17 @@ test('hello is bound to this process, role grants are explicit, and messages are
   await assert.rejects(f.client.issue('shell', id, nonce), { code: 'desktop_lifetime.grant_invalid' });
   await assert.rejects(f.client.transfer({ ...grant, pipe: 'different' }), { code: 'desktop_lifetime.grant_invalid' });
 });
+test('a second host check reuses one live handshake and refuses the same channel after close', async () => {
+  const f = fixture();
+  await f.client.open();
+  await f.client.open();
+  assert.deepEqual(f.frames.map(row => row.kind), ['hello']);
+  f.socket.destroy();
+  assert.equal(f.client.unknown(), true);
+  await assert.rejects(f.client.open(), { code: 'desktop_lifetime.channel_closed' });
+  assert.deepEqual(f.frames.map(row => row.kind), ['hello']);
+  assert.equal(f.refs(), 1);
+});
 test('a close is idempotent and cannot acknowledge before the actual owner promise settles', async () => {
   let release, calls = 0; const held = new Promise(resolve => { release = resolve; });
   const f = fixture({ stop: async () => { calls++; await held; return true; } }); await f.client.open(); f.close(); f.close(); await tick();

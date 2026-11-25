@@ -850,25 +850,25 @@
     {
       "file": "13ax-desktop-lifetime.js",
       "startLine": 123254,
-      "endLine": 123473,
+      "endLine": 123474,
       "note": "M3-D1 private desktop lifetime transport and owner-composed cooperative close; no data-root or maintenance authority"
     },
     {
       "file": "13ax-work-data-attachment-upload.js",
-      "startLine": 123474,
-      "endLine": 123544,
+      "startLine": 123475,
+      "endLine": 123545,
       "note": "M3 attachments: registers the sealed-upload hook through WorkDataAttachmentUploadHooks so 13-http-router keeps no static edge to the attachment runtime; derived media work is not wired"
     },
     {
       "file": "13au-work-data-runtime-host.js",
-      "startLine": 123545,
-      "endLine": 124676,
+      "startLine": 123546,
+      "endLine": 124677,
       "note": "K3 checked SourceKeeper production host: loading the module only installs the maintenance-runtime hooks and performs no acquisition, configure, IO, ready probe or process startup; startServer calls acquireServe/configureServe explicitly. installWarm installs the snapshot descriptor as upload-only (worker:false) and sets no worker capability; once activated, the warm runtime exposes the cold worker according to live readiness. One fresh-root activation owner is installed on those hooks from the claim owner's activation-v1 TEMP namespace (same TEMP root and native flush, never a parallel instance) and is role-scoped: the cold worker writes and inspects the receipt, the successor/warm inspects and removes it by CAS, so a private successor can serve the committed target root. download and crashClaim remain unavailable, and restore is not completed in this process. It also installs one idempotent boot-root preference owner from the already-loaded 13aw (created with the user home and the same native flush, never replaced; a missing module only turns the post-ready preference write into diagnosis)."
     },
     {
       "file": "14-main.js",
-      "startLine": 124677,
-      "endLine": 126011,
+      "startLine": 124678,
+      "endLine": 126016,
       "note": "main()/module.exports"
     }
   ]

@@ -257,7 +257,9 @@ async function runMode(root, probe, entry, mode) {
 async function main() {
   const args = process.argv.slice(2);
   const packaged = args.includes('--pkg'), abnormal = args.includes('--abnormal');
-  assert.equal(args.length, Number(packaged) + Number(abnormal), 'use [--pkg] [--abnormal]');
+  // Explicit Windows direct-Node startup checks share the real Gemma profile with the graceful control.
+  const bootstrap = args.length === 1 && args[0] === '--host-bootstrap';
+  assert.equal(args.length, Number(packaged) + Number(abnormal) + Number(bootstrap), 'use [--pkg] [--abnormal] or --host-bootstrap');
   if (!args.length && (process.platform !== 'win32' || !assetProfile)) {
     console.log('SKIP CLI SEMANTIC LIFETIME: requires Windows and RUYI_TEST_GEMMA2_ROOT');
     return;
@@ -268,6 +270,12 @@ async function main() {
   console.log('CLI lifetime evidence: ' + dir);
   const probe = path.join(dir, 'cli-console-probe.exe');
   const entry = prepareEntry(dir, packaged);
+  if (bootstrap) {
+    const { checkHostBootstrap } = require('./lib/cli-host-bootstrap.cjs');
+    await checkHostBootstrap({ dir, entry, prepareScene, runMode, waitFor, runner });
+    runner.done();
+    return;
+  }
   const csc = path.join(process.env.WINDIR, 'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
   execFileSync(csc, ['/nologo', '/target:exe', '/platform:x64', '/out:' + probe, path.join(__dirname, 'fixtures/cli-console-probe.cs')],
     { windowsHide: true, timeout: 30000 });
