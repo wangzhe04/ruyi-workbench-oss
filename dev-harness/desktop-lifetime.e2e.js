@@ -1,6 +1,7 @@
 'use strict';
 // Actual Windows production ServerHost + generated serve + its inherited Job.
 // Default starts one synthetic active CLI, then closes through the private protocol.
+// --desktop-app [--owner-exit] [--dual] explicitly opens complete, isolated production windows.
 // --idle omits that CLI. --window also exercises the actual ShellForm.Close path;
 // That path does not claim a mouse/titlebar or Privacy GUI journey.
 // --idle --semantic verifies an explicitly selected local EmbeddingGemma 2.
@@ -21,11 +22,19 @@ const runner=createRunner('DESKTOP LIFETIME'),root=p.resolve(__dirname,'..'),wb=
 const args=process.argv.slice(2),flags=new Set(args);
 const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has('--hold-ui'),semantic=flags.has('--semantic');
 const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual');
-if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual'].includes(value))
- ||holdUI&&!windowMode||semantic&&(!idle||windowMode)||(ownerExit||handoff||dual)&&!semantic||handoff&&(ownerExit||dual))
- throw Error('Use --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --idle, --window, or --window --hold-ui');
-if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
-else void main();
+if(flags.has('--desktop-app')){
+ if(process.platform!=='win32'||flags.size!==args.length||args.some(value=>!['--desktop-app','--dual','--owner-exit'].includes(value)))
+  throw Error('Use --desktop-app [--owner-exit] [--dual] on Windows with RUYI_TEST_GEMMA2_ROOT');
+ require('./lib/desktop-app-lifetime.cjs').run({workbench:wb,dual,ownerExit})
+  .then(()=>runner.ok(true,'production desktop window, service, model and WebView lifetime verified'))
+  .catch(error=>runner.fail(error.stack)).finally(()=>runner.done());
+}else{
+ if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual'].includes(value))
+  ||holdUI&&!windowMode||semantic&&(!idle||windowMode)||(ownerExit||handoff||dual)&&!semantic||handoff&&(ownerExit||dual))
+  throw Error('Use --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --idle, --window, or --window --hold-ui');
+ if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
+ else void main();
+}
 const uncertain=row=>['uncertain','retained','unexpected-exit'].includes(row.phase);
 function prepareScene(dir){
  const data=p.join(dir,'data'),temp=p.join(dir,'temp');
