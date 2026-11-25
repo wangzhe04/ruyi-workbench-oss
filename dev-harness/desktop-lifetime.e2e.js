@@ -2,6 +2,7 @@
 // Actual Windows production ServerHost + generated serve + its inherited Job.
 // Default starts one synthetic active CLI, then closes through the private protocol.
 // --desktop-app [--owner-exit] [--dual] explicitly opens complete, isolated production windows.
+// --desktop-app --resources samples one ready window throughout a 65s+ idle period before closing it normally.
 // --idle omits that CLI. --window also exercises the actual ShellForm.Close path;
 // That path does not claim a mouse/titlebar or Privacy GUI journey.
 // --idle --semantic verifies an explicitly selected local EmbeddingGemma 2.
@@ -25,9 +26,10 @@ const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has
 const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual');
 const nestedJob=flags.has('--nested-job'),outerQuota=flags.has('--outer-quota');
 if(flags.has('--desktop-app')){
- if(process.platform!=='win32'||flags.size!==args.length||args.some(value=>!['--desktop-app','--dual','--owner-exit'].includes(value)))
-  throw Error('Use --desktop-app [--owner-exit] [--dual] on Windows with RUYI_TEST_GEMMA2_ROOT');
- require('./lib/desktop-app-lifetime.cjs').run({workbench:wb,dual,ownerExit})
+ const resources=flags.has('--resources');
+ if(process.platform!=='win32'||flags.size!==args.length||resources&&(dual||ownerExit)||args.some(value=>!['--desktop-app','--dual','--owner-exit','--resources'].includes(value)))
+  throw Error('Use --desktop-app [--owner-exit] [--dual] or --desktop-app --resources on Windows with RUYI_TEST_GEMMA2_ROOT');
+ require('./lib/desktop-app-lifetime.cjs').run({workbench:wb,dual,ownerExit,resources})
   .then(()=>runner.ok(true,'production desktop window, service, model and WebView lifetime verified'))
   .catch(error=>runner.fail(error.stack)).finally(()=>runner.done());
 }else{

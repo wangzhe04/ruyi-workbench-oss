@@ -160,7 +160,7 @@ async function verifyActive(app, homeRoot) {
   assert.ok(fs.existsSync(path.join(homeRoot, app.home)), 'original private model home still present');
 }
 
-async function run({ workbench, dual, ownerExit }) {
+async function run({ workbench, dual, ownerExit, resources }) {
   const source = process.env.RUYI_TEST_GEMMA2_ROOT;
   assert.ok(source && path.isAbsolute(source), 'RUYI_TEST_GEMMA2_ROOT must be an absolute verified profile');
   const lock = fs.readFileSync(path.join(source, 'asset-lock.json'));
@@ -191,7 +191,44 @@ async function run({ workbench, dual, ownerExit }) {
       assert.equal(new Set(apps.flatMap(app => app.originals.map(row => row.pid))).size, 8);
     }
     await verifyActive(a, homeRoot);
+    const observed = new Map();
+    const resourceScript = path.resolve(__dirname, '../fixtures/desktop-resource-snapshot.ps1');
+    if (resources) {
+      const { sampleTree } = require('./desktop-resource-samples.cjs');
+      evidence.resources = {
+        scope: 'Single warmed desktop and creation-bound descendants present at the sample times',
+        workingSet: 'Sum of per-process resident bytes; shared pages can be counted in several processes',
+        privateCommit: 'Sum of per-process private committed bytes',
+        cpu: 'Cumulative user and kernel time in 100ns ticks for each sampled process',
+        availablePhysical: 'System-wide available bytes sampled immediately after the process counter collection',
+        samples: []
+      };
+      const samples = evidence.resources.samples;
+      // No UI, status or model request is made during this idle window.
+      for (let i = 0; i < 3; i++) {
+        if (i) await delay(33000);
+        running(a);
+        const snapshot = JSON.parse(await script(resourceScript));
+        samples.push(sampleTree(snapshot, a.originals, observed));
+        record();
+      }
+      evidence.resources.idleWindowMs = Number(BigInt(samples[2].tick) - BigInt(samples[0].tick)) / 10000;
+      assert.ok(evidence.resources.idleWindowMs >= 65000, 'at least 65s between counter samples');
+      await verifyActive(a, homeRoot);
+    }
     evidence.apps[0].closed = await stop(a, ownerExit, homeRoot);
+    if (resources) {
+      const verified = await until('all sampled desktop descendants exit', 20000, async () => {
+        // Confirm disappearance via Win32_Process independently of the PerfProc sampler.
+        const pids = [...new Set([process.pid, ...Array.from(observed.values(), row => row.pid)])];
+        const live = await processRows(pids);
+        assert.ok(live.some(row => row.pid === process.pid), 'closure query includes its live controller');
+        const remaining = [...observed.values()].some(row => live.some(current =>
+          current.pid === row.pid && BigInt(current.created) === BigInt(row.born) / 10n * 10n));
+        return !remaining && { sampledUtc: new Date().toISOString(), exitedIdentities: observed.size };
+      });
+      evidence.apps[0].closed.resourceTree = verified;
+    }
     record();
     if (dual) {
       await verifyActive(b, homeRoot);

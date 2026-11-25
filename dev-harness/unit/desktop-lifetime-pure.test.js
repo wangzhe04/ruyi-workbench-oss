@@ -9,6 +9,32 @@ const source = fs.readFileSync(path.join(__dirname, '../../ruyi-workbench/app/sr
 const factory = constBlock(source, 'DesktopLifetime'); assert.ok(factory.length > 3000);
 const diagnostic = constBlock(source, 'DesktopLifetimeDiagnostic'); assert.ok(diagnostic.length > 1500);
 const diagnosticFs = { writeSync() {} }; // Inert diagnostic sink; no descriptor write in pure tests.
+
+test('desktop resource samples preserve attribution across churn and reject incomplete measurements', () => {
+  const { sampleTree } = require('../lib/desktop-resource-samples.cjs');
+  const utc = '2026-11-25T00:00:00.000Z', tick = String(BigInt(Date.parse(utc)) * 10000n + 116444736000000000n);
+  const row = (pid, parent, born) => ({ pid, parent, born, tick, name:'fixture', frequency:10000000,
+    workingSetBytes:100, privateCommitBytes:80, userTime100ns:500, kernelTime100ns:200, threads:2 });
+  const base = [row(1,99,'101'),row(2,1,'112'),row(3,2,'123'),row(4,1,'134')];
+  const originals = base.map(r => ({pid:r.pid,parent:r.parent,created:String(BigInt(r.born)/10n*10n)}));
+  const snapshot = rows => ({rows,startedUtc:utc,memorySampledUtc:utc,availablePhysicalBytes:10000});
+  const known = new Map();
+  const first = sampleTree(snapshot([...base,row(6,5,'160'),row(5,4,'150'),row(7,4,'80')]),originals,known);
+  assert.deepEqual(first.processes.map(r => r.pid).sort(),[1,2,3,4,5,6]);
+  assert.equal(first.totals.privateCommitBytes,480);
+  // 5 was replaced by an unrelated process. Keep its previously proven surviving
+  // child 6, plus 6's new child, without attributing the replacement's children.
+  const next = [...base,row(5,99,'500'),row(6,5,'160'),row(7,6,'180'),row(8,5,'600'),row(9,4,'190')];
+  const second = sampleTree(snapshot(next), originals, known);
+  assert.deepEqual(second.processes.map(r => r.pid).sort(),[1,2,3,4,6,7,9]);
+  assert.deepEqual(second.noLongerObserved,[{pid:5,born:'150'}]);
+  assert.throws(() => sampleTree(snapshot(next.slice(1)), originals, known), /missing or replaced original/);
+  assert.throws(() => sampleTree(snapshot(next.map(r => r.pid===1?{...r,born:'102'}:r)), originals, known), /original birth changed/);
+  assert.throws(() => sampleTree(snapshot(next.map(r => r.pid===6?{...r,workingSetBytes:null}:r)), originals, known), /missing or invalid workingSetBytes/);
+  assert.throws(() => sampleTree(snapshot([...next,row(20,4,'')]), originals, known), /missing child creation time/);
+  assert.throws(() => sampleTree(snapshot([...next,row(20,4,'0')]), originals, known), /invalid child creation time/);
+  assert.throws(() => sampleTree(snapshot(next.map(r => r.pid===6?{...r,tick:String(BigInt(tick)-1n)}:r)), originals, known), /one 100ns clock/);
+});
 const api = vm.runInNewContext(diagnostic + '\n' + factory + '\nDesktopLifetime', { Buffer, fs: diagnosticFs });
 const cap = 'a'.repeat(64), nextCap = 'b'.repeat(64), id = 'c'.repeat(48), nonce = 'd'.repeat(64);
 const nextPipe='ruyi-desktop-'+'f'.repeat(64);
