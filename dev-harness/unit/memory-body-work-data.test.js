@@ -24,10 +24,23 @@ function fixture() {
 const input = (id='one', body='MEMORY-PRIVATE😀') => ({ id, scope:'global', name:'Name', description:'Description', type:'reference', body });
 const privateError = error => String(error?.code || '').startsWith('work_data');
 
+// A fresh NTFS timestamp can be ahead of Date.now(). Set only the test VM's
+// read clock, at a known distance from the newest real file timestamp.
+function setFileReadTime(f, offsetMs, ...ids) {
+  const stamps = ids.map(id => {
+    const { mtimeMs, ctimeMs } = fs.statSync(f.file(id));
+    return Math.max(mtimeMs, ctimeMs);
+  });
+  const nowMs = Math.floor(Math.max(...stamps)) + offsetMs;
+  f.context.Date = class extends Date { static now() { return nowMs; } };
+  return nowMs;
+}
+
 test('OFF keeps generated Markdown bytes, prior metadata and warm header memo with zero key access', async () => {
   const f=fixture(); await f.saveMemory(input(), f.dir); const original=fs.readFileSync(f.file('one'),'utf8');
   assert.equal(original,'---\nname: Name\ndescription: Description\ntype: reference\ncreatedAt: 2026-10-23T00:00:00.000Z\nupdatedAt: 2026-10-23T00:00:00.000Z\ncore: false\nimportance: normal\ncoreSummary: Description\n---\n\nMEMORY-PRIVATE😀\n');
   assert.equal((await f.readMemoryItem('one','global',f.dir)).memory.body,'MEMORY-PRIVATE😀\n');
+  setFileReadTime(f, 1, 'one');
   assert.equal((await f.readMemoryDir(f.memoryGlobalDir(),'global')).get('one').name,'Name'); const opens=f.state.opens;
   assert.equal((await f.readMemoryDir(f.memoryGlobalDir(),'global')).size,1); assert.equal(f.state.opens,opens); assert.equal(f.state.acquires,0);
 });
@@ -79,9 +92,11 @@ test('agent instruction imports hash decrypted content and preserve imported ide
   f.state.missing=true;await assert.rejects(()=>f.inspectAgentInstructionEntries(result),{code:'work_data_key.absent'});
 });
 
-test('150 S3: sealed headers hit the head cache while file identity and key authority are unchanged; writes, ctime-only rewrites and key changes re-authenticate', async () => {
+test('150 S3: sealed headers hit the head cache while file identity and key authority are unchanged; ctime-only rewrites re-authenticate and reject altered chunk ciphertext', async () => {
   const f=fixture();f.state.enabled=true;
-  for(const id of ['s-one','s-two','s-three'])await f.saveMemory(input(id,'SEALED-'+id),f.dir);
+  const ids=['s-one','s-two','s-three'];
+  for(const id of ids)await f.saveMemory(input(id,'SEALED-'+id),f.dir);
+  setFileReadTime(f, 1, ...ids);
   const dir=f.memoryGlobalDir(),first=await f.readMemoryDir(dir,'global');assert.deepEqual([...first.keys()],fs.readdirSync(dir).filter(name=>name.endsWith('.md')).map(name=>name.slice(0,-3)),'readdir order is kept under bounded concurrency');
   assert.ok(!fs.readFileSync(f.file('s-one'),'utf8').includes('SEALED-s-one'),'fixture is really sealed');
   const opens=f.state.opens,second=await f.readMemoryDir(dir,'global');
@@ -90,13 +105,35 @@ test('150 S3: sealed headers hit the head cache while file identity and key auth
   // Same bytes rewritten with the original mtime restored: size and mtime match, ctime does not -> re-authenticated.
   // mtime is pinned to a whole second first (utimes cannot restore sub-ms precision), so only ctime differs.
   const file=f.file('s-two'),whole=new Date(Math.floor(fs.statSync(file).mtimeMs/1000)*1000);fs.utimesSync(file,whole,whole);
-  await f.readMemoryDir(dir,'global');const pinnedOpens=f.state.opens,st=fs.statSync(file),bytes=fs.readFileSync(file);
-  fs.writeFileSync(file,bytes);fs.utimesSync(file,whole,whole);const after=fs.statSync(file);
-  assert.ok(after.size===st.size&&after.mtimeMs===st.mtimeMs,'fixture: size and mtime unchanged, only ctime moves');
+  setFileReadTime(f, 1, ...ids);
+  await f.readMemoryDir(dir,'global');const pinnedOpens=f.state.opens,bytes=fs.readFileSync(file);
+  async function rewriteWithNewCtime(content) {
+    const before = fs.statSync(file);
+    const deadline = performance.now() + 3000;
+    for (;;) {
+      await fsp.writeFile(file, content);
+      await fsp.utimes(file, whole, whole);
+      const after = fs.statSync(file);
+      assert.equal(after.size, before.size);
+      assert.equal(after.mtimeMs, before.mtimeMs);
+      if (after.ctimeMs !== before.ctimeMs) break;
+      assert.ok(performance.now() < deadline, 'fixture needs a distinct ctime for this rewrite');
+      await new Promise(resolve => setTimeout(resolve, 10));
+    }
+    setFileReadTime(f, 1, ...ids);
+  }
+  await rewriteWithNewCtime(bytes);
   await f.readMemoryDir(dir,'global');assert.equal(f.state.opens,pinnedOpens+1,'a ctime-only change re-reads exactly that sealed file');
   // Tampered ciphertext of identical size is never served from the cache.
-  const tampered=Buffer.from(fs.readFileSync(file));tampered[tampered.length-3]^=1;fs.writeFileSync(file,tampered);fs.utimesSync(file,whole,whole);
-  await assert.rejects(()=>f.readMemoryDir(dir,'global'),privateError);
+  const lines = bytes.toString('utf8').split('\n');
+  const chunk = JSON.parse(lines[1]);
+  const ciphertext = Buffer.from(chunk.e.envelope.ciphertext, 'base64');
+  assert.ok(ciphertext.length > 0);
+  ciphertext[0] ^= 1;
+  chunk.e.envelope.ciphertext = ciphertext.toString('base64');
+  lines[1] = JSON.stringify(chunk);
+  await rewriteWithNewCtime(Buffer.from(lines.join('\n')));
+  await assert.rejects(() => f.readMemoryDir(dir, 'global'), { code: 'work_data_chunk.authenticate_failed' });
   fs.writeFileSync(file,bytes);
   // A different key instance invalidates every cached sealed header before any cached plaintext is used.
   f.state.instanceId='rotated-instance';await assert.rejects(()=>f.readMemoryDir(dir,'global'),privateError);
@@ -108,8 +145,12 @@ test('2A review F1: with the encryption toggle OFF a cached sealed header still 
   const f=fixture();f.state.enabled=true;await f.saveMemory(input('sealed-off','SEALED-OFF-BODY'),f.dir);
   assert.ok(!fs.readFileSync(f.file('sealed-off'),'utf8').includes('SEALED-OFF-BODY'),'fixture is really sealed');
   f.state.enabled=false;const dir=f.memoryGlobalDir();
-  assert.equal((await f.readMemoryDir(dir,'global')).get('sealed-off').name,'Name','toggle off, key present: the sealed file is still readable');
-  const opens=f.state.opens;assert.equal((await f.readMemoryDir(dir,'global')).get('sealed-off').name,'Name');assert.equal(f.state.opens,opens,'toggle off, same key: served from the head cache');
+  setFileReadTime(f, 1, 'sealed-off');
+  const first=(await f.readMemoryDir(dir,'global')).get('sealed-off');
+  assert.equal(first.name,'Name','toggle off, key present: the sealed file is still readable');
+  const opens=f.state.opens;
+  assert.equal((await f.readMemoryDir(dir,'global')).get('sealed-off'),first,'toggle off, same key: reuse the authenticated entry');
+  assert.equal(f.state.opens,opens,'toggle off, same key: served from the head cache');
   f.state.missing=true;await assert.rejects(()=>f.readMemoryDir(dir,'global'),{code:'work_data_key.absent'},'toggle off, key gone: the cached sealed header is not served');
   f.state.missing=false;f.state.instanceId='other-instance';await assert.rejects(()=>f.readMemoryDir(dir,'global'),privateError,'toggle off, different key: re-authenticated and refused');
   // A plain file under the OFF toggle keeps its zero-key-access cache.
@@ -119,13 +160,20 @@ test('2A review F1: with the encryption toggle OFF a cached sealed header still 
 
 test('2A review F3: a file written within the timestamp-granularity window is neither cached nor trusted as a stat baseline', async () => {
   const f=fixture();await f.saveMemory(input('fresh'),f.dir);const dir=f.memoryGlobalDir();
+  const settledTime=setFileReadTime(f, 1, 'fresh');
   f.context.MEMORY_SNAPSHOT_RACY_MS=60*60*1000; // every file counts as "just written"
   let wholeReads=0;const realReadFile=f.context.fsp.readFile;f.context.fsp.readFile=async(...args)=>{wholeReads++;return realReadFile(...args);};
   const first=await f.readMemoryDir(dir,'global'),reads=wholeReads;await f.readMemoryDir(dir,'global');
   assert.equal(wholeReads,reads+1,'racy file is re-read in full (content fingerprint), not served from the head cache');
   assert.match(String(f.context.MEMORY_ENTRY_STAT.get(first.get('fresh'))),/^racy:[a-f0-9]{64}$/,'racy file gets a content-hash baseline, never a stat-identity one');
-  assert.equal(f.memoryStatIsRacy({mtimeMs:Date.now()-10,ctimeMs:Date.now()-10}),true);
-  f.context.MEMORY_SNAPSHOT_RACY_MS=0;const settled=await f.readMemoryDir(dir,'global'),settledOpens=f.state.opens;await f.readMemoryDir(dir,'global');
-  assert.equal(f.state.opens,settledOpens,'outside the window the header is cached again');assert.ok(f.context.MEMORY_ENTRY_STAT.has(settled.get('fresh')));
-  assert.equal(f.memoryStatIsRacy({mtimeMs:Date.now()-10,ctimeMs:0}),false,'window 0 trusts past stamps');assert.equal(f.memoryStatIsRacy({mtimeMs:Date.now()+5000,ctimeMs:0}),true,'a stamp in the future is never trusted');
+  assert.equal(f.memoryStatIsRacy({mtimeMs:settledTime-10,ctimeMs:settledTime-10}),true);
+  f.context.MEMORY_SNAPSHOT_RACY_MS=0;
+  const settled=(await f.readMemoryDir(dir,'global')).get('fresh'),settledOpens=f.state.opens;
+  assert.equal((await f.readMemoryDir(dir,'global')).get('fresh'),settled);
+  assert.equal(f.state.opens,settledOpens,'outside the window the header is cached again');
+  assert.equal(f.memoryStatIsRacy({mtimeMs:settledTime-10,ctimeMs:0}),false,'window 0 trusts past stamps');
+  setFileReadTime(f, -1, 'fresh');
+  const beforeFuture=wholeReads, future=(await f.readMemoryDir(dir,'global')).get('fresh');
+  assert.equal(wholeReads,beforeFuture+1,'a future stamp bypasses even a warmed cache');
+  assert.match(f.context.MEMORY_ENTRY_STAT.get(future),/^racy:[a-f0-9]{64}$/);
 });
