@@ -10,6 +10,7 @@
 // --handoff requests a real export; add --require-export to require a verified, downloadable package.
 // --dual starts a second console owner with its own data root and the same model profile.
 // --idle --nested-job / --outer-quota places only the fixture host in an extra Windows Job.
+// --restart adds two same-data-root starts to --idle --semantic --dual --owner-exit (no window).
 // --idle --inner-quota occupies the production Job before assigning a suspended entry sentinel.
 // On any unknown/failure the detached owner and its scene are retained, never killed.
 require('./lib/self-isolate-home.js');
@@ -21,10 +22,11 @@ const {fixtureChildEnv}=require('./lib/fixture-home.js');
 const {fixedSpawnCommandLine}=require('./lib/work-data-production-upload-process.js');
 const {processRows,sameProcess,processIdentity}=require('./lib/windows-lifetime-processes.cjs');
 const {requestJson}=require('./lib/lifetime-loopback-json.cjs');
+const {directoryIdentity,modelHomeIdentity,snapshotRetiredHome,assertRetainedHomes}=require('./lib/resident-restart-homes.cjs');
 const runner=createRunner('DESKTOP LIFETIME'),root=p.resolve(__dirname,'..'),wb=p.join(root,'ruyi-workbench');
 const args=process.argv.slice(2),flags=new Set(args);
 const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has('--hold-ui'),semantic=flags.has('--semantic');
-const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual');
+const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual'),restart=flags.has('--restart');
 const requireExport=flags.has('--require-export');
 const nestedJob=flags.has('--nested-job'),outerQuota=flags.has('--outer-quota'),innerQuota=flags.has('--inner-quota');
 if(flags.has('--desktop-app')){
@@ -35,12 +37,13 @@ if(flags.has('--desktop-app')){
   .then(()=>runner.ok(true,'production desktop window, service, model and WebView lifetime verified'))
   .catch(error=>runner.fail(error.stack)).finally(()=>runner.done());
 }else{
- if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--require-export','--dual','--nested-job','--outer-quota','--inner-quota'].includes(value))
+ if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--require-export','--dual','--nested-job','--outer-quota','--inner-quota','--restart'].includes(value))
   ||requireExport&&(!handoff||process.platform!=='win32')
+  ||restart&&(!idle||!semantic||!dual||!ownerExit||flags.size!==5)
   ||innerQuota&&(!idle||flags.size!==2)
   ||(nestedJob||outerQuota)&&(!idle||windowMode||dual||ownerExit||handoff||nestedJob&&outerQuota)
   ||holdUI&&!windowMode||semantic&&(!idle||windowMode)||(ownerExit||handoff||dual)&&!semantic||handoff&&(ownerExit||dual))
-  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --inner-quota, --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff [--require-export], --window, or --window --hold-ui');
+  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --inner-quota, --idle --semantic [--dual] [--owner-exit], --idle --semantic --dual --owner-exit --restart, --idle --semantic --handoff [--require-export], --window, or --window --hold-ui');
  if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
  else void main();
 }
@@ -157,7 +160,7 @@ async function main(){
  const dir=fs.mkdtempSync(p.join(os.tmpdir(),'ruyi-desktop-lifetime-'));
  const scene=prepareScene(dir),{data,env,actorFile}=scene;
  const exe=p.join(dir,'desktop-lifetime-probe.exe'),csc=p.join(process.env.WINDIR,'Microsoft.NET/Framework64/v4.0.30319/csc.exe');
- let primary,peer,chatClosed=false;
+ let primary,peer,replacement,chatClosed=false;
  const checkpoint=(name,value)=>fs.writeFileSync(p.join(dir,name+'.json'),JSON.stringify(value,null,2)+'\n',{flag:'wx'});
  try{
   let model,profile,profileEnv;
@@ -222,7 +225,7 @@ async function main(){
   }
   const {registered,url}=await readyProbe(primary,windowMode);
   runner.ok(true,'actual serve is assigned to its Job before resume and registered with the same kernel identity');
-  let originals,initial,second,closingRole=registered,exportOutcome;
+  let originals,initial,second,restartBaseline,closingRole=registered,exportOutcome;
   const residentHomes=()=>fs.readdirSync(p.join(profile,'resident-homes'));
   async function observeModel(probe,url,role,parentPid,{otherHomes=[],waitForWarmup=true}={}){
    assert.ok(Number.isSafeInteger(role?.pid)&&role.pid>0&&/^\d+$/.test(role.created),'registered model host identity missing');
@@ -276,6 +279,12 @@ async function main(){
     const firstStatus=await requestJson(url,initial.runtime.token,'/api/status');
     assert.equal(firstStatus.status,200,'first model status while both servers are running');
     assert.equal(firstStatus.value.semanticRuntime?.state,'ready','first model is still ready');
+    if(restart){
+     const root=p.join(profile,'resident-homes');
+     restartBaseline={data:directoryIdentity(scene.data),first:modelHomeIdentity(root,initial.home),
+      peer:modelHomeIdentity(root,second.home)};
+     checkpoint('restart-baseline',restartBaseline);
+    }
     checkpoint('dual-before',{
      first:{ownerPid:child.pid,port:initial.runtime.port,identities:originals},
      second:{ownerPid:peer.child.pid,port:second.runtime.port,identities:second.identities},
@@ -392,11 +401,56 @@ async function main(){
     firstHomePresent,peerHomeUnchanged:true,firstExit:ownerExit?'owner-exit':'normal'});
    runner.ok(true,'closing the first owner leaves the second listener, original worker and resident home ready');
 
+   const retired=new Map();
+   if(restart){
+    const root=p.join(profile,'resident-homes'),priorIdentities=[...initial.identities];
+    const retain=identity=>retired.set(identity.home,snapshotRetiredHome(root,identity));
+    const checkPeer=async otherHomes=>{
+     assertRunning(peer);
+     const live=await observeModel(peer,second.url,second.role,peer.child.pid,{otherHomes,waitForWarmup:false});
+     assert.deepEqual(live.identities,second.identities);
+     assert.ok(live.runtime.token===second.runtime.token);
+     assert.equal(live.home,second.home);
+     assert.deepEqual(modelHomeIdentity(root,second.home),restartBaseline.peer);
+    };
+    retain(restartBaseline.first);
+    for(const attempt of [1,2]){
+     const abrupt=attempt===1;
+     // Start the same ServerHost with the original scene; never regenerate config or remove the stale runtime record.
+     assert.deepEqual(directoryIdentity(scene.data),restartBaseline.data);
+     replacement=startProbe(exe,scene);
+     const ready=await readyProbe(replacement);
+     const current=await observeModel(replacement,ready.url,ready.registered,replacement.child.pid,{otherHomes:[...retired.keys(),second.home]});
+     assert.ok(current.identities.every(row=>!priorIdentities.some(old=>sameProcess(old,row))),'replacement has new process identities');
+     priorIdentities.push(...current.identities);
+     const identity=modelHomeIdentity(root,current.home);
+     assert.deepEqual(residentHomes().sort(),[...retired.keys(),second.home,current.home].sort());
+     assertRetainedHomes(root,retired.values());
+     await checkPeer([...retired.keys(),current.home]);
+     checkpoint('restart-'+attempt+'-ready',{data:directoryIdentity(replacement.data),ownerPid:replacement.child.pid,
+      role:ready.registered,port:current.runtime.port,identities:current.identities,modelHome:identity,
+      retired:[...retired.values()],peer:{port:second.runtime.port,identities:second.identities,home:restartBaseline.peer}});
+     await closeProbe(replacement,abrupt);
+     assertClosed(replacement,ready.registered,abrupt);
+     const remaining=await exitedProcesses(replacement,current.identities);
+     if(abrupt){retain(identity);residue.push(current.home);}
+     assertRetainedHomes(root,retired.values());
+     assert.deepEqual(residentHomes().sort(),[...retired.keys(),second.home].sort());
+     await checkPeer([...retired.keys()]);
+     checkpoint('restart-'+attempt+'-closed',{abrupt,events:replacement.events,terminal:receipt(replacement),
+      remaining,retired:[...retired.values()],peerHome:second.home});
+    }
+    runner.ok(true,'two same-root restarts keep both retired homes intact and the original peer ready; normal close removes the new home');
+   }
    await closeProbe(peer,false);
    checkpoint('peer-events',peer.events);checkpoint('peer-terminal',receipt(peer));
    assertClosed(peer,second.role,false);
    const remaining=await exitedProcesses(peer,second.identities);
-   assert.deepEqual(residentHomes(),residue,'peer close removes only its own model home');
+   assert.deepEqual(residentHomes().sort(),residue.sort(),'peer close removes only its own model home');
+   if(restart){
+    assertRetainedHomes(p.join(profile,'resident-homes'),retired.values());
+    checkpoint('restart-final',{retired:[...retired.values()],peerRemaining:remaining,homes:residentHomes().sort()});
+   }
    checkpoint('dual-complete',{remaining,homeCount:residue.length});
    runner.ok(true,'the second owner independently drains its Job and removes its own model home');
   }
@@ -407,8 +461,9 @@ async function main(){
  }catch(error){
   runner.fail(error.stack||String(error));
   checkpoint('failure',{message:String(error.message),events:primary?.events,...(primary&&receipt(primary)),
-   ...(peer&&{peer:{events:peer.events,...receipt(peer)}})});
-  for(const probe of [primary,peer]){
+   ...(peer&&{peer:{events:peer.events,...receipt(peer)}}),
+   ...(replacement&&{replacement:{events:replacement.events,...receipt(replacement)}})});
+  for(const probe of [primary,peer,replacement]){
    if(probe&&!probe.terminal){const {child}=probe;child.unref();for(const stream of [child.stdin,child.stdout,child.stderr])stream?.unref?.();}
   }
  }finally{console.log('Desktop lifetime evidence: '+dir);runner.done();}
