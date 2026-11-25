@@ -115277,7 +115277,7 @@ function workDataPrepareInfrastructure({normalClose=false}={}){
   if(workDataInfrastructurePhase!=='open'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_unavailable');
   const phase=workDataMaintenance.status().phase;
   if(phase!=='idle'&&!(normalClose&&typeof DesktopLifetimeHooks!=='undefined'&&DesktopLifetimeHooks.normalCloseRequested?.()===true))throw Error('work_data.maintenance_not_idle');
-  workDataInfrastructurePhase='paused';workDataInfrastructureTicket=Object.freeze({});return workDataInfrastructureTicket;
+  workDataInfrastructurePhase='paused';workDataInfrastructureTicket=Object.freeze({normalClose});return workDataInfrastructureTicket;
 }
 function workDataResumeInfrastructure(ticket){
   if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
@@ -115287,6 +115287,13 @@ async function workDataCloseInfrastructure(ticket){
   if(ticket!==workDataInfrastructureTicket||workDataInfrastructurePhase!=='paused'||workDataInfrastructureFailureSet)throw Error('work_data.maintenance_infrastructure_uncertain');
   workDataInfrastructurePhase='closing';
   try{
+    // Desktop normal close already stops the model before preparing this ticket.
+    // For a maintenance handoff, wait for the model while the old owner is alive.
+    if(!ticket.normalClose&&typeof SemanticRuntimeHooks!=='undefined'&&typeof SemanticRuntimeHooks.shutdown==='function'){
+      const semantic=await SemanticRuntimeHooks.shutdown();
+      if(semantic?.cleanupStatus!=='observed'||semantic?.workerExited!==true||semantic.cleanupFailed===true)
+        throw Object.assign(Error('work_data.maintenance_infrastructure_uncertain'),{code:'work_data.maintenance_infrastructure_uncertain'});
+    }
     PrivacyLocalDriveProbe.stopSync();
     await ToolboxHooks.stopAll();stopKimiModelProbes();await stopKimiServer({shutdown:true});
     killAllMcpClients();killAllShellSessions();
@@ -116822,7 +116829,9 @@ const WorkDataMaintenanceWorker = ((cryptoApi, pathApi, io) => {
     // that libuv job; this does NOT request CREATE_BREAKAWAY_FROM_JOB. An outer
     // desktop job is inherited and still kills the worker when the app closes.
     return require('node:child_process').spawn(command.command, command.args, {
-      env, detached: process.platform === 'win32', windowsHide: true,
+      // pkg otherwise passes its own executable path and interprets the
+      // private command as a script path. Re-enter the packaged app.
+      env: { ...env, PKG_EXECPATH: '' }, detached: process.platform === 'win32', windowsHide: true,
       stdio: ['pipe', 'ignore', 'ignore', 'ipc'],
     });
   }

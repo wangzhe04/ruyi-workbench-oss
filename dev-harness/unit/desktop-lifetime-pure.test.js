@@ -172,10 +172,11 @@ test('Toolbox desktop stop waits for startup and owned close without killing an 
   assert.deepEqual(kills,[123]);assert.equal(done,false);releaseStart();await tick();assert.equal(done,false);assert.equal(own.stopping,true);
   releaseClose();await pending;assert.deepEqual(kills,[123]);assert.equal(own.stopping,false);assert.equal(adopted.stopping,false);
 });
-function infrastructureFixture(){
+function infrastructureFixture(semantic){
   const maintenance=fs.readFileSync(path.join(__dirname,'../../ruyi-workbench/app/src/13ag-work-data-maintenance.js'),'utf8');
   const hooks={},events=[],state={phase:'idle',normal:false};
   const context={WorkDataMaintenanceHooks:hooks,workDataMaintenance:{status:()=>({phase:state.phase})},DesktopLifetimeHooks:{normalCloseRequested:()=>state.normal},
+    SemanticRuntimeHooks:semantic,
     PrivacyLocalDriveProbe:{stopSync:()=>events.push('drive')},ToolboxHooks:{stopAll:async()=>events.push('toolbox')},
     stopKimiModelProbes:()=>events.push('probes'),stopKimiServer:async()=>events.push('kimi'),killAllMcpClients:()=>events.push('mcp'),killAllShellSessions:()=>events.push('shell')};
   const block=sliceBlock(maintenance,'// Completion obligations belong','WorkDataMaintenanceHooks.deferStewardWake');assert.ok(block.length>1500);
@@ -188,11 +189,26 @@ test('shared maintenance pause is reversible without stopping or replacing resid
   f.hooks.resumeInfrastructure(ticket);f.hooks.admitHelper();assert.deepEqual(f.events,[]);
 });
 test('ordinary CLI maintenance closes the same owned infrastructure and waits for close rather than exit',async()=>{
-  const f=infrastructureFixture(),child=new EventEmitter();child.pid=123;f.hooks.trackChild(child);
+  let observeWorkerExit;
+  const observedWorkerExit=new Promise(resolve=>{observeWorkerExit=resolve;});
+  const f=infrastructureFixture({shutdown:()=>{f.events.push('semantic');return observedWorkerExit;}});
+  const child=new EventEmitter();child.pid=123;f.hooks.trackChild(child);
   const ticket=f.hooks.prepareInfrastructure();let done=false;const pending=f.hooks.closeInfrastructure(ticket).then(()=>{done=true;});await tick();
-  assert.deepEqual(f.events,['drive','toolbox','probes','kimi','mcp','shell']);child.emit('exit',0);await tick();assert.equal(done,false);
+  assert.deepEqual(f.events,['semantic']);assert.equal(done,false);
+  observeWorkerExit({cleanupStatus:'observed',workerExited:true});await tick();
+  assert.deepEqual(f.events,['semantic','drive','toolbox','probes','kimi','mcp','shell']);child.emit('exit',0);await tick();assert.equal(done,false);
   child.emit('close',0);await pending;assert.equal(done,true);assert.throws(()=>f.hooks.resumeInfrastructure(ticket),/infrastructure_uncertain/);
   assert.throws(()=>f.hooks.admitHelper(),{code:'work_data.maintenance_busy'});
+});
+test('maintenance retains infrastructure on an unobserved model exit or failed resident home cleanup',async()=>{
+  for(const outcome of [{cleanupStatus:'unknown',workerExited:false},{cleanupStatus:'observed',workerExited:true,cleanupFailed:true}]){
+    const f=infrastructureFixture({shutdown:async()=>outcome});
+    const ticket=f.hooks.prepareInfrastructure();
+    await assert.rejects(f.hooks.closeInfrastructure(ticket),{code:'work_data.maintenance_infrastructure_uncertain'});
+    assert.deepEqual(f.events,[]);
+    assert.equal(f.hooks.helperMayStillRun(),true);
+    assert.throws(()=>f.hooks.resumeInfrastructure(ticket),/infrastructure_uncertain/);
+  }
 });
 test('shared no-PID launch failure can settle, but a known child error permanently retains uncertainty including null',async()=>{
   const f=infrastructureFixture(),missing=new EventEmitter();f.hooks.trackChild(missing);missing.emit('error',Error('no launch'));assert.equal(f.hooks.helperMayStillRun(),false);
@@ -200,9 +216,11 @@ test('shared no-PID launch failure can settle, but a known child error permanent
   assert.equal(f.hooks.helperMayStillRun(),true);child.emit('close',0);assert.equal(f.hooks.helperMayStillRun(),true);
   assert.throws(()=>f.hooks.prepareInfrastructure(),/infrastructure_unavailable/);assert.throws(()=>f.hooks.admitHelper(),{code:'work_data.maintenance_busy'});
 });
-test('a normal close may stop active owners only under the authenticated desktop close phase',()=>{
-  const f=infrastructureFixture();f.state.phase='waiting';assert.throws(()=>f.hooks.prepareInfrastructure({normalClose:true}),/not_idle/);
-  f.state.normal=true;assert.ok(f.hooks.prepareInfrastructure({normalClose:true}));
+test('a normal close may stop active owners only under the authenticated desktop close phase',async()=>{
+  const f=infrastructureFixture({shutdown:()=>assert.fail('desktop already stopped its model')});
+  f.state.phase='waiting';assert.throws(()=>f.hooks.prepareInfrastructure({normalClose:true}),/not_idle/);
+  f.state.normal=true;await f.hooks.closeInfrastructure(f.hooks.prepareInfrastructure({normalClose:true}));
+  assert.deepEqual(f.events,['drive','toolbox','probes','kimi','mcp','shell']);
 });
 function setupInfrastructureFixture(){
   const setup=fs.readFileSync(path.join(__dirname,'../../ruyi-workbench/app/src/13ah-work-data-setup.js'),'utf8');

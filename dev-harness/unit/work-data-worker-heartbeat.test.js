@@ -14,6 +14,20 @@ const id='a'.repeat(48),backup=path.join(scratch,'backups');
 const tick=async()=>{for(let n=0;n<12;n++)await Promise.resolve();};
 const request=()=>({id,operation:'export',password:'synthetic password only',expectedAuthority:{generation:0,id:null,mode:'plain',sha256:null},backupDirectory:backup});
 
+test('private child spawn keeps the packaged application entry point and IPC',()=>{
+ const spawned={};
+ const worker=vm.runInNewContext(source+'\nWorkDataMaintenanceWorker;',{
+  process,require:name=>name==='node:child_process'?{spawn:(command,args,options)=>Object.assign(spawned,{command,args,options})}:require(name)
+ });
+ const env={RUYI_HOME:base,PKG_EXECPATH:'Ruyi.exe'};
+ assert.equal(worker.spawnCold({command:'Ruyi.exe',args:['work-data-maintenance']},env),spawned);
+ assert.equal(spawned.command,'Ruyi.exe');
+ assert.deepEqual(spawned.args,['work-data-maintenance']);
+ assert.deepEqual({...spawned.options.env},{RUYI_HOME:base,PKG_EXECPATH:''});
+ assert.deepEqual([...spawned.options.stdio],['pipe','ignore','ignore','ipc']);
+ assert.equal(env.PKG_EXECPATH,'Ruyi.exe');
+});
+
 function parentFixture({claim}={}){
  const timers=new Map();let sequence=0,captured=null;const sent=[];
  const child=new EventEmitter();child.pid=333;child.stdin=new EventEmitter();

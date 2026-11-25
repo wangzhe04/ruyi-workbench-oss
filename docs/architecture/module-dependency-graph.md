@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4458 | 4401 | 972 | 67 | 0 | 1 |
+| 145 | 4458 | 4402 | 972 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -136,7 +136,7 @@
 | 118 | `13ad-memory-cli-relay.js` | unclassified | 1 | 24 | 9 |
 | 119 | `13ae-cli-business-services.js` | unclassified | 6 | 62 | 13 |
 | 120 | `13af-internal-mcp-relay.js` | unclassified | 1 | 36 | 14 |
-| 121 | `13ag-work-data-maintenance.js` | unclassified | 19 | 90 | 26 |
+| 121 | `13ag-work-data-maintenance.js` | unclassified | 19 | 91 | 26 |
 | 122 | `13at-work-data-restore-uploads.js` | unclassified | 1 | 1 | 1 |
 | 123 | `13av-work-data-handoff-claim.js` | unclassified | 1 | 0 | 0 |
 | 124 | `13ah-work-data-setup.js` | unclassified | 6 | 32 | 13 |
@@ -668,7 +668,7 @@
 | `13af-internal-mcp-relay.js` | `10-context-governance.js` | backward | `truncateToolResult` |
 | `13af-internal-mcp-relay.js` | `13ae-cli-business-services.js` | backward | `cliAgentLaunchService`, `cliAgentResultService`, `cliMissionService`, `cliPermissionService`, `cliQuestionService`, `cliTodoService` |
 | `13af-internal-mcp-relay.js` | `13f-native-tool-schemas.js` | backward | `MCP_TOOLS` |
-| `13ag-work-data-maintenance.js` | `00-boot.js` | backward | `DesktopLifetimeHooks`, `InternalMcpHooks`, `MediaImageHooks`, `MemoryCliHooks`, `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `fs`, `paths`, `usageLedgerChain` |
+| `13ag-work-data-maintenance.js` | `00-boot.js` | backward | `DesktopLifetimeHooks`, `InternalMcpHooks`, `MediaImageHooks`, `MemoryCliHooks`, `SemanticRuntimeHooks`, `SessionFullTextHooks`, `WorkDataMaintenanceHooks`, `fs`, `paths`, `usageLedgerChain` |
 | `13ag-work-data-maintenance.js` | `01-config.js` | backward | `configMutateChain`, `configWriteChain`, `kimiMcpSyncChains`, `sessionWriteChains` |
 | `13ag-work-data-maintenance.js` | `02-session-store.js` | backward | `flushSessionIndex`, `inflightSessionIndex`, `interventionWriteChains`, `journalRevertChains`, `journalWriteChains`, `missionChangeWriteChains`, `missionContainerChains`, `pendingSessionIndex`, `sessionIndexChain`, `sessionIndexFlushTimer`, `sessionIndexRebuildsActive`, `sessionMetaDeferChains`, `sessionMutateChains`, `sessionNotesWriteChains`, `sessionScratchpadChains` |
 | `13ag-work-data-maintenance.js` | `03b-privacy-local-drive.js` | backward | `PrivacyLocalDriveProbe` |

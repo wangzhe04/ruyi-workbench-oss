@@ -5,7 +5,7 @@
   "summary": {
     "modules": 145,
     "providedSymbols": 4458,
-    "requiredSymbols": 4401,
+    "requiredSymbols": 4402,
     "edges": 972,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -29984,6 +29984,13 @@
         },
         {
           "provider": "00-boot.js",
+          "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
           "symbol": "SessionFullTextHooks",
           "kinds": [
             "read"
@@ -42531,6 +42538,7 @@
         "InternalMcpHooks",
         "MediaImageHooks",
         "MemoryCliHooks",
+        "SemanticRuntimeHooks",
         "SessionFullTextHooks",
         "WorkDataMaintenanceHooks",
         "fs",
