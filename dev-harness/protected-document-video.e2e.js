@@ -7,12 +7,13 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const { parseArgs } = require('node:util');
+const { createHash } = require('node:crypto');
 const { inflateSync } = require('node:zlib');
 const { createRunner } = require('./lib/harness');
 const { startFakeProvider, toolCallFrames, textFrames } = require('./lib/fake-openai-provider');
 const { startFakeAnthropic, messageEvents } = require('./lib/fake-anthropic-provider');
 const { releaseEnvironment } = require('./lib/release-checks');
-const { makeVideoFixture, audioCanary, metadataCanary } = require('./lib/media-video-fixture');
+const { makeVideoFixture, colors, audioCanary, metadataCanary } = require('./lib/media-video-fixture');
 const { protectedPdf, protectedDocx, protectedPptx, protectedXlsx, protectedOdf } = require('./lib/protected-document-fixtures');
 
 const runner = createRunner('PROTECTED DOCUMENT VIDEO');
@@ -22,12 +23,11 @@ function images(body) {
     .flatMap(message => message.content.filter(item => item.type === 'image_url').map(item => item.image_url.url));
 }
 
-function hasOpaqueMask(url, region, office = false) {
-  // The production derivative uses RGB PNG, filter zero, and no source chunks.
-  // The fixture draws one ordinary word. Eight successive horizontal runs of
-  // 64 black pixels establish a filled redaction rectangle, beyond any glyph.
+function readWireRgbPng(url) {
+  // The production derivative uses eight-bit RGB and zero-filter scanlines.
   const png = Buffer.from(url.split(',')[1], 'base64');
   const width = png.readUInt32BE(16), height = png.readUInt32BE(20), stride = 1 + width * 3;
+  assert.deepEqual([...png.subarray(24, 29)], [8, 2, 0, 0, 0]);
   const chunks = [];
   for (let at = 8; at + 12 <= png.length;) {
     const length = png.readUInt32BE(at);
@@ -35,19 +35,44 @@ function hasOpaqueMask(url, region, office = false) {
     at += length + 12;
   }
   const raw = inflateSync(Buffer.concat(chunks), { maxOutputLength: stride * height });
+  assert.equal(raw.length, stride * height);
+  for (let y = 0; y < height; y++) assert.equal(raw[y * stride], 0);
+  return { width, height, stride, raw };
+}
+
+function assertVideoFrame(url, rgb) {
+  const { width, height, stride, raw } = readWireRgbPng(url);
+  assert.deepEqual([width, height], [32, 32], 'wire frame matches the AVI fixture dimensions');
+  const expectedRow = Buffer.alloc(width * 3, Buffer.from(rgb));
+  for (let y = 0; y < height; y++) {
+    assert.deepEqual(raw.subarray(y * stride + 1, (y + 1) * stride), expectedRow, 'wrong sampled video frame');
+  }
+}
+
+// SHA-256 of a 960x32 white RGB strip with just the named public text drawn
+// at (36,0) using the locked Pillow default font at 24px.
+const publicLineHashes = {
+  'Quarterly contact': '4de6da53c9403344290c45dd3ceb19b1a2636cb14a8608d6c6b1f23e4f0f858d',
+  'A1: Sheet contact': 'c7ade3d0e935b69fae71672e855f59a9a0573966b5bc8b7a4646e2d777b0255b',
+  'ODF contact': '3872a86b8051078ecd3f2d453d78c48608147e9eb55566b78778d57b64ac60db'
+};
+
+function hasOpaqueMask(url, region, publicLine) {
+  // Eight successive runs of 64 black pixels establish a filled rectangle beyond any glyph.
+  const { width, height, stride, raw } = readWireRgbPng(url);
   const pixel = (x, y) => y * stride + 1 + x * 3;
   const isRgb = (offset, value) => raw[offset] === value && raw[offset + 1] === value && raw[offset + 2] === value;
-  if (office) {
+  if (publicLine !== undefined) {
     if (width !== 960 || height !== 1200 || !isRgb(pixel(900, 1100), 255)) return false;
-    // The public prefix starts at x=36, y=64; the email appears later on this
-    // line. Require actual public glyph ink and gaps to survive independently
-    // of the filled mask rectangle detected below.
-    let publicInk = 0, publicWhite = 0;
-    for (let y = 64; y < 96; y++) for (let x = 36; x < 130; x++) {
-      if (isRgb(pixel(x, y), 0)) publicInk++;
-      if (isRgb(pixel(x, y), 255)) publicWhite++;
+    // Independent unmasked reference from the fixture font at (36,64) and
+    // (36,96). The entire email occupies x=36..412, y=102..124 on line two.
+    const line = createHash('sha256');
+    for (let y = 64; y < 96; y++) line.update(raw.subarray(y * stride + 1, (y + 1) * stride));
+    if (line.digest('hex') !== publicLineHashes[publicLine]) return false;
+    for (let y = 102; y < 125; y++) for (let x = 36; x < 413; x++) {
+      if (!isRgb(pixel(x, y), 0)) return false;
     }
-    if (publicInk < 5 || publicWhite < 20) return false;
+    return true;
   }
   if (region) {
     // The 2× PDF fixture must retain its white background and cover the entire
@@ -292,7 +317,7 @@ async function main() {
     const email = 'synthetic-customer@example.com';
     const keyword = 'CONFIDENTIAL';
     const video = makeVideoFixture(), pdf = protectedPdf({ text: keyword }), docx = protectedDocx({ text: 'Quarterly contact ' + email });
-    const hidden = protectedDocx({ hidden: true });
+    const hidden = protectedDocx({ hidden: true }), wideToken = protectedDocx({ text: 'W'.repeat(150) });
     const concealed = full ? [
       { path: 'shaded.docx', bytes: protectedDocx({ shaded: true, text: 'UNEXPOSED SHADED RUN' }), layer: 'unhandled-text-display' },
       { path: 'shadowed.docx', bytes: protectedDocx({ shadowedColor: true, text: 'UNEXPOSED WHITE RUN' }), layer: 'ambiguous-attributes' },
@@ -316,6 +341,7 @@ async function main() {
     await Promise.all([
       fs.writeFile(path.join(workspace, 'sample.avi'), video), fs.writeFile(path.join(workspace, 'sample.pdf'), pdf),
       fs.writeFile(path.join(workspace, 'sample.docx'), docx), fs.writeFile(path.join(workspace, 'hidden.docx'), hidden),
+      fs.writeFile(path.join(workspace, 'wide-token.docx'), wideToken),
       fs.writeFile(path.join(workspace, 'follow-up.txt'), 'Synthetic follow-up after the visual request.'),
       ...concealed.map(item => fs.writeFile(path.join(workspace, item.path), item.bytes)),
       ...(slide ? [fs.writeFile(path.join(workspace, 'sample.pptx'), slide)] : []),
@@ -353,7 +379,9 @@ async function main() {
       { args: { path: 'sample.avi', as: 'image', startSeconds: 0.25, frameCount: 2, intervalSeconds: 0.5 }, bytes: video, label: 'video samples', visual: true },
       ...(full ? [
         { args: { path: 'sample.docx' }, bytes: docx, label: 'DOCX text', text: 'Quarterly contact ' },
-        { args: { path: 'sample.docx', as: 'image' }, bytes: docx, label: 'DOCX reflow preview / subagent', visual: true, subagent: true, projection: 'office-content-preview' },
+        { args: { path: 'sample.docx', as: 'image' }, bytes: docx, label: 'DOCX reflow preview / subagent', visual: true, subagent: true, projection: 'office-content-preview', publicLine: 'Quarterly contact' },
+        { args: { path: 'wide-token.docx', as: 'image' }, label: 'unrenderable Office token',
+          bytes: wideToken, refusal: 'document_render_unavailable' },
         { args: { path: 'hidden.docx', as: 'image' }, bytes: hidden, label: 'hidden DOCX', refusal: 'document_hidden_content' },
         ...concealed.map(item => ({ args: { path: item.path }, bytes: item.bytes, label: item.path,
           refusal: 'document_hidden_content', layer: item.layer })),
@@ -361,7 +389,7 @@ async function main() {
         ...officeCases.map(item => ({ ...item, args: { path: item.path }, label: item.path + ' protected text' })),
         ...officeCases.map(item => ({ ...item, text: undefined, args: { path: item.path, as: 'image' },
           label: item.path + ' protected preview', ...(item.refusal ? {} : item.path === 'non-ascii.odt'
-            ? { refusal: 'document_render_unavailable' } : { visual: true, projection: 'office-content-preview', officeMask: true }) })),
+            ? { refusal: 'document_render_unavailable' } : { visual: true, projection: 'office-content-preview', publicLine: item.text?.trimEnd() }) })),
       ] : []),
     ];
     for (plan of cases) {
@@ -399,11 +427,14 @@ async function main() {
       }
       if (plan.projection) assert.equal(receipt.projection, plan.projection);
       if (plan.mask) assert.ok(hasOpaqueMask(sent[0]), 'wire PNG covers the synthetic literal with an opaque pixel rectangle');
-      if (plan.officeMask) assert.ok(hasOpaqueMask(sent[0], undefined, true), 'Office preview masks the email while retaining public prefix pixels and white background');
+      if (plan.publicLine) assert.ok(hasOpaqueMask(sent[0], undefined, plan.publicLine), 'Office preview masks the email while retaining public prefix pixels and white background');
       if (plan.text) assert.ok(receipt.content.startsWith(plan.text) && !receipt.content.includes(email));
       if (!plan.refusal && !plan.visual) for (const expected of plan.requiredText || []) assert.ok(receipt.content.includes(expected), expected);
       if (plan.args.frameCount) {
         assert.deepEqual(receipt.coverage.sampledSeconds, [0.25, 0.75]);
+        // The independent four-fps AVI fixture puts green and yellow at those times.
+        assertVideoFrame(sent[0], colors[1]);
+        assertVideoFrame(sent[1], colors[3]);
         assert.equal(receipt.coverage.fullVideo, false);
       }
       const wire = JSON.stringify(captured), saved = JSON.stringify(await app.loadSession(session.id)), projected = JSON.stringify(events);

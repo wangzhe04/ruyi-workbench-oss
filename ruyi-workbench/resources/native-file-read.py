@@ -762,7 +762,13 @@ def office_preview(text, opts):
     columns = max(1, 880 // (math.ceil(max(font.getlength(chr(i)) for i in range(32, 127))) + 1))
     lines = []
     for line in text.split('\n'):
-        lines.extend(textwrap.wrap(line.expandtabs(4), width=columns, replace_whitespace=False) or [''])
+        # OCR checks each rendered line. Keep identifiers such as hyphenated email
+        # addresses intact so their prefixes cannot leave the page unmasked.
+        wrapped = textwrap.wrap(line.expandtabs(4), width=columns, replace_whitespace=False,
+                                break_long_words=False, break_on_hyphens=False)
+        if any(len(part) > columns and font.getlength(part) > 880 for part in wrapped):
+            raise ProjectionRefusal('document_render_unavailable')
+        lines.extend(wrapped or [''])
     total = max(1, math.ceil(len(lines) / 34))
     if total > MAX_PAGES:
         raise ProjectionRefusal('document_projection_limit')

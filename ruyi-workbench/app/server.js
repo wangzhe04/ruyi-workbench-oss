@@ -121618,7 +121618,7 @@ const MediaImageHost = (() => {
   }
   const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
   const localHelperHashes = Object.freeze({
-    'native-file-read.py': '6a307d73f881492718356fe139635d35f49c321dd951711daf6d8baef300e9ea',
+    'native-file-read.py': 'b5f8498df7b948c59dbe4a9631725f32eca4da12baea6d25c86fc2606fd1868a',
     'native-video-read.py': '91cbfce6403de135c72908e9f8e0ea900d720c5d9c36bcad980084d936f82ab9',
   });
   const localPythonStartupHashes = Object.freeze({
