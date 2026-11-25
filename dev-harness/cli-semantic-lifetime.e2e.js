@@ -105,13 +105,14 @@ async function observeReady(scene, entry, pid, stopped) {
   assert.equal(runtime.launchMode, entry.launchMode, 'runtime uses the requested production entry');
   const warmupMs = 30000, deadline = Date.now() + warmupMs;
   await waitFor(async () => {
-    const remaining = Math.max(1, deadline - Date.now());
+    const remaining = deadline - Date.now();
+    if (remaining <= 0) return false;
     const response = await requestJson('http://127.0.0.1:' + runtime.port, runtime.token, '/api/status', undefined, remaining);
     assert.equal(response.status, 200, 'semantic status HTTP');
     assert.equal(response.value.isPkg, entry.launchMode === 'exe', 'status confirms the packaged or Node runtime');
     const { semanticRuntime } = response.value;
     assert.ok(['loading', 'ready'].includes(semanticRuntime?.state), 'semantic status: ' + JSON.stringify(semanticRuntime));
-    return semanticRuntime.state === 'ready';
+    return semanticRuntime.state === 'ready' && Date.now() <= deadline;
   }, warmupMs, 'real EmbeddingGemma 2 warmup', stopped);
   return runtime;
 }

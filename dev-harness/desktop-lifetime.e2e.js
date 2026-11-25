@@ -158,12 +158,13 @@ async function main(){
    assert.equal(runtime.port,Number(new URL(url).port),'runtime uses the published port');
    const warmupMs=30000,deadline=Date.now()+warmupMs;
    const ready=async()=>{
-    const timeoutMs=waitForWarmup?Math.max(1,deadline-Date.now()):undefined;
+    const timeoutMs=waitForWarmup?deadline-Date.now():undefined;
+    if(waitForWarmup&&timeoutMs<=0)return false;
     const response=await requestJson(url,runtime.token,'/api/status',undefined,timeoutMs);
     assert.equal(response.status,200,'semantic status HTTP');
     const status=response.value.semanticRuntime;
     if(status?.state!=='loading'&&status?.state!=='ready')throw Error('semantic runtime '+JSON.stringify(status));
-    return status.state==='ready';
+    return status.state==='ready'&&(!waitForWarmup||Date.now()<=deadline);
    };
    if(waitForWarmup)await waitFor(probe,ready,warmupMs,'real semantic startup warmup');
    else assert.ok(await ready(),'peer is ready on the first status sample after the other owner exits');

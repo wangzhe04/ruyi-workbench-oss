@@ -9,6 +9,24 @@ const path = require('path');
 
 const LIB = path.join(__dirname, '..', 'lib', 'harness.js');
 
+it('lifetime status requests reject a slow response even while JSON chunks keep arriving', async t => {
+  const http = require('node:http');
+  const { requestJson } = require('../lib/lifetime-loopback-json.cjs');
+  const server = http.createServer((_req, res) => {
+    res.write('{"ready":');
+    let chunks = 0;
+    const timer = setInterval(() => {
+      if (++chunks === 30) res.end('true}');
+      else res.write(' ');
+    }, 20);
+    res.on('close', () => clearInterval(timer));
+  });
+  await new Promise((resolve, reject) => server.once('error', reject).listen(0, '127.0.0.1', resolve));
+  t.after(() => new Promise(resolve => server.close(resolve)));
+  await assert.rejects(requestJson('http://127.0.0.1:' + server.address().port, 'fixture', '/status', undefined, 250),
+    { message: '/status timeout' });
+});
+
 function runScript(body) {
   const src = `const { createRunner } = require(${JSON.stringify(LIB)});\n${body}`;
   const r = cp.spawnSync(process.execPath, ['-e', src], { encoding: 'utf8', windowsHide: true, timeout: 30000 });

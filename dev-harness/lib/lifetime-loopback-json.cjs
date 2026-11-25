@@ -18,7 +18,8 @@ function requestJson(url, token, route, input, timeoutMs = 5000) {
       response.once('error', reject);
     });
     request.once('error', reject);
-    request.setTimeout(timeoutMs, () => request.destroy(Error(route + ' timeout')));
+    const timer = setTimeout(() => request.destroy(Error(route + ' timeout')), timeoutMs);
+    request.once('close', () => clearTimeout(timer));
     request.end(bytes);
   });
 }
