@@ -7,7 +7,7 @@
 // That path does not claim a mouse/titlebar or Privacy GUI journey.
 // --idle --semantic verifies an explicitly selected local EmbeddingGemma 2.
 // --owner-exit tests abrupt termination of this fixture's console owner.
-// --handoff requests a real export through the production maintenance API.
+// --handoff requests a real export; add --require-export to require a verified, downloadable package.
 // --dual starts a second console owner with its own data root and the same model profile.
 // --idle --nested-job / --outer-quota places only the fixture host in an extra Windows Job.
 // --idle --inner-quota occupies the production Job before assigning a suspended entry sentinel.
@@ -25,6 +25,7 @@ const runner=createRunner('DESKTOP LIFETIME'),root=p.resolve(__dirname,'..'),wb=
 const args=process.argv.slice(2),flags=new Set(args);
 const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has('--hold-ui'),semantic=flags.has('--semantic');
 const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual');
+const requireExport=flags.has('--require-export');
 const nestedJob=flags.has('--nested-job'),outerQuota=flags.has('--outer-quota'),innerQuota=flags.has('--inner-quota');
 if(flags.has('--desktop-app')){
  const resources=flags.has('--resources');
@@ -34,11 +35,12 @@ if(flags.has('--desktop-app')){
   .then(()=>runner.ok(true,'production desktop window, service, model and WebView lifetime verified'))
   .catch(error=>runner.fail(error.stack)).finally(()=>runner.done());
 }else{
- if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual','--nested-job','--outer-quota','--inner-quota'].includes(value))
+ if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--require-export','--dual','--nested-job','--outer-quota','--inner-quota'].includes(value))
+  ||requireExport&&(!handoff||process.platform!=='win32')
   ||innerQuota&&(!idle||flags.size!==2)
   ||(nestedJob||outerQuota)&&(!idle||windowMode||dual||ownerExit||handoff||nestedJob&&outerQuota)
   ||holdUI&&!windowMode||semantic&&(!idle||windowMode)||(ownerExit||handoff||dual)&&!semantic||handoff&&(ownerExit||dual))
-  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --inner-quota, --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --window, or --window --hold-ui');
+  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --inner-quota, --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff [--require-export], --window, or --window --hold-ui');
  if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
  else void main();
 }
@@ -220,7 +222,7 @@ async function main(){
   }
   const {registered,url}=await readyProbe(primary,windowMode);
   runner.ok(true,'actual serve is assigned to its Job before resume and registered with the same kernel identity');
-  let originals,initial,second,closingRole=registered;
+  let originals,initial,second,closingRole=registered,exportOutcome;
   const residentHomes=()=>fs.readdirSync(p.join(profile,'resident-homes'));
   async function observeModel(probe,url,role,parentPid,{otherHomes=[],waitForWarmup=true}={}){
    assert.ok(Number.isSafeInteger(role?.pid)&&role.pid>0&&/^\d+$/.test(role.created),'registered model host identity missing');
@@ -328,6 +330,11 @@ async function main(){
      const {id:resultId,operation,state,backupState}=completed.value.lastResult;
      assert.deepEqual([resultId,operation,state,backupState],[id,'export','verified','present'],'successor reports this verified export');
      result={operation,state,backupState};
+     if(requireExport){
+      const {verifyExportPackage}=require('./lib/desktop-handoff-export.cjs');
+      result.package=await verifyExportPackage({url:successorUrl,token:next.runtime.token,id,backups,data,
+       sourceAuthority:status.value.authority,record:completed.value.lastResult});
+     }
     }else{
      // The production recovery successor also proves the original root and
      // advertises the failed job by ID. Preserve the export failure separately.
@@ -338,6 +345,7 @@ async function main(){
      result={operation,state,error,reason,recovered:isRecovered,operationMayHaveExecuted};
      console.log('Export recovered after '+error+' ('+reason+')');
     }
+    exportOutcome=result;
     checkpoint('handoff-complete',{id,port:next.runtime.port,cold,successor,newProcesses:next.identities,result});
     runner.ok(true,'production maintenance transfers serve to cold and successor in the original Job and reports the submitted job outcome');
     runner.ok(true,'old model and resident home are gone while the same-port successor has a new ready model');
@@ -391,6 +399,10 @@ async function main(){
    assert.deepEqual(residentHomes(),residue,'peer close removes only its own model home');
    checkpoint('dual-complete',{remaining,homeCount:residue.length});
    runner.ok(true,'the second owner independently drains its Job and removes its own model home');
+  }
+  if(requireExport){
+   assert.equal(exportOutcome?.state,'verified','a verified export is required; successor reported '+JSON.stringify(exportOutcome));
+   runner.ok(true,'verified export, durable record and downloaded package agree for this job after the host has closed');
   }
  }catch(error){
   runner.fail(error.stack||String(error));

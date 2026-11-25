@@ -9,6 +9,48 @@ const path = require('path');
 
 const LIB = path.join(__dirname, '..', 'lib', 'harness.js');
 
+it('desktop export proof binds the durable receipt, physical package and authenticated download', async t => {
+  const fs = require('node:fs'), http = require('node:http'), os = require('node:os');
+  const { read } = require('../lib/work-data-production-upload-core');
+  const { verifyExportPackage } = require('../lib/desktop-handoff-export.cjs');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-export-proof-'));
+  t.after(() => fs.rmSync(dir, { recursive: true, force: true }));
+  const id = 'a'.repeat(48), authority = { generation: 0, id: null, mode: 'plain', sha256: null };
+  const file = path.join(dir, 'ruyi-work-data-' + id + '.ruyi-backup');
+  const bytes = Buffer.from('synthetic package');
+  fs.writeFileSync(file, bytes);
+  const disk = read(file).row;
+  const saved = { id, operation: 'export', state: 'verified', authority, sourceAuthority: authority,
+    backup: { path: file, sha256: disk.sha256, bytes: disk.bytes, identity: { dev: disk.dev, ino: disk.ino } } };
+  fs.mkdirSync(path.join(dir, '.work-data'));
+  const resultFile = path.join(dir, '.work-data', 'maintenance-result-v1.json');
+  fs.writeFileSync(resultFile, JSON.stringify(saved));
+  const durable = read(resultFile).row;
+  const record = { ...saved, backupState: 'present', proof: {
+    sha256: durable.sha256, identity: { dev: durable.dev, ino: durable.ino } } };
+  let body = bytes;
+  const server = http.createServer((req, res) => {
+    const matched = req.url === '/api/work-data/results/' + id + '/package' && req.headers['x-wcw-token'] === 'fixture';
+    res.writeHead(matched ? 200 : 403, { 'content-type': 'application/octet-stream', 'content-length': body.length });
+    res.end(body);
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  t.after(() => { server.closeAllConnections(); return new Promise(resolve => server.close(resolve)); });
+  const input = { url: 'http://127.0.0.1:' + server.address().port, token: 'fixture', id, backups: dir, data: dir,
+    sourceAuthority: authority, record };
+  assert.deepEqual(await verifyExportPackage(input), { bytes: bytes.length, sha256: disk.sha256, recordSha256: durable.sha256 });
+  for (const invalid of [undefined, null, {}]) {
+    const matching = { ...record, sourceAuthority: invalid, authority: invalid };
+    await assert.rejects(verifyExportPackage({ ...input, sourceAuthority: invalid, record: matching }), /fresh plaintext authority/);
+  }
+  body = Buffer.from(bytes);
+  body[body.length - 1] ^= 1;
+  await assert.rejects(verifyExportPackage(input), /downloaded export differs/);
+  body = bytes;
+  fs.writeFileSync(resultFile, JSON.stringify({ ...saved, id: 'b'.repeat(48) }));
+  await assert.rejects(verifyExportPackage(input), /durable result/);
+});
+
 it('lifetime status requests reject a slow response even while JSON chunks keep arriving', async t => {
   const http = require('node:http');
   const { requestJson } = require('../lib/lifetime-loopback-json.cjs');
