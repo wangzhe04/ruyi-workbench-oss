@@ -1,7 +1,7 @@
 # 路由清册(第 103 波 103a · 机器生成)
 
 > 由 `dev-harness/route-inventory.js` 生成,`route-inventory.static.e2e.js` 重算比对;手改无效。
-> 判定点 202(精确 175 / 前缀 15 / 正则 12),ROUTE_AUTH 188 条,生成于 2026-11-25T15:17:40.780Z。
+> 判定点 202(精确 175 / 前缀 15 / 正则 12),ROUTE_AUTH 188 条,生成于 2026-11-25T15:29:23.893Z。
 
 鉴权级别:`open` 低敏读 · `origin` 同源 · `token` 始终 token · `token-browser` 浏览器须 token/loopback 须同源 · `body-token` handler 自查 body token · `host-gate` 顶层 host 门(非 /api)。`self` = handler 内另有 tokenOk 纵深自查。
 
@@ -292,7 +292,7 @@
 | POST | `/api/work-data/hygiene/quarantine` | exact | token | 13ah-work-data-setup.js · `handle` | work-data-hygiene-http.test.js, work-data-settings-hygiene.test.js, work-data-hygiene.browser.e2e.js |
 | POST | `/api/work-data/hygiene/undo` | exact | token | 13ah-work-data-setup.js · `handle` | work-data-hygiene-http.test.js, work-data-settings-hygiene.test.js |
 | GET | `/api/work-data/status` | exact | token | 13ah-work-data-setup.js · `handle` | cli-semantic-lifetime.e2e.js, desktop-lifetime.e2e.js, surface-hardening-w2.e2e.js 等 14 件 |
-| GET | `/api/work-data/results/` | prefix | token | 13ah-work-data-setup.js · `handle` | work-data-production-host.test.js, work-data-settings.test.js, work-data-setup.test.js 等 6 件 |
+| GET | `/api/work-data/results/` | prefix | token | 13ah-work-data-setup.js · `handle` | harness.test.js, work-data-production-host.test.js, work-data-settings.test.js 等 7 件 |
 | POST | `/api/work-data/jobs` | exact | token | 13ah-work-data-setup.js · `handle` | cli-semantic-lifetime.e2e.js, desktop-lifetime.e2e.js, surface-hardening-w2.e2e.js 等 20 件 |
 | POST | `/api/work-data/uploads` | exact | token | 13ah-work-data-setup.js · `handle` | external-bots-retry-api.test.js, net-errors.test.js, work-data-hygiene-http.test.js 等 8 件 |
 | GET/POST | `/api/work-data/jobs/` | prefix | token | 13ah-work-data-setup.js · `handle` | desktop-lifetime.e2e.js, work-data-encryption-experimental.test.js, work-data-handoff-status-race.test.js 等 13 件 |

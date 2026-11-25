@@ -2,6 +2,9 @@
 // Real generated host API and two real stdio relay children. All grants, files,
 // tokens and receiver bytes are synthetic and owned by this isolated fixture.
 const fs = require('node:fs'), path = require('node:path'), os = require('node:os'), http = require('node:http'), cp = require('node:child_process');
+const assert = require('node:assert/strict');
+const { AsyncLocalStorage } = require('node:async_hooks');
+const requestContext = new AsyncLocalStorage();
 const { createRunner } = require('./lib/harness');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const { fixture } = require('./lib/privacy-test-fixture');
@@ -58,10 +61,10 @@ function client(issued, extra = {}, internal = false) {
 }
 async function host() {
   server = http.createServer((req, res) => {
-    res.once('close',()=>{if(req.url==='/api/mcp/consumer'&&req.fixtureOp==='request'&&!res.writableEnded)transportClosed.add(req.headers['x-ruyi-mcp-consumer']+':'+typeof req.fixtureMessageId+':'+String(req.fixtureMessageId));});
+    res.once('close',()=>{if(req.url==='/api/mcp/consumer'&&req.fixtureOp==='request'&&!res.writableEnded)transportClosed.add(transportKey(req.headers['x-ruyi-mcp-consumer'],req.fixtureConnectionId,req.fixtureMessageId));});
     // Observe exact owned HTTP bytes without consuming/replacing the request stream.
     const push=req.push, chunks=[];
-    req.push=function(chunk,...rest){ if(chunk)chunks.push(Buffer.from(chunk));else {try{const body=JSON.parse(Buffer.concat(chunks));req.fixtureOp=body.op;req.fixtureMessageId=body.message?.id;observedRequests.push({token:req.headers['x-ruyi-mcp-consumer'],body});}catch{}}return push.call(this,chunk,...rest);};
+    req.push=function(chunk,...rest){ if(chunk)chunks.push(Buffer.from(chunk));else {try{const body=JSON.parse(Buffer.concat(chunks));req.fixtureOp=body.op;req.fixtureConnectionId=body.connectionId;req.fixtureMessageId=body.message?.id;req.fixtureMethod=body.message?.method;observedRequests.push({token:req.headers['x-ruyi-mcp-consumer'],body});}catch{}}return push.call(this,chunk,...rest);};
     const write=res.write;
     res.write=function(chunk,...rest){
       const fault=leaseFaults.get(req.headers['x-ruyi-mcp-consumer']);
@@ -91,11 +94,21 @@ async function host() {
       try { const value=JSON.parse(String(chunk)); if(value.connectionId) openedConnections.push({token:req.headers['x-ruyi-mcp-consumer'],value}); } catch {}
       return end.call(this,chunk,...rest);
     };
-    void app.handleApi(req, res, new URL(req.url, 'http://local').pathname).catch(() => { if (!res.headersSent) res.writeHead(500); res.end('{}'); }); });
+    void requestContext.run(req, () => app.handleApi(req, res, new URL(req.url, 'http://local').pathname)).catch(() => { if (!res.headersSent) res.writeHead(500); res.end('{}'); }); });
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); base = 'http://127.0.0.1:' + server.address().port;
   app.__eval('RUNTIME.token=' + JSON.stringify(adminToken) + ';RUNTIME.port=' + server.address().port + ';RUNTIME.host="127.0.0.1";'); await app.McpConsumers.listen();
 }
 const leaseFaults=new Map(),transportClosed=new Set();
+const transportKey = (token, connectionId, id) => JSON.stringify([token, connectionId, typeof id, id]);
+function initializedConnection(issued, initId) {
+  const matches = observedRequests.filter(({token, body}) => token === issued.token && body.op === 'request'
+    && body.message?.method === 'initialize' && body.message.id === initId);
+  assert.equal(matches.length, 1, 'expected exactly one initialization request from this relay');
+  const id = matches[0].body.connectionId;
+  assert.ok(typeof id === 'string' && openedConnections.some(opened => opened.token === issued.token && opened.value.connectionId === id),
+    'the real host issued this connection before its initialization');
+  return id;
+}
 const resourceStartedAt=performance.now();
 const resourceDeadline=setTimeout(()=>{console.error('FAIL resource protocol whole-case deadline (360s)');for(const lease of ownedLeases)lease.destroy();for(const child of children){try{killOwnTree(child);}catch{}}if(server)server.closeAllConnections();process.exit(1);},360000);
 const bodyText = result => result?.result?.content?.[0]?.text || '';
@@ -109,16 +122,46 @@ function holdRead(name,sessionId){
 }
 async function held(){await until(()=>app.__eval('Boolean(globalThis.__resourceHold?.entered)'),'actual resource snapshot hold');}
 function releaseRead(){app.__eval('globalThis.__resourceHold?.release?.();loadSession=globalThis.__resourceLoad;delete globalThis.__resourceLoad;delete globalThis.__resourceHold');}
-const workers=require('node:worker_threads'),originalEmit=workers.Worker.prototype.emit;let workerHold;
-function holdAck(){workerHold={entered:false,release:null};workers.Worker.prototype.emit=function(event,...args){if(event==='message'&&args[0]?.ready===true&&!workerHold.entered){workerHold.entered=true;workerHold.release=()=>originalEmit.call(this,event,...args);return true;}return originalEmit.call(this,event,...args);};}
-function releaseAck(){workerHold?.release?.();workers.Worker.prototype.emit=originalEmit;workerHold=null;}
+let ackHold;
+function holdAck(issued, connectionId, id) {
+  let resume, restorePersist;
+  const gate = new Promise(resolve => { resume = resolve; });
+  const hold = { entered: false, release() { restoreSnapshot(); restorePersist?.(); resume(); } };
+  // The capability snapshot runs inside the authenticated connection scope. Observe
+  // its real loadSession and hold only this request's completed projection commit.
+  const observeSnapshot = app.__eval(`observe => {
+    const original = loadSession;
+    loadSession = function(...args) { observe(args[0]); return original.apply(this, args); };
+    return () => { loadSession = original; };
+  }`);
+  const restoreSnapshot = observeSnapshot(auditId => {
+    const req = requestContext.getStore();
+    if (auditId !== issued.consumer.auditSessionId || req?.fixtureOp !== 'request' || req.fixtureMethod !== 'resources/subscribe'
+      || req.fixtureConnectionId !== connectionId || req.fixtureMessageId !== id || req.headers['x-ruyi-mcp-consumer'] !== issued.token || restorePersist) return;
+    const context = app.PrivacyGateway.active();
+    if (!context) return;
+    const persist = context.persist;
+    context.persist = async function(...args) {
+      const result = await persist.apply(this, args);
+      if (requestContext.getStore() === req) {
+        restorePersist();
+        hold.entered = true;
+        await gate;
+      }
+      return result;
+    };
+    restorePersist = () => { context.persist = persist; };
+  });
+  ackHold = hold;
+}
+function releaseAck() { ackHold?.release(); ackHold = null; }
 async function setMode(mode){await app.mutateConfig(config=>{config.permissionMode=mode;});}
 async function readResource(c,uri){const reply=await c.send('resources/read',{uri});if(reply.error||!Array.isArray(reply.result?.contents)||!reply.result.contents.length)throw Error('Actual resource read refused');return reply;}
 (async()=>{try{
   await app.mutateConfig(config=>Object.assign(config,{privacyModeV1:'enhanced',privacyRulesV1:[{id:'resource-workspace',kind:'literal',value:workspace,category:'INTERNAL'}],credentialEncryptionV1:true,
     permissionMode:'acceptEdits',defaultWorkspace:workspace,workspaces:[],recentWorkspaces:[],allowOutsideWorkspace:false,providers:[],schedulerEnabledV1:false,stewardEnabledV1:false,includeWorkbenchMcp:false,autoImportClaudeCodeMcp:false,desktopMcp:{enabled:false,autodetect:false}}));
   await host();const first=await create('Resource A'),second=await create('Resource B'),a=client(first),b=client(second);
-  for(const c of [a,b]){const init=await c.send('initialize');ok(init.result?.capabilities?.resources?.subscribe===true,'real stdio advertises fixed-resource subscriptions');}
+  for(const [c,id] of [[a,'initialize-target'],[b,'initialize-peer']]){const init=await c.send('initialize',{},id);ok(init.result?.capabilities?.resources?.subscribe===true,'real stdio advertises fixed-resource subscriptions');}
   const templates=await a.send('resources/templates/list'),template=templates.result?.resourceTemplates?.[0];
   ok(template?.uriTemplate==='ruyi://consumer/{kind}'&&JSON.stringify(template._meta.allowedKinds)===JSON.stringify(['capabilities','workspace']),'nonempty RFC template enumerates precisely host-granted fixed kinds');
   const views=new Map();
@@ -142,12 +185,40 @@ async function readResource(c,uri){const reply=await c.send('resources/read',{ur
   const unsubscribeChangedAt=Date.now();await setMode('acceptEdits');await until(()=>updates(a,CAP)>beforeA,'retained connection subscription');await pause(Math.max(0,17000-(Date.now()-unsubscribeChangedAt)));ok(updates(b,CAP)===beforeB&&updates(a,WORK)===0,'other-connection unsubscribe and exact-URI unsubscribe suppress their notifications');
   const flip=updates(a,CAP);await app.mutateConfig(config=>{config.privacyModeV1='off';});await app.mutateConfig(config=>{config.privacyModeV1='enhanced';});await until(()=>updates(a,CAP)>flip,'policy flipback notification');
   ok(!JSON.stringify(await readResource(a,WORK)).includes(workspace),'policy-flipback notification does not bypass subsequent protected full resource read');
-  // A pending worker is real: only delivery of its ready event is held. The
-  // original worker, regex result, projection, final guard and authentication run.
+  // The empty ACK has no text for the regex worker. The connection still runs
+  // its disclosure projection and must recheck cancellation before emitting it.
   await a.send('resources/unsubscribe',{uri:CAP});await app.mutateConfig(config=>{config.privacyRulesV1.push({id:'resource-ack-regex',kind:'regex',value:'NEVER_RESOURCE_MATCH_123456',category:'INTERNAL'});});
-  holdAck();const pendingId='pending-subscribe',pending=a.send('resources/subscribe',{uri:CAP},pendingId);await until(()=>workerHold.entered,'actual subscribe ACK worker ready hold',2000);
+  const pendingId='pending-subscribe', targetId=initializedConnection(first,'initialize-target');
+  const sibling=client(first), siblingInit=await sibling.send('initialize',{},'initialize-sibling');
+  assert.ok(siblingInit.result?.capabilities?.resources?.subscribe);
+  const siblingId=initializedConnection(first,'initialize-sibling');
+  assert.notEqual(siblingId,targetId,'the same grant opened two real connections');
+  const targetClose=transportKey(first.token,targetId,pendingId), siblingClose=transportKey(first.token,siblingId,pendingId);
+  // The sibling arrives first with the same typed RPC ID while the target hold is armed.
+  holdAck(first,targetId,pendingId);
+  const siblingPending=sibling.send('resources/subscribe',{uri:CAP},pendingId);
+  await until(()=>ackHold.entered||sibling.replyCount(pendingId)===1,'same-grant sibling ACK before target starts',2000);
+  const wrongHold=ackHold.entered;
+  releaseAck();
+  const siblingAck=await siblingPending;
+  assert.deepEqual(siblingAck,{jsonrpc:'2.0',id:pendingId,result:{}},'the sibling receives its own empty subscribe ACK');
+  ok(!wrongHold&&sibling.replyCount(pendingId)===1,
+    'same-grant sibling with the same typed ID receives its real ACK without entering the target hold');
+  await sibling.send('resources/unsubscribe',{uri:CAP});
+  // Produce an actual abort on that sibling. Its receipt cannot satisfy the target wait.
+  holdAck(first,siblingId,pendingId);
+  const siblingCancelled=sibling.send('resources/subscribe',{uri:CAP},pendingId);
+  await until(()=>ackHold.entered,'same-grant sibling disclosure commit hold',2000);
+  sibling.notify('notifications/cancelled',{requestId:pendingId});
+  await until(()=>transportClosed.has(siblingClose),'same-grant sibling transport closed',2000);
+  releaseAck();
+  const siblingRefusal=await siblingCancelled;
+  ok(siblingRefusal.error&&!siblingRefusal.result&&sibling.replyCount(pendingId)===2&&!transportClosed.has(targetClose),
+    'same-grant sibling abort with the same typed ID records only the sibling close');
+  await killOwnTree(sibling.child);
+  holdAck(first,targetId,pendingId);const pending=a.send('resources/subscribe',{uri:CAP},pendingId);await until(()=>ackHold.entered,'actual subscribe ACK disclosure commit hold',2000);
   const duplicate=await a.send('resources/subscribe',{uri:CAP});ok(duplicate.error&&/subscription_pending/.test(duplicate.error.message),'duplicate while first ACK pending cannot falsely succeed');
-  a.notify('notifications/cancelled',{requestId:pendingId});await until(()=>transportClosed.has(first.token+':string:'+pendingId),'exact host subscription response observes abort before ACK release',2000);releaseAck();const cancelled=await pending;ok(Boolean(cancelled.error)&&!cancelled.result,'cancelled first subscribe has one refusal and no successful ACK after exact host abort');
+  a.notify('notifications/cancelled',{requestId:pendingId});await until(()=>transportClosed.has(targetClose),'exact host subscription response observes abort before ACK release',2000);releaseAck();const cancelled=await pending;ok(Boolean(cancelled.error)&&!cancelled.result,'cancelled first subscribe has one refusal and no successful ACK after exact host abort');
   await app.mutateConfig(config=>{config.privacyRulesV1=config.privacyRulesV1.filter(rule=>rule.id!=='resource-ack-regex');});
   const cancelledCount=updates(a,CAP);await setMode('dontAsk');await pause(17000);ok(updates(a,CAP)===cancelledCount&&a.replyCount(pendingId)===1,'cancelled subscription remains absent across a real changed-content heartbeat');
   await a.send('resources/subscribe',{uri:CAP});holdRead('ABA',first.consumer.auditSessionId);await setMode('acceptEdits');await held();
