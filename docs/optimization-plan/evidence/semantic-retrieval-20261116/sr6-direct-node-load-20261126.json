@@ -1,0 +1,229 @@
+{
+  "schema": 1,
+  "observedLocalDate": "2026-11-26",
+  "sourceCommit": "de89be2d35a14f79996a7cc1ec1a48171d0c1f06",
+  "configuration": {
+    "platform": "Windows",
+    "windowsBuild": "10.0.26300",
+    "nodeVersion": "v24.14.1",
+    "entry": "node ruyi-workbench/app/server.js serve (hidden)",
+    "model": "embeddinggemma-2-text-q4",
+    "profileLockSHA256": "09eab2d159cc99de767dc34afaafb75b4b446791927d8dd656bb30db2eb518a9",
+    "modelFingerprint": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "expectedDimensions": 768,
+    "corpus": "one synthetic session; two search fragments",
+    "offeredLoad": "serial fresh queries with a unique numeric suffix and 550 ms pause following each response"
+  },
+  "scope": "One hidden direct Node service and its pinned model on a shared host. No desktop, full-machine attribution, long-term stability, quality or performance threshold was tested. Each sampled PID and parent were checked against the original Windows creation identity.",
+  "measurement": {
+    "totalMs": 323377.892,
+    "sampleCount": 50,
+    "counterSource": "Win32_PerfRawData_PerfProc_Process, same tick for both roles. Working set and private commit are distinct. Phase CPU deltas span only the first through last sample shown.",
+    "phases": [
+      {
+        "phase": "idle",
+        "startUtc": "2026-11-25T16:46:46.084Z",
+        "endUtc": "2026-11-25T16:47:58.549Z",
+        "durationMs": 72464.491,
+        "samples": 11,
+        "firstSampleUtc": "2026-11-25T16:46:53.367Z",
+        "lastSampleUtc": "2026-11-25T16:47:58.203Z",
+        "sampleSpanMs": 64836.0,
+        "processes": {
+          "service": {
+            "workingSetBytes": {
+              "first": 98746368,
+              "peak": 98746368,
+              "last": 88444928
+            },
+            "privateCommitBytes": {
+              "first": 102748160,
+              "peak": 102748160,
+              "last": 92094464
+            },
+            "cpuUserPlusKernelDeltaMs": 0.0,
+            "threadsMinMax": [
+              17,
+              20
+            ]
+          },
+          "model": {
+            "workingSetBytes": {
+              "first": 314105856,
+              "peak": 314105856,
+              "last": 313827328
+            },
+            "privateCommitBytes": {
+              "first": 308043776,
+              "peak": 308310016,
+              "last": 308199424
+            },
+            "cpuUserPlusKernelDeltaMs": 156.25,
+            "threadsMinMax": [
+              15,
+              18
+            ]
+          }
+        },
+        "availablePhysicalMemoryBytesMinMax": [
+          42227220480,
+          42411921408
+        ],
+        "completedModelQueries": 1
+      },
+      {
+        "phase": "queries",
+        "startUtc": "2026-11-25T16:47:58.549Z",
+        "endUtc": "2026-11-25T16:51:04.049Z",
+        "durationMs": 185500.409,
+        "samples": 28,
+        "firstSampleUtc": "2026-11-25T16:48:04.637Z",
+        "lastSampleUtc": "2026-11-25T16:51:00.071Z",
+        "sampleSpanMs": 175434.0,
+        "processes": {
+          "service": {
+            "workingSetBytes": {
+              "first": 94351360,
+              "peak": 127569920,
+              "last": 127569920
+            },
+            "privateCommitBytes": {
+              "first": 99213312,
+              "peak": 136986624,
+              "last": 136986624
+            },
+            "cpuUserPlusKernelDeltaMs": 5453.125,
+            "threadsMinMax": [
+              15,
+              17
+            ]
+          },
+          "model": {
+            "workingSetBytes": {
+              "first": 315195392,
+              "peak": 316583936,
+              "last": 316583936
+            },
+            "privateCommitBytes": {
+              "first": 309280768,
+              "peak": 310378496,
+              "last": 310378496
+            },
+            "cpuUserPlusKernelDeltaMs": 138343.75,
+            "threadsMinMax": [
+              15,
+              15
+            ]
+          }
+        },
+        "availablePhysicalMemoryBytesMinMax": [
+          42278465536,
+          42356998144
+        ],
+        "completedModelQueries": 295
+      },
+      {
+        "phase": "recovery-idle",
+        "startUtc": "2026-11-25T16:51:04.049Z",
+        "endUtc": "2026-11-25T16:52:09.462Z",
+        "durationMs": 65412.951,
+        "samples": 11,
+        "firstSampleUtc": "2026-11-25T16:51:06.513Z",
+        "lastSampleUtc": "2026-11-25T16:52:09.307Z",
+        "sampleSpanMs": 62794.0,
+        "processes": {
+          "service": {
+            "workingSetBytes": {
+              "first": 127254528,
+              "peak": 127385600,
+              "last": 127385600
+            },
+            "privateCommitBytes": {
+              "first": 136851456,
+              "peak": 136925184,
+              "last": 136925184
+            },
+            "cpuUserPlusKernelDeltaMs": 0.0,
+            "threadsMinMax": [
+              14,
+              16
+            ]
+          },
+          "model": {
+            "workingSetBytes": {
+              "first": 316583936,
+              "peak": 316727296,
+              "last": 316727296
+            },
+            "privateCommitBytes": {
+              "first": 310378496,
+              "peak": 310456320,
+              "last": 310456320
+            },
+            "cpuUserPlusKernelDeltaMs": 0.0,
+            "threadsMinMax": [
+              14,
+              17
+            ]
+          }
+        },
+        "availablePhysicalMemoryBytesMinMax": [
+          42319335424,
+          42367864832
+        ],
+        "completedModelQueries": 0
+      }
+    ]
+  },
+  "queries": {
+    "attempted": 295,
+    "completeHTTPAndFreshWorkerResult": 295,
+    "other": 0,
+    "distinctWorkerQueryVectorHashes": 295,
+    "HTTPResponseMs": {
+      "n": 295,
+      "minimum": 65.958,
+      "median": 69.89,
+      "p95": 75.917,
+      "maximum": 88.325
+    },
+    "workerEncodeMs": {
+      "n": 295,
+      "minimum": 44.356,
+      "median": 45.568,
+      "p95": 48.069,
+      "maximum": 51.095
+    },
+    "cacheAndFallbackCheck": "Each verified HTTP request had one matching query string and IPC request ID, one physical text encoded by the original Gemma worker, a finite normalized 768-element vector, the same model fingerprint, and complete evaluated semantic coverage. Corpus embeddings could be reused. No IPC encode occurred in either idle window."
+  },
+  "shutdown": {
+    "exitCode": 0,
+    "outputStreamsClosed": true,
+    "originalProcessesRemaining": 0,
+    "ownedResidentHomesRemaining": 0,
+    "trigger": "private stdin EOF dispatched production SIGTERM handler"
+  },
+  "localEvidence": {
+    "rawDirectoryRelativeToTemp": "ruyi-direct-gemma-measure-fDsLCZ",
+    "kitDirectoryRelativeToTemp": "ruyi-151-direct-load-kit-20261126",
+    "replay": "Run replay.ps1 -Worktree <checkout of sourceCommit> -GemmaProfile <verified profile directory>; check the raw run using python audit.py <run directory>.",
+    "rawSHA256": {
+      "wire.jsonl": "1710c1c69209c5396224a472b678872306a831647df4c02da58572212d50da82",
+      "samples.jsonl": "50a1b63f7674b1b663bc8dae7ea81e740791abe58a3d244445f9c4a21626cfd8",
+      "phases.jsonl": "b10d2d731a7c321b8d3498b6292790e19eb37b45978729b02c509c093fb45678",
+      "identity.json": "b524574968ae499ec6e412d4bf61212d110b1b4f3ec0aebaa45637acaaadb376",
+      "requests.jsonl": "90cbdddb5b2208cac803ec995d1196d2e85c01d4dc1d073bf71d4e643f6cbc66",
+      "summary.json": "20af750dd6911cc8bf43f80394f1b3ca6eb216f19f550ce9c4f4b9f40dd32321",
+      "exit.json": "272787ba7a06a4c5e0b8a7f818701c6786913e9bbc7e7c5139853fa6f3ea6671",
+      "server.stdout.log": "41432d69a41b48f8fd954a2ead880264d71c4c5765a93d253d164360d52278ab",
+      "checked.json": "d3e2939f5447a759f70389c29a3546bbe0139bf46166b6935db28e0cc7aca682"
+    },
+    "kitSHA256": {
+      "run.cjs": "390ba0daa3c0ed85738431bdd3078a3a69d38f87a606fa9614348e3ce457efda",
+      "observe.cjs": "db32080f9f1b9f0e86daefad98cf6621f6a30cf3e3efa6ee0cb3c9df4781e539",
+      "audit.py": "3aa03caf9a2334c97c3435da376159810620d1cea4786e9a2b410cae7fbb1bbe",
+      "replay.ps1": "36a3af5186b88ab0ff6d199e3f45696b121f2ae5cf6f580ad11586bfcd2ce2c2",
+      "receipt.py": "b95ae50d3238ce56fac8f531241b4f9bdaf0ab747274d918814b404a77d4f499"
+    }
+  }
+}
