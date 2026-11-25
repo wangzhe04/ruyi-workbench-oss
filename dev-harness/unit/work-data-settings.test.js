@@ -227,6 +227,46 @@ test('the package action is offered only for the advertised transfer and saves t
  assert.equal(g.find('workDataDownload').hidden,true,'no result, no package action');
  assert.equal(g.rawCalls.length,0);g.panel.dispose();
 });
+test('the download labels an older verified package while the tracked export has failed', async () => {
+ const pending = job({ operation: 'export', state: 'handoff', cancellable: false, takeover: true });
+ const failed = job({ operation: 'export', state: 'failed', cancellable: false, recovered: true,
+  operationMayHaveExecuted: false, error: 'work_data_setup.preparation_failed', reason: 'work_data_backup.metadata_changed' });
+ const history = { ...savedResult(), backupState: 'present' };
+ const sameJob = { ...history, id: pending.id, backup: { ...history.backup, path: history.backup.path.replace(packageId, pending.id) } };
+ const normal = { 'en-US': 'Save recovery package', 'zh-CN': '保存恢复包' };
+ const previous = { 'en-US': 'Save the previous verified recovery package', 'zh-CN': '保存上一次已验证的恢复包' };
+ let phase = 'idle';
+ const f = fixture(route => {
+  const hasActiveJob = phase === 'handoff' || phase === 'matching-job';
+  if (route === '/api/work-data/jobs/' + pending.id) return { ok: true, job: hasActiveJob ? pending : failed };
+  return packageStatus({ job: hasActiveJob ? pending : null, lastResult: phase === 'matching-job' || phase === 'matched' ? sameJob : history });
+ }, packageResponse);
+ try {
+  const button = f.find('workDataDownload');
+  await f.panel.refresh();
+  assert.equal(button.textContent, normal['en-US']);
+  phase = 'handoff'; await f.panel.refresh();
+  phase = 'failed'; await f.panel.refresh();
+  for (const locale of ['en-US', 'zh-CN']) {
+   f.language(locale);
+   assert.match(f.find('workDataProgress').textContent, /work_data_backup\.metadata_changed/);
+   assert.equal(button.textContent, previous[locale]);
+   assert.equal(button.disabled, false); assert.equal(button.hidden, false);
+   f.click('workDataDownload'); await f.flush();
+   assert.equal(f.rawCalls.at(-1).route, '/api/work-data/results/' + packageId + '/package');
+  }
+  phase = 'matching-job'; await f.panel.refresh();
+  assert.equal(button.textContent, normal['zh-CN'], 'a matching job.id and lastResult.id identify the same package');
+  phase = 'matched'; await f.panel.refresh();
+  for (const locale of ['zh-CN', 'en-US']) {
+   f.language(locale);
+   assert.equal(button.textContent, normal[locale]);
+  }
+  f.click('workDataDownload'); await f.flush();
+  assert.deepEqual(f.rawCalls.map(call => call.route), [packageId,packageId,pending.id].map(id => '/api/work-data/results/' + id + '/package'));
+ } finally { f.panel.dispose(); }
+});
+
 test('a typed package refusal is shown and a stale status disables the action without a second request',async()=>{
  const refuse=(code,statusCode)=>new Response(JSON.stringify({ok:false,error:{code}}),{status:statusCode,headers:{'content-type':'application/json'}});
  for(const [code,statusCode] of [['work_data_setup.package_unavailable',503],['work_data_setup.package_not_found',404],['work_data_setup.busy',409]]){
@@ -387,6 +427,29 @@ test('a wrapper failure shows the specific cause the cold service reported, in b
   const text=await scenario({reason});assert.doesNotMatch(text,/Underlying cause/,String(reason));assert.ok(!text.includes('private'),String(reason));
  }
  const badBytes=await scenario({reason:'work_data_setup.space_insufficient',reasonDetail:{requiredBytes:5,availableBytes:'x'}});assert.doesNotMatch(badBytes,/Needs/);assert.match(badBytes,/Underlying cause/);
+});
+
+test('the successor explains the failed metadata check and the verified package outcome in both languages', async () => {
+ const error='work_data_setup.preparation_failed', reason='work_data_backup.metadata_changed';
+ for (const [locale, explanation, outcome] of [
+  ['en-US', /could not verify that file or folder metadata stayed consistent/i, /no verified backup package to download/i],
+  ['zh-CN', /无法确认文件或目录的元数据保持一致/, /没有可供下载的已验证备份包/],
+ ]) {
+  for (const [operation, mayHaveExecuted] of [['export',false],['restore',false],['export',true]]) {
+   const pending=job({ operation, state:'handoff', cancellable:false, takeover:true });
+   const failed=job({ operation, state:'failed', cancellable:false, recovered:!mayHaveExecuted, operationMayHaveExecuted:mayHaveExecuted, error, reason });
+   let successor=false;
+   const f=fixture(route => route.includes('/jobs/') ? {ok:true,job:successor?failed:pending} : status({job:successor?null:pending}));
+   try {
+    f.language(locale); await f.panel.refresh();
+    successor=true; await f.panel.refresh();
+    const text=f.find('workDataProgress').textContent;
+    assert.match(text,explanation);
+    assert.equal(outcome.test(text),operation==='export' && !mayHaveExecuted);
+    for (const code of [error,reason]) assert.equal(text.split(code).length - 1,1);
+   } finally { f.panel.dispose(); }
+  }
+ }
 });
 
 // ── 151 阶段 3B · 150 W14 / W2：启用加密二次确认、draining 阻塞者、备份包不在原处 ──────────────────

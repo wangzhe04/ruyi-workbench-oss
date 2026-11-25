@@ -4602,6 +4602,7 @@
   "workData.handoffHelp": "操作已进入进程交接或结果待确认阶段，不能取消。请等待新进程的实际状态与完成回执；交接成功不等于迁移已经完成。",
   "workData.lastReceipt": "已读取后台保存的最近一次维护回执。请以上方当前数据根的实际状态为准。",
   "workData.downloadPackage": "保存恢复包",
+  "workData.downloadPreviousPackage": "保存上一次已验证的恢复包",
   "workData.packageSaved": "恢复包已交给浏览器保存。请核对文件大小与保存位置；下载失败时不会产生半个文件。",
   "workData.job.queued": "已排队，等待准备",
   "workData.job.draining": "等待已有任务与写入结束",
@@ -4835,6 +4836,7 @@
   ,"error.code.voiceLexiconUnreadable": "语音词表暂时读不出来，没有做任何改动。请稍后重试；一直这样请重启如意。"
   ,"error.code.voiceObserveBadRequest": "语音学习请求格式不对，没有记录。不影响本次识别结果。"
   ,"error.code.voiceObserveTooLarge": "要学习的文字太长，没有记录。不影响本次识别结果。"
+  ,"error.code.workDataBackupMetadataChanged": "备份校验时，无法确认文件或目录的元数据保持一致。"
   ,"error.code.workDataBackupNativeHelperUncertain": "备份辅助进程可能仍在运行，为避免冲突，没有开始新的备份操作。请等待一会儿或重启如意后再试。"
   ,"error.code.workDataBackupNativeTimeout": "原生辅助进程在一段时间内没有任何进展，操作已停止，没有完成。原数据根里的文件保持原样；请确认磁盘与安全软件没有卡住，再重试。"
   ,"error.code.workDataBackupPortableCreateUncertain": "创建可携带备份的过程中断了，备份可能只写出了一部分。请重新读取状态核对，不要重复提交；需要时重启如意后再导出。"
@@ -5003,6 +5005,7 @@
   ,"error.code.withDetail": "{{text}}（{{detail}}）"
   ,"workData.errorReason": "{{reason}}（{{code}}）"
   ,"workData.causeLine": "具体原因：{{reason}}"
+  ,"workData.exportNoVerifiedPackage": "本次导出没有可供下载的已验证备份包。"
   ,"workData.causeSpace": "（需要 {{required}}，可用 {{available}}。）"
   ,"error.code.workDataTreePreservedNativeEngineeringLimit": "数据根超出了加密、导出或停用一次能处理的规模，操作没有完成。原数据根里的文件保持原样，已准备的中间结果不会生效。"
   ,"error.code.workDataTreeEngineeringLimit": "数据根超出了一次备份能处理的规模，操作没有完成，原数据根里的文件保持原样。"

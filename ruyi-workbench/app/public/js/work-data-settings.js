@@ -38,6 +38,10 @@ export function workDataJobCause(job, errorCode) {
   if (!reason) return '';
   const key = apiErrorCopyKey(reason);
   let text = t('workData.causeLine', { reason: key ? t(key) : reason });
+  if (reason === 'work_data_backup.metadata_changed' && errorCode === 'work_data_setup.preparation_failed'
+      && job.operation === 'export' && job.state === 'failed' && job.operationMayHaveExecuted === false) {
+    text += ' ' + t('workData.exportNoVerifiedPackage');
+  }
   const detail = job.reasonDetail, decimal = value => typeof value === 'string' && /^\d{1,20}$/.test(value);
   if (detail && decimal(detail.requiredBytes) && decimal(detail.availableBytes)) {
     text += ' ' + t('workData.causeSpace', { required: fmtBytes(Number(detail.requiredBytes)), available: fmtBytes(Number(detail.availableBytes)) });
@@ -376,8 +380,11 @@ export function mountWorkDataSettings() {
     // advertises the transfer and a verified result exists, and every state that
     // makes the receipt stale disables it instead of guessing.
     const backupNotice = workDataBackupNoticeKey(lastResult);
-    const downloadable = !downloading && !!lastResult && /^[a-f0-9]{48}$/.test(lastResult.id || '') && current?.capabilities?.download === true && !workDataBackupBlocksSave(lastResult);
-    download.hidden = !lastResult; download.disabled = disabled || !downloadable;
+    const downloadable = /^[a-f0-9]{48}$/.test(lastResult?.id || '') && current?.capabilities?.download === true && !workDataBackupBlocksSave(lastResult);
+    const previousPackage = downloadable && job && job.id !== lastResult.id;
+    download.dataset.i18n = previousPackage ? 'workData.downloadPreviousPackage' : 'workData.downloadPackage';
+    download.textContent = t(download.dataset.i18n);
+    download.hidden = !lastResult; download.disabled = disabled || downloading || !downloadable;
     progress.replaceChildren();
     if (job) {
       const line = node('strong'); line.textContent = t('workData.job.' + job.state); progress.append(line);

@@ -4602,6 +4602,7 @@
   "workData.handoffHelp": "The operation is handing off to another process or awaiting confirmation and cannot be cancelled. Wait for the new process state and completion receipt. A handoff alone does not mean migration is complete.",
   "workData.lastReceipt": "The latest saved maintenance receipt was read from the service. Check the current data root state above.",
   "workData.downloadPackage": "Save recovery package",
+  "workData.downloadPreviousPackage": "Save the previous verified recovery package",
   "workData.packageSaved": "The recovery package was handed to the browser. Check its size and location; a failed download leaves no partial file.",
   "workData.job.queued": "Queued for preparation",
   "workData.job.draining": "Waiting for existing tasks and writes",
@@ -4835,6 +4836,7 @@
   ,"error.code.voiceLexiconUnreadable": "The voice word list could not be read, and nothing was changed. Try again later; restart Ruyi if it persists."
   ,"error.code.voiceObserveBadRequest": "The voice learning request was malformed and nothing was recorded. This does not affect the current transcription."
   ,"error.code.voiceObserveTooLarge": "The text to learn from was too long and was not recorded. This does not affect the current transcription."
+  ,"error.code.workDataBackupMetadataChanged": "Ruyi could not verify that file or folder metadata stayed consistent during the backup check."
   ,"error.code.workDataBackupNativeHelperUncertain": "A backup helper process may still be running, so no new backup operation was started to avoid conflicts. Wait a moment or restart Ruyi, then try again."
   ,"error.code.workDataBackupNativeTimeout": "A native helper made no progress for a while, so the operation was stopped and did not complete. Files in the original data root are unchanged. Check that the disk and security software are not stalled, then try again."
   ,"error.code.workDataBackupPortableCreateUncertain": "Creating the portable backup was interrupted and it may be only partly written. Refresh the status to check and do not resubmit; restart Ruyi before exporting again if needed."
@@ -5003,6 +5005,7 @@
   ,"error.code.withDetail": "{{text}} ({{detail}})"
   ,"workData.errorReason": "{{reason}} ({{code}})"
   ,"workData.causeLine": "Underlying cause: {{reason}}"
+  ,"workData.exportNoVerifiedPackage": "This export has no verified backup package to download."
   ,"workData.causeSpace": "(Needs {{required}}; {{available}} available.)"
   ,"error.code.workDataTreePreservedNativeEngineeringLimit": "The data root is larger than one encryption, export or disable run can handle, so the operation did not complete. Files in the original data root are unchanged, and any prepared intermediate result does not take effect."
   ,"error.code.workDataTreeEngineeringLimit": "The data root is larger than one backup run can handle, so the operation did not complete. Files in the original data root are unchanged."
