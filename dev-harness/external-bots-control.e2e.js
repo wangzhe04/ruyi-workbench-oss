@@ -6,6 +6,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const http = require('node:http');
 const cp = require('node:child_process');
+const assert = require('node:assert/strict');
 const { fixtureChildEnv } = require('./lib/fixture-home');
 const { killOwnTree } = require('./lib/kill-own-tree');
 const { createRunner } = require('./lib/harness');
@@ -107,8 +108,9 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       if(!marker)return textFrames(JSON.stringify({say:'已查看，无需额外动作。',why:'系统事件',acts:[],actions:[]}));
       const step=(commandCalls.get(marker)||0)+1;commandCalls.set(marker,step);
       if (['CONTROL_PROGRESS', 'CONTROL_QPROGRESS'].includes(marker) && step === 1) { req.open(); progressRequests.set(marker, req); return; }
-      const recentTool=req.messages.filter(row=>row.role==='tool').at(-1);if(recentTool)toolReceipts.push({marker,content:recentTool.content});
+      const recentTool=req.messages.filter(row=>row.role==='tool').at(-1);if(recentTool)toolReceipts.push({marker,callId:recentTool.tool_call_id,content:recentTool.content});
       const call=(name,args)=>toolCallFrames(name,args,'call_'+marker+'_'+step);
+      if(marker==='CONTROL_TIMEOUTCREATE'&&step===1)return call('steward_thread_new',{title:'M5_TIMEOUT_TASK',cwd:work,tier:'fast',brief:{userText:'输出一条就绪回执。',goal:'验证冷重启后的任务身份',acceptance:['同一回调只创建一个任务']}});
       if(marker==='CONTROL_CREATE'&&step===1)return call('steward_thread_new',{title:'REMOTE_TASK',cwd:work,tier:'fast',brief:{userText:'准备一句子任务已就绪，等待后续指令。',goal:'输出就绪回执',acceptance:['真实任务存在']}});
       if(marker==='CONTROL_CREATE'&&step===2){try{targetId=JSON.parse(recentTool.content).sessionId||'';}catch{}return textFrames(JSON.stringify({say:'已新建任务，子任务进展请以任务状态为准。',why:'真实工具回执',acts:[],actions:[]}));}
       if(marker==='CONTROL_QUERY'&&step===1)return call('steward_threads_search',{q:'REMOTE_TASK',limit:10});
@@ -348,6 +350,46 @@ const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
       ok(repeated.feedback.progress.attemptId===final.feedback.progress.attemptId&&repeated.delivery.attemptId===final.delivery.attemptId
         &&commandCalls.get(marker)===1&&outbound.length===requestsBefore,'B2 '+platform+' actual cold restart and duplicate callback preserve progress/final receipts without business/send replay');
     }
+    // The platform receives the message, but withholds its response through the real
+    // adapter deadline. A redelivery after cold start must preserve the unknown outcome.
+    await configure(connection());
+    const messageId='m5_timeout_create', text='请创建任务 CONTROL_TIMEOUTCREATE';
+    const replies=()=>outbound.filter(row=>row.path==='/open-apis/im/v1/messages/'+messageId+'/reply');
+    const taskIds=async()=>(await request('GET','/api/sessions')).json.sessions.filter(row=>row.title==='M5_TIMEOUT_TASK').map(row=>row.id);
+    holdMessage=true;
+    assert.equal((await callback(messageId,text)).status,200);
+    const timedOut=await until(async()=>{
+      const item=await readItem(messageId);
+      return item?.delivery?.status==='unknown'&&item;
+    },'M5 real message deadline');
+    holdMessage=false;
+    assert.equal(timedOut.execution.status,'completed');
+    assert.equal(timedOut.delivery.errorCode,'external_delivery.timeout');
+    assert.equal(replies().length,1);
+    const receipt=toolReceipts.find(row=>row.callId==='call_CONTROL_TIMEOUTCREATE_1');
+    assert.ok(receipt,'model received the result of this task creation');
+    const sessionId=JSON.parse(receipt.content).sessionId;
+    assert.ok(sessionId);
+    assert.deepEqual(await taskIds(),[sessionId]);
+    const callsBefore=commandCalls.get('CONTROL_TIMEOUTCREATE'),oldToken=token;
+    await stop();
+    await start();
+    assert.ok(token!==oldToken,'new serve owns a fresh token');
+    for(const eventId of [messageId,'m5_reissued_event']){
+      const replay=await callback(messageId,text,'feishu',eventId);
+      assert.equal(replay.status,200);
+      assert.deepEqual(replay.json,{});
+    }
+    // Wait for a later command on this same owner to finish before comparing effects.
+    assert.equal((await callback('m5_after_replay','请汇报 CONTROL_REPLAYBARRIER')).status,200);
+    await delivered('m5_after_replay');
+    const retained=await readItem(messageId);
+    assert.deepEqual(retained.execution,timedOut.execution);
+    assert.deepEqual(retained.delivery,timedOut.delivery);
+    assert.equal(commandCalls.get('CONTROL_TIMEOUTCREATE'),callsBefore);
+    assert.deepEqual(await taskIds(),[sessionId]);
+    assert.equal(replies().length,1);
+    ok(true,'M5 cold restart after a real reply timeout retains one created task, one platform send and the unknown receipt across both duplicate event IDs');
     ok(fake.errors.length===0,'C19 scripted model fixture has no hidden handler failures');
   } catch(error){runner.fail(error.stack||String(error));}
   finally{if(fs.existsSync(holdRetryFlag))fs.unlinkSync(holdRetryFlag);if(fs.existsSync(holdFlag))fs.unlinkSync(holdFlag);if(fs.existsSync(holdCancelFlag))fs.unlinkSync(holdCancelFlag);if(heldTokenResponse)heldTokenResponse.destroy();if(heldMessageResponse)heldMessageResponse.destroy();await stop();if(fake)await fake.close();if(apiServer){apiServer.closeAllConnections();await new Promise(resolve=>apiServer.close(resolve));}runner.done({exit:true});}
