@@ -344,7 +344,12 @@ namespace RuyiDesktop
                 }
                 FILETIME born,ended,kernel,user;if(!GetProcessTimes(created.Process,out born,out ended,out kernel,out user))throw new Win32Exception();
                 startupWitness=new Client{Pid=(int)created.Pid,Created=((long)born.High<<32)|born.Low,Grant=grant};Observe("created-suspended",startupWitness);
-                if (!Native.AssignProcessToJobObject(job, created.Process)) throw new Win32Exception();
+                if (!Native.AssignProcessToJobObject(job, created.Process))
+                {
+                    var failure = new Win32Exception(Marshal.GetLastWin32Error());
+                    Observe("assign-process-failed", startupWitness);
+                    throw failure;
+                }
                 Observe("assigned-before-resume",startupWitness);
                 original = Process.GetProcessById((int)created.Pid);
                 original.Exited += delegate { lock (sync) { if (current == null) { Failed("startup"); var handler = Exited; if (handler != null) handler(original.ExitCode); } } };

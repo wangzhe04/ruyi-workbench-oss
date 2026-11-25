@@ -10,6 +10,7 @@
 // --handoff requests a real export through the production maintenance API.
 // --dual starts a second console owner with its own data root and the same model profile.
 // --idle --nested-job / --outer-quota places only the fixture host in an extra Windows Job.
+// --idle --inner-quota occupies the production Job before assigning a suspended entry sentinel.
 // On any unknown/failure the detached owner and its scene are retained, never killed.
 require('./lib/self-isolate-home.js');
 const fs=require('node:fs'),p=require('node:path'),os=require('node:os'),cp=require('node:child_process'),http=require('node:http');
@@ -24,7 +25,7 @@ const runner=createRunner('DESKTOP LIFETIME'),root=p.resolve(__dirname,'..'),wb=
 const args=process.argv.slice(2),flags=new Set(args);
 const windowMode=flags.has('--window'),idle=flags.has('--idle'),holdUI=flags.has('--hold-ui'),semantic=flags.has('--semantic');
 const ownerExit=flags.has('--owner-exit'),handoff=flags.has('--handoff'),dual=flags.has('--dual');
-const nestedJob=flags.has('--nested-job'),outerQuota=flags.has('--outer-quota');
+const nestedJob=flags.has('--nested-job'),outerQuota=flags.has('--outer-quota'),innerQuota=flags.has('--inner-quota');
 if(flags.has('--desktop-app')){
  const resources=flags.has('--resources');
  if(process.platform!=='win32'||flags.size!==args.length||resources&&(dual||ownerExit)||args.some(value=>!['--desktop-app','--dual','--owner-exit','--resources'].includes(value)))
@@ -33,10 +34,11 @@ if(flags.has('--desktop-app')){
   .then(()=>runner.ok(true,'production desktop window, service, model and WebView lifetime verified'))
   .catch(error=>runner.fail(error.stack)).finally(()=>runner.done());
 }else{
- if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual','--nested-job','--outer-quota'].includes(value))
+ if(flags.size!==args.length||args.some(value=>!['--window','--idle','--hold-ui','--semantic','--owner-exit','--handoff','--dual','--nested-job','--outer-quota','--inner-quota'].includes(value))
+  ||innerQuota&&(!idle||flags.size!==2)
   ||(nestedJob||outerQuota)&&(!idle||windowMode||dual||ownerExit||handoff||nestedJob&&outerQuota)
   ||holdUI&&!windowMode||semantic&&(!idle||windowMode)||(ownerExit||handoff||dual)&&!semantic||handoff&&(ownerExit||dual))
-  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --window, or --window --hold-ui');
+  throw Error('Use --idle [--semantic] [--nested-job or --outer-quota], --idle --inner-quota, --idle --semantic [--dual] [--owner-exit], --idle --semantic --handoff, --window, or --window --hold-ui');
  if(process.platform!=='win32'){console.log('SKIP DESKTOP LIFETIME: Windows Job/Framework required');process.exitCode=0;}
  else void main();
 }
@@ -55,8 +57,8 @@ function prepareScene(dir){
   autoImportClaudeCodeMcp:false,importAgentInstructions:false,includeWorkbenchMcp:false,enableMcpDropIn:false,desktopMcp:{enabled:false,autodetect:false},externalMcpServers:[],providers:[],defaultWorkspace:dir}));
  return {data,env,actorFile};
 }
-function startProbe(exe,scene,mode){
- const child=cp.spawn(exe,[wb,...(mode?[mode]:[])],{env:scene.env,cwd:wb,windowsHide:mode!=='window',detached:true,stdio:['pipe','pipe','pipe']});
+function startProbe(exe,scene,mode,base=wb){
+ const child=cp.spawn(exe,[base,...(mode?[mode]:[])],{env:scene.env,cwd:base,windowsHide:mode!=='window',detached:true,stdio:['pipe','pipe','pipe']});
  const probe={child,data:scene.data,events:[],terminal:null,stderr:'',pending:'',stdoutEOF:false,stderrEOF:false,observationFailure:null};
  child.stdout.setEncoding('utf8');child.stderr.setEncoding('utf8');
  child.stdout.on('data',chunk=>{
@@ -167,11 +169,37 @@ async function main(){
     RUYI_SEMANTIC_GEMMA2_LOCK_SHA256:createHash('sha256').update(lock).digest('hex')};
    Object.assign(env,profileEnv);
   }
-  cp.execFileSync(csc,['/nologo','/target:exe','/platform:x64','/codepage:65001','/main:RuyiDesktop.DesktopLifetimeProbe','/out:'+exe,
+  cp.execFileSync(csc,['/nologo','/target:exe','/platform:x64','/codepage:65001','/main:RuyiDesktop.'+(innerQuota?'DesktopInnerQuotaProbe':'DesktopLifetimeProbe'),'/out:'+exe,
    '/r:System.dll','/r:System.Core.dll','/r:System.Windows.Forms.dll','/r:System.Drawing.dll','/r:System.Web.Extensions.dll',
-   p.join(wb,'desktop/RuyiDesktop.cs'),p.join(wb,'desktop/DesktopLifetimeHost.cs'),p.join(__dirname,'fixtures/desktop-lifetime-probe.cs'),p.join(__dirname,'fixtures/desktop-nested-job.cs')],{windowsHide:true,timeout:30000,stdio:'pipe'});
+   p.join(wb,'desktop/RuyiDesktop.cs'),p.join(wb,'desktop/DesktopLifetimeHost.cs'),p.join(__dirname,'fixtures/desktop-lifetime-probe.cs'),p.join(__dirname,'fixtures/desktop-nested-job.cs'),
+   ...(innerQuota?[p.join(__dirname,'fixtures/desktop-inner-quota.cs')]:[])],{windowsHide:true,timeout:30000,stdio:'pipe'});
   if(windowMode)fs.copyFileSync(p.join(wb,'desktop/WebView2Loader.dll'),p.join(dir,'WebView2Loader.dll'));
   const mode=windowMode?'window':outerQuota?'outer-quota':nestedJob?'nested-job':undefined;
+  if(innerQuota){
+   const app=p.join(dir,'app'),entered=p.join(dir,'server-entry-started');
+   fs.mkdirSync(app);
+   fs.writeFileSync(p.join(app,'server.js'),"require('node:fs').writeFileSync("+JSON.stringify(entered)+", 'entered');\n");
+   primary=startProbe(exe,scene,undefined,dir);
+   await waitFor(primary,()=>primary.terminal||primary.events.some(row=>row.phase==='retained'),30000,'inner Job refusal',true);
+   checkpoint('events',primary.events);checkpoint('terminal',receipt(primary));
+   assert.deepEqual(primary.terminal,{code:0,signal:null});
+   assert.ok(primary.stdoutEOF&&primary.stderrEOF&&!primary.pending,'complete probe output');
+   const rows=primary.events;
+   assert.deepEqual(rows.map(row=>row.phase),['quota-occupied','created-suspended','original-held','assign-process-failed',
+    'startup-cleaned','startup-error','original-exited','seat-exited','job-closed']);
+   const [seat,created,held,denied,cleaned,error,exited,seatExited]=rows;
+   assert.ok(seat.pid>0&&/^\d+$/.test(seat.created)&&seat.processLimit===1&&seat.member===true);
+   assert.ok(created.pid>0&&created.pid!==seat.pid&&/^\d+$/.test(created.created)&&created.role==='serve');
+   assert.ok([held,denied,cleaned,exited].every(row=>sameProcess(row,created)),'the same held kernel identity was denied and reaped');
+   assert.ok(held.assigned===false&&held.threads===1&&held.wait==='Suspended','original primary thread was suspended before assignment');
+   assert.equal(error.nativeCode,1816,'Win32 ERROR_NOT_ENOUGH_QUOTA');
+   assert.ok(Number.isInteger(exited.code)&&sameProcess(seatExited,seat)&&seatExited.code===0,'held child exited and original seat drained');
+   const files={privateEntryExecuted:fs.existsSync(entered),runtimePublished:fs.existsSync(p.join(data,'runtime.json'))};
+   checkpoint('private-entry',files);
+   assert.deepEqual(files,{privateEntryExecuted:false,runtimePublished:false},'private entry and service publication evidence');
+   runner.ok(true,'full inner Job rejects the suspended child at assignment; the original handles prove both exits');
+   return;
+  }
   primary=startProbe(exe,scene,mode);
   const {child,events}=primary;
   if(outerQuota){
