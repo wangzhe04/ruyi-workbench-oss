@@ -14,7 +14,7 @@
 
 **Ruyi** is a clean-room, local AI workbench for Windows. Give it a model it can reach — an Anthropic Messages or OpenAI-compatible endpoint (a cloud API, an on-prem vLLM, a local Ollama or LM Studio) or a locally installed Claude Code / Kimi Code CLI — and it **actually does the work on your machine**: reads and writes files, runs scripts, drives Office and the desktop, and dispatches teams of sub-agents. A **steward** keeps watch over everything in flight.
 
-> **Ruyi 3.0.1.** Clearer crew coordination, cross-chat continuation and media inspection, with fixes for steward conversations and task continuity after compaction. [Download 3.0.1](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1) · [Release notes](docs/release-notes/v3.0.1.md) · [Full changelog](CHANGELOG.md)
+> **Ruyi 3.0.2.** Fixes prompt caching across Claude turns and preserves tool calls when an Anthropic-compatible gateway rejects cache settings. [Download 3.0.2](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.2) · [Release notes](docs/release-notes/v3.0.2.md) · [Full changelog](CHANGELOG.md)
 
 > **Engineering result: Ruyi + DeepSeek V4.1 Flash resolves 44/51 SWE-bench Pro V2 HARD-51 tasks (86.27%) for an estimated CNY 42.15 in model API charges.** That is 3.93 percentage points behind the official Astra + Codex result and 1.93 behind Sonnet 5 + Claude Code. [Comparison, protocol and all 51 task summaries](docs/benchmarks/hard51-2026-10-15/README_EN.md). This local single run used a Ruyi 3.0.0 runtime build; the results ship with 3.0.1.
 
@@ -433,7 +433,7 @@ On the upstream O×P×S score Hermes leads with 79.6 and Ruyi follows with 75.7;
 
 ## Deployment: offline packages, intranets and running from source
 
-**Offline packages (recommended)**: get Full or Slim from the [3.0.1 download page](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.1), extract completely to a short path such as `C:\Ruyi`, then run `Start-Workbench.cmd` or `RuyiDesktop.exe`. Choose Full for desktop control and OCR, or Slim for a smaller download covering chat, files and scripts. Configure a model separately.
+**Offline packages (recommended)**: get Full or Slim from the [3.0.2 download page](https://github.com/wangzhe04/ruyi-workbench-oss/releases/tag/v3.0.2), extract completely to a short path such as `C:\Ruyi`, then run `Start-Workbench.cmd` or `RuyiDesktop.exe`. Choose Full for desktop control and OCR, or Slim for a smaller download covering chat, files and scripts. Configure a model separately.
 
 To build your own package:
 

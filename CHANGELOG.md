@@ -111,6 +111,13 @@ This file records user-facing release highlights; it does not replace the comple
 - Reject a second service using the same data directory before recovery can alter active decisions or runtime identity. Occupied ports fall back without terminating their owner; default legacy-data migration uses the same ownership protection.
 - Align Chinese and English steward prompts with existing tools: small, restricted reads can answer directly, while independent investigation and execution are delegated to threads. Existing permissions and untrusted-content checks remain in force.
 
+## 3.0.2 · 2026-11-18
+
+[本版更新与下载 / Release notes](docs/release-notes/v3.0.2.md)
+
+- 修复流式 Claude 对话在切换用户回合时的提示缓存失效。项目引用变更后会在下一次请求更新。
+- Anthropic 兼容网关明确拒收缓存字段时，如意会保留工具定义和调用结果，去掉缓存标记重试一次。
+
 ## 3.0.1 · 2026-10-16
 
 [本版更新与下载 / Release notes](docs/release-notes/v3.0.1.md)
