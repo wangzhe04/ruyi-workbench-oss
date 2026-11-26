@@ -1405,7 +1405,7 @@ public static class RuyiSkillCapsule {
     foreach(object value in ids)if(!(value is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value,"^[a-f0-9]{24}$"))Reject("owned_restore_identity");
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
     try {
-      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      var root=CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
       if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
       handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null,(string)ids[0]);string volume=VolumeOf(root);SafeFileHandle current=root;
       for(int i=0;i<parts.Length;i++){expected+=(expected.EndsWith("\\")?"":"\\")+parts[i];current=OpenFlushChild(current,parts[i],expected,volume,(string)ids[i+1]);handles.Add(current);}
@@ -1428,7 +1428,7 @@ public static class RuyiSkillCapsule {
     if(parts.Length>512)Reject("store_flush_anchor");foreach(string part in parts)if(!FlushPart(part))Reject("store_flush_anchor");
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
     try {
-      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      var root=CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
       if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
       handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null);string volume=VolumeOf(root);
       SafeFileHandle current=root;
@@ -1544,7 +1544,7 @@ public static class RuyiSkillCapsule {
     if(parts.Length>512)Reject("store_flush_anchor");foreach(string part in parts)if(!FlushPart(part))Reject("store_flush_anchor");
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     try {
-      using(var hint=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+      using(var hint=CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
         if(hint.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());
         CheckFlushDirectory(hint,@"\\?\"+anchor,null);
         Info information;Check(GetFileInformationByHandle(hint,out information));if(information.Volume!=serial)Reject("store_volume_changed");

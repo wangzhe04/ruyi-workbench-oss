@@ -18,7 +18,7 @@ let bodyProbeId, privateProbeId;
 const bodyProbeNeedle = 'MCP_FULLTEXT_FAR_BODY_20261025';
 const bodyProbeText = '😀 opaque padding αβγ '.repeat(1600) + bodyProbeNeedle + ' tail';
 const bodyProbeStart = bodyProbeText.indexOf(bodyProbeNeedle);
-function bodyProbeReference(value) { const row = value?.results?.find(row => row.sessionId === bodyProbeId); const ref = row?.reference; return !!ref && ref.sessionId === bodyProbeId && ref.source === 'content' && ref.coordinate === 'utf16' && ref.matchStart === bodyProbeStart && ref.matchEnd === bodyProbeStart + bodyProbeNeedle.length && ref.turnSeq === 1 && /^[a-f0-9]{64}$/.test(ref.contentRevision || '') && ref.messageId === 'mcp_body_probe_message'; }
+function bodyProbeReference(value) { const row = value?.results?.find(row => row.sessionId === bodyProbeId); const ref = row?.reference; return !!ref && ref.sessionId === bodyProbeId && ref.source === 'content' && ref.coordinate === 'utf16' && ref.matchStart === bodyProbeStart && ref.matchEnd === bodyProbeStart + bodyProbeNeedle.length && ref.turnSeq === 1 && !Object.hasOwn(ref, 'contentRevision') && !Object.hasOwn(ref, 'sourceRevision') && ref.messageId === 'mcp_body_probe_message'; }
 const configBase = { defaultWorkspace: ws, workspaces: [{ path: ws, read: true, write: true }], permissionMode: 'bypass',
   includeWorkbenchMcp: false, autoImportClaudeCodeMcp: false, desktopMcp: { enabled: false, autodetect: false }, externalMcpServers: [],
   toolLoadingMode: 'adaptive', allowDesktopTools: false, stewardEnabledV1: false, stewardThreadBriefV1: false,

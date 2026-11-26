@@ -3478,7 +3478,12 @@ async function runAutoCompaction(ctx) {
   // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
-  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  // A subagent has its own privacy projection, but its checkpoint and recall
+  // tool belong to the parent session. Bind sealed references to that owner.
+  const refOwner = scope === 'subagent' ? ctx.snapshotOwner : ctx.privacyHistoryOwner;
+  const rawRefLookup = refOwner?.id && rawRefPrefix && (config?.runtimeObservationReducerV1 === true || historyReadDedupEnabled(config))
+    ? await observationPrepareRefLookup(refOwner.id, history, rawRefPrefix) : new Map();
+  if (refOwner && sessionObjectIsStale(refOwner)) throw Object.assign(Error('observation_recall.scope_changed'), {code:'observation_recall.scope_changed'});
   if(ctx.precompactGuard?.())await ctx.precompactGuard()();
   if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
 
@@ -3612,7 +3617,12 @@ async function runForcedOverflowCompaction(ctx) {
   onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
-  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  // A subagent has its own privacy projection, but its checkpoint and recall
+  // tool belong to the parent session. Bind sealed references to that owner.
+  const refOwner = scope === 'subagent' ? ctx.snapshotOwner : ctx.privacyHistoryOwner;
+  const rawRefLookup = refOwner?.id && rawRefPrefix && (config?.runtimeObservationReducerV1 === true || historyReadDedupEnabled(config))
+    ? await observationPrepareRefLookup(refOwner.id, history, rawRefPrefix) : new Map();
+  if (refOwner && sessionObjectIsStale(refOwner)) throw Object.assign(Error('observation_recall.scope_changed'), {code:'observation_recall.scope_changed'});
   if(ctx.precompactGuard?.())await ctx.precompactGuard()();
   if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
   const evaporated = evaporateHistory(history, {
@@ -3657,7 +3667,7 @@ async function maybeCompactSubHistory(opts) {
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
     const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
     const r = await runAutoCompaction({
-      history: subHistory, privacyHistoryOwner: opts.privacyHistoryOwner, scope: 'subagent', provider, model: subModel, sys, tools, config,
+      history: subHistory, privacyHistoryOwner: opts.privacyHistoryOwner, snapshotOwner: parentSession, scope: 'subagent', provider, model: subModel, sys, tools, config,
       budget: budgetPlan.budget, window: budgetPlan.window, watermark: state && state.watermark,
       // 快照写进父会话的 checkpoints,但只写带内容哈希的文件名(观察缩减开着时才用得上 rawRef):不带哈希的
       // history-<回合>.json.gz 是父回合同一回合号的安全网快照,子代理不许覆盖它。

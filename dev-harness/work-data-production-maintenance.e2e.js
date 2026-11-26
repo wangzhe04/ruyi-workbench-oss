@@ -528,6 +528,17 @@ function createWorld({root,evidence,target}){
      const readyAt=Date.now();
      observe('warm',st?.value?.job,{workerReady:st?.status===200&&st.value?.capabilities?.worker===true,
       resultMatches:st?.status===200&&st.value?.lastResult?.id===jobId});
+     // A recovered warm successor deliberately has no success receipt. Its
+     // authenticated job route carries the terminal verdict for this handoff.
+     if(st?.status===200 && st.value?.capabilities?.worker===true && st.value.lastResult?.id!==jobId){
+      let lookup;
+      try{lookup=await upload.makeHttp({port:rt.port,token:rt.token},'/api/work-data/jobs/'+jobId,undefined,{timeout:5000});}catch(error){if(!isTransport(error))throw error;}
+      const job=lookup?.value?.job;
+      if(lookup?.status===200 && job?.id===jobId && job.recovered===true && job.state==='failed'){
+       record({kind:'recovered-successor',id:jobId,error:job.error,reason:job.reason,reasonDetail:job.reasonDetail});
+       throw Object.assign(Error('maintenance operation returned to its original source'),{code:job.error});
+      }
+     }
      if(readyAt<deadline&&st&&st.status===200&&st.value?.capabilities?.worker===true&&st.value.lastResult?.id===jobId&&maintenanceIsQuiet(st.value)){
       const identity=await cimIdentity(rt.pid);
       a.notEqual(rt.pid,ref.pid,'successor is a new process');

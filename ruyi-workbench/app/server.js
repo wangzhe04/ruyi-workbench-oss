@@ -58240,7 +58240,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           const parentTurn = parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {};
           // 快照 → L1 蒸发 → L2 摘要重播种,与主回合走同一个内核。快照只写带内容哈希的文件名(见 maybeCompactSubHistory)。
           const forced = await runForcedOverflowCompaction({
-            history: subHistory, privacyHistoryOwner, scope: 'subagent', provider, model: subModel, config,
+            history: subHistory, privacyHistoryOwner, snapshotOwner: parentSession, scope: 'subagent', provider, model: subModel, config,
             snapshot: () => (parentId && config.runtimeObservationReducerV1 === true
               ? writeHistorySnapshot(parentId, parentSession.turnSeq, subHistory, true).catch(() => '')
               : ''),
@@ -68714,7 +68714,12 @@ async function runAutoCompaction(ctx) {
   // Safety-net snapshot BEFORE any mutation (non-blocking on failure).
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
-  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  // A subagent has its own privacy projection, but its checkpoint and recall
+  // tool belong to the parent session. Bind sealed references to that owner.
+  const refOwner = scope === 'subagent' ? ctx.snapshotOwner : ctx.privacyHistoryOwner;
+  const rawRefLookup = refOwner?.id && rawRefPrefix && (config?.runtimeObservationReducerV1 === true || historyReadDedupEnabled(config))
+    ? await observationPrepareRefLookup(refOwner.id, history, rawRefPrefix) : new Map();
+  if (refOwner && sessionObjectIsStale(refOwner)) throw Object.assign(Error('observation_recall.scope_changed'), {code:'observation_recall.scope_changed'});
   if(ctx.precompactGuard?.())await ctx.precompactGuard()();
   if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
 
@@ -68848,7 +68853,12 @@ async function runForcedOverflowCompaction(ctx) {
   onEvent({ type: 'compact', mode: 'forced_400', phase: 'started', trigger: 'forced_400', ...eventFields, beforeTokens });
   const rawRefPrefix = typeof snapshot === 'function' ? await snapshot() : '';
   if (scope==='main') await rememberObservationSnapshot(ctx.privacyHistoryOwner,history,rawRefPrefix,ctx.precompactGuard?.());
-  const rawRefLookup=scope==='main'&&ctx.privacyHistoryOwner?.id&&!!rawRefPrefix&&(config?.runtimeObservationReducerV1===true||historyReadDedupEnabled(config))?await observationPrepareRefLookup(ctx.privacyHistoryOwner.id,history,rawRefPrefix):new Map();
+  // A subagent has its own privacy projection, but its checkpoint and recall
+  // tool belong to the parent session. Bind sealed references to that owner.
+  const refOwner = scope === 'subagent' ? ctx.snapshotOwner : ctx.privacyHistoryOwner;
+  const rawRefLookup = refOwner?.id && rawRefPrefix && (config?.runtimeObservationReducerV1 === true || historyReadDedupEnabled(config))
+    ? await observationPrepareRefLookup(refOwner.id, history, rawRefPrefix) : new Map();
+  if (refOwner && sessionObjectIsStale(refOwner)) throw Object.assign(Error('observation_recall.scope_changed'), {code:'observation_recall.scope_changed'});
   if(ctx.precompactGuard?.())await ctx.precompactGuard()();
   if(signal?.aborted||ctx.privacyHistoryOwner&&sessionObjectIsStale(ctx.privacyHistoryOwner))throw Object.assign(Error('observation_recall.scope_changed'),{code:'observation_recall.scope_changed'});
   const evaporated = evaporateHistory(history, {
@@ -68893,7 +68903,7 @@ async function maybeCompactSubHistory(opts) {
     const budgetPlan = CompactionPlan.create({ scope: 'subagent', trigger: 'auto', history: subHistory, provider, model: subModel, config });
     const parentId = parentSession && parentSession.id ? String(parentSession.id) : '';
     const r = await runAutoCompaction({
-      history: subHistory, privacyHistoryOwner: opts.privacyHistoryOwner, scope: 'subagent', provider, model: subModel, sys, tools, config,
+      history: subHistory, privacyHistoryOwner: opts.privacyHistoryOwner, snapshotOwner: parentSession, scope: 'subagent', provider, model: subModel, sys, tools, config,
       budget: budgetPlan.budget, window: budgetPlan.window, watermark: state && state.watermark,
       // 快照写进父会话的 checkpoints,但只写带内容哈希的文件名(观察缩减开着时才用得上 rawRef):不带哈希的
       // history-<回合>.json.gz 是父回合同一回合号的安全网快照,子代理不许覆盖它。
@@ -104533,7 +104543,7 @@ public static class RuyiSkillCapsule {
     foreach(object value in ids)if(!(value is string) || !System.Text.RegularExpressions.Regex.IsMatch((string)value,"^[a-f0-9]{24}$"))Reject("owned_restore_identity");
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
     try {
-      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      var root=CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
       if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
       handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null,(string)ids[0]);string volume=VolumeOf(root);SafeFileHandle current=root;
       for(int i=0;i<parts.Length;i++){expected+=(expected.EndsWith("\\")?"":"\\")+parts[i];current=OpenFlushChild(current,parts[i],expected,volume,(string)ids[i+1]);handles.Add(current);}
@@ -104556,7 +104566,7 @@ public static class RuyiSkillCapsule {
     if(parts.Length>512)Reject("store_flush_anchor");foreach(string part in parts)if(!FlushPart(part))Reject("store_flush_anchor");
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;var handles=new List<SafeFileHandle>();
     try {
-      var root=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
+      var root=CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero);
       if(root.IsInvalid){int error=Marshal.GetLastWin32Error();root.Dispose();throw new Win32Exception(error);}
       handles.Add(root);string expected=@"\\?\"+anchor;CheckFlushDirectory(root,expected,null);string volume=VolumeOf(root);
       SafeFileHandle current=root;
@@ -104672,7 +104682,7 @@ public static class RuyiSkillCapsule {
     if(parts.Length>512)Reject("store_flush_anchor");foreach(string part in parts)if(!FlushPart(part))Reject("store_flush_anchor");
     bool previous=PreserveTimeHandles;PreserveTimeHandles=true;
     try {
-      using(var hint=CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
+      using(var hint=CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)) {
         if(hint.IsInvalid)throw new Win32Exception(Marshal.GetLastWin32Error());
         CheckFlushDirectory(hint,@"\\?\"+anchor,null);
         Info information;Check(GetFileInformationByHandle(hint,out information));if(information.Volume!=serial)Reject("store_volume_changed");
@@ -124743,7 +124753,11 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   try{
     if(!WorkDataMaintenanceRuntimeHooks.claim&&typeof WorkDataHandoffClaim!=='undefined'&&typeof WorkDataVerifierEntry!=='undefined'){
       const native=WorkDataVerifierEntry.createVerifier({proc:process});
-      WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:require('node:os').tmpdir(),flush:directories=>native.flush(directories)});
+      const temp = require('node:os').tmpdir();
+      // Windows accepts either separator in TEMP. Keep the claim's canonical
+      // path checks (including rejection of dot segments) at the boundary.
+      const claimTemp = process.platform === 'win32' ? temp.replaceAll('/', '\\') : temp;
+      WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:claimTemp,flush:directories=>native.flush(directories)});
     }
   }catch{ /* No synthetic claim: a missing adapter leaves the worker unready. */ }
   // One fresh-root activation owner for the whole process. It is carried by that same

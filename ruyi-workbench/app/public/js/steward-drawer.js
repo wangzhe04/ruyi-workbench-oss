@@ -430,6 +430,7 @@ export function createStewardDrawer({
   openSession = async () => {},
 } = {}) {
   let sessionId = '';
+  let pendingAskFocus = '';
   let session = null;             // GET /api/sessions/:id 的 session
   let sessionExecution;           // undefined = unknown, null = explicitly observed idle, object = execution owner.
   let sessionExecutionObservation;
@@ -1154,7 +1155,7 @@ export function createStewardDrawer({
     if (!target || typeof target.focus !== 'function') return false;
     try { target.focus({ preventScroll: true }); } catch { return false; }
     keepShellUnscrolled();
-    return true;
+    return doc().activeElement === target;
   }
 
   // F3（32 号文 §2.2「现在这几件」）：右栏小行上的「就地回答」把光标交回抽屉自己的输入口。
@@ -1457,6 +1458,13 @@ export function createStewardDrawer({
     renderMeta();
     renderTabs();
     renderAsk();
+    // A newer live refresh can supersede openThread's first read. Deliver
+    // focus when current data paints, only while the opener still owns it.
+    if (pendingAskFocus === sessionId && sessionId && drawerReadQuality.session.state === 'ok'
+      && drawerReadQuality.pending.state === 'ok') {
+      const active = doc().activeElement;
+      if ((active !== byId('stewardDrawerTitle') && active !== doc().body) || focusAsk()) pendingAskFocus = '';
+    }
     renderLastSay();
     renderQuickReplies();
     const sections = renderStateSections();
@@ -1910,6 +1918,7 @@ export function createStewardDrawer({
     const drawer = byId('stewardDrawer');
     const shell = byId('stewardShell');
     if (!drawer) return;
+    pendingAskFocus = '';
     const sameOpen = sessionId === id && !loading && Boolean(session);
     const keep = sameOpen ? captureFrame()
       : (lastFrame && lastFrame.sessionId === id && (Date.now() - lastFrame.at) < STEWARD_DRAWER_FRAME_KEEP_MS ? lastFrame : null);
@@ -1951,8 +1960,9 @@ export function createStewardDrawer({
     // 117l D4（用户第四轮走查①）：数据到齐、「读取中」闸落下的【那一帧】，如果「它在问你」真的
     // 在，焦点就落进那个回答框 —— 这才是「打开线程回答」按下去该发生的事（open_thread act →
     // steward:focus-thread → 抽屉）。闸落之前不抢焦点：那时候还不知道它到底有没有在问你。
+    pendingAskFocus = wantFocus ? id : '';
     try { await refreshOnce(); } finally {
-      if (sessionId === id && drawerReadGeneration === openGeneration) { loading = false; renderAll(); if (wantFocus) focusAsk(); }
+      if (sessionId === id && drawerReadGeneration === openGeneration) { loading = false; renderAll(); }
     }
   }
 
@@ -1968,6 +1978,7 @@ export function createStewardDrawer({
     // syncNow 一次、本模块的视角观察者一次），第二次手上已经没有线程了 —— 【不许】拿空值把刚记下的那一帧冲掉。
     { const frame = captureFrame(); if (frame) lastFrame = frame; }
     stashDrafts(sessionId);   // 走查 S-06：收摊时两个输入框的字按线程存起来，不留给下一条被打开的线程
+    pendingAskFocus = '';
     sessionId = '';
     polling.stop();
     // 117h：docked 那一份被关掉 = 用户「关掉」了「现在这一件」（Esc 与 × 也算），本机偏好由

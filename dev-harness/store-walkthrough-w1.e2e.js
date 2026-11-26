@@ -290,9 +290,13 @@ const wireFile = path.join(KIMI_HOME, 's1', 'agents', 'main', 'wire.jsonl');
     const allRolesKnown=roleRows.every(row=>knownMessageFiles.has(row.file)&&['build-preview','build-proof','coverage-proof','hit-proof'].includes(row.role)&&Array.isArray(row.matchedRoles)&&row.matchedRoles.length===1&&row.matchedRoles[0]===row.role);
     ok(allRolesKnown && physical.every(file=>knownMessageFiles.has(file)) && roleRows.length===counts.reduce((sum,n)=>sum+n,0) && roleCounts['unknown-or-ambiguous'].every(n=>n===0), 'S5d 全部十二会话的观察记录均纳入分解，未知 scope/角色不忽略');
     ok(roleCounts['build-preview'].every(n=>n===1) && roleCounts['build-proof'].every(n=>n===1), 'S5 单飞:4 个并发冷索引搜索，每会话只构建一代，构建预检和证明各恰一次');
-    ok(roleCounts['coverage-proof'].every(n=>n===8), 'S5e 四次准备 coverage 及四次查询 coverage 的真实正文复验各保留');
+    // Each prepare/query may scan a source once. A matching generation, revision,
+    // authorization epoch and source sequence allow the owner to reuse its proof.
+    const coverageOpens = roleCounts['coverage-proof'];
+    ok(coverageOpens.every(n => n <= 8) && coverageOpens.some(n => n < 8),
+      'S5e coverage reuses proofs across the four concurrent prepare/query pairs');
     ok(JSON.stringify(roleCounts['hit-proof'])===JSON.stringify(expectedHits), 'S5f 四个实际命中均复验完整源，含同一大文件的两个查询');
-    ok(counts.every((n,index)=>n===2+8+expectedHits[index]), 'S5g 总观察正文 fsp.open 精确等于构建双扫+八次 coverage+命中复验，不宣称总扫描一次');
+    ok(counts.every((n,index)=>n===2+coverageOpens[index]+expectedHits[index] && n===physicalCounts[index]), 'S5g every physical open is accounted for by both build scans, actual coverage scans and hit proofs');
     ok(results.every(r=>r.status===200&&r.json?.ok===true&&r.json.indexed===12&&r.json.coverage?.sessions===12&&r.json.coverage.indexedSessions===12&&r.json.coverage.pendingSessions===0&&r.json.coverage.complete===true&&r.json.coverage.messages?.unverifiedText===0&&r.json.coverage.attachments?.unverifiedFullText===0&&r.json.coverage.fullTextSampling===false&&r.json.scope?.mode==='message_shards'&&r.json.scope.sampling===false&&r.json.scope.coordinate==='utf16'), 'S5h 四响应全部声明十二会话完整且无采样/未验证来源');
     ok(generations.every(row=>row.manifestSessionId===row.sessionId&&row.schema===1&&row.format===3&&/^[a-f0-9]{32}$/.test(row.generation)&&/^[a-f0-9]{64}$/.test(row.epoch)&&/^[a-f0-9]{64}$/.test(row.sourceRevision)&&row.messages===row.headMessages&&row.onePhysicalGeneration), 'S5i 十二会话 manifest 与源头绑定，物理目录恰含当前单代分片');
   } catch (e) {

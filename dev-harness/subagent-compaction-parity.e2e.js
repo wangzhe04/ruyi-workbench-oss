@@ -74,7 +74,7 @@ function handler(req) {
   if (n === 2) return toolCallFrames('file_read', file('s2.txt'), 'call_s2');
   if (n === 3) {
     // rawRef 在文本视图里写成 rawRef=…,在 JSON 视图里是 _ruyiObservation.rawRef 字段;两种都认
-    const ref = (all.match(/(history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16})/) || [])[1];
+    const ref = (all.match(/(history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)/) || [])[1];
     if (ref) return toolCallFrames('observation_recall', { rawRef: ref }, 'call_recall');
     return textFrames('no compaction happened');
   }
@@ -170,7 +170,7 @@ function logRecords(home) {
     const afterCompact = subBodies[3] ? JSON.stringify(subBodies[3].messages) : '';
     const bigView = String((((subBodies[3] && subBodies[3].messages) || []).find(m => m.role === 'tool' && m.tool_call_id === 'call_big') || {}).content || '');
     let bigMeta = null; try { bigMeta = JSON.parse(bigView)._ruyiObservation; } catch { /* not JSON */ }
-    ok(bigMeta && bigMeta.reduced === true && /^history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}$/.test(bigMeta.rawRef) && !afterCompact.includes('[已省略:'),
+    ok(bigMeta && bigMeta.reduced === true && /^history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(bigMeta.rawRef) && !afterCompact.includes('[已省略:'),
       `A2 被蒸发的大文件换成带 rawRef 的观察缩减视图(不再是「[已省略:」占位)(${JSON.stringify(bigMeta && { policy: bigMeta.policy, rawRef: bigMeta.rawRef })})`);
     ok(!afterCompact.includes(FACT), 'A2 缩减视图里看不到中段事实(确实省掉了)');
     const journal = path.join(p1.home, 'checkpoints', p1.sessionId);

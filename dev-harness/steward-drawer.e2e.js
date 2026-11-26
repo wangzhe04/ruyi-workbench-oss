@@ -507,17 +507,6 @@ try {
   }, token);
   ok(Boolean(withReply), 'A6 线程 A 有了一条以问句收尾的助手消息');
 
-  // C 跑一个回合并停在 question 待决（不 await：这条回合要一直挂着等答案）。
-  // C 【不】挂进事项 M —— 见文件头注：既有后端在 attach 之后送不进决策。
-  // 【只起 C】。D 的回合留到 C 被答完之后再起 —— 两条挂在 request_user_input 上的回合共用同一个
-  // 工作区，第二条会一直卡在资源租约上（实测：provider 只收到一次带 messages 的请求，第二条线程
-  // 的回合根本没起来）。这是夹具的约束，不是被测行为。
-  request(appPort, 'POST', '/api/chat/stream', { sessionId: idC, message: 'ask which framework', cwd: home }, token);
-  const pendingReady = await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
-    const pending = (result.json && result.json.pending) || [];
-    return pending.some(item => item && item.type === 'question' && item.sessionId === idC);
-  }, token);
-  ok(Boolean(pendingReady), 'A7 线程 C 挂着一条 question 待决');
 
   const executable = browserPath();
   ok(Boolean(executable), 'A8 Edge/Chrome found');
@@ -539,6 +528,7 @@ try {
   await cdp.send('Runtime.enable');
   await cdp.send('Page.addScriptToEvaluateOnNewDocument', {
     source: `(() => {
+      performance.setResourceTimingBufferSize(4000);
       const live = new Map();
       const nativeSet = window.setInterval;
       const nativeClear = window.clearInterval;
@@ -639,6 +629,19 @@ try {
     `B17 ⑧「更多」默认收起（走查③「线程页内容还是太多太杂」；实测 open=${openedA.moreOpen}）`);
   const focusedA = await waitForEval(cdp, `(() => (${DRAWER}).askFocused ? { ok: 1 } : null)()`);
   ok(Boolean(focusedA), 'B18 打开线程、数据到齐之后焦点落进问答框（走查①「打开线程回答」按下去该发生的事）');
+  // The real pending question opens a modal and owns focus. Seed it only
+  // after measuring the drawer in the no-competing-dialog scenario.
+  // C 跑一个回合并停在 question 待决（不 await：这条回合要一直挂着等答案）。
+  // C 【不】挂进事项 M —— 见文件头注：既有后端在 attach 之后送不进决策。
+  // 【只起 C】。D 的回合留到 C 被答完之后再起 —— 两条挂在 request_user_input 上的回合共用同一个
+  // 工作区，第二条会一直卡在资源租约上（实测：provider 只收到一次带 messages 的请求，第二条线程
+  // 的回合根本没起来）。这是夹具的约束，不是被测行为。
+  request(appPort, 'POST', '/api/chat/stream', { sessionId: idC, message: 'ask which framework', cwd: home }, token);
+  const pendingReady = await waitForHttp(appPort, 'GET', '/api/interventions?limit=100', result => {
+    const pending = (result.json && result.json.pending) || [];
+    return pending.some(item => item && item.type === 'question' && item.sessionId === idC);
+  }, token);
+  ok(Boolean(pendingReady), 'A7 线程 C 挂着一条 question 待决');
   ok(openedA.lastSayHead === zh['stewardShell.drawer.lastSay'],
     `B19 A 没有在跑 → 标题是「它刚说」（实测「${openedA.lastSayHead}」）`);
   ok(openedA.relayHidden === false && openedA.relay.length === 1 && openedA.relay[0].includes(THREAD_B),

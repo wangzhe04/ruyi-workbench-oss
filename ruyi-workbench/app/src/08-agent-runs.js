@@ -1090,7 +1090,7 @@ async function runSubAgentCoreBody({ parentSession, provider, config, task, disp
           const parentTurn = parentSession && parentSession.turnSeq != null ? { turnSeq: Number(parentSession.turnSeq) } : {};
           // 快照 → L1 蒸发 → L2 摘要重播种,与主回合走同一个内核。快照只写带内容哈希的文件名(见 maybeCompactSubHistory)。
           const forced = await runForcedOverflowCompaction({
-            history: subHistory, privacyHistoryOwner, scope: 'subagent', provider, model: subModel, config,
+            history: subHistory, privacyHistoryOwner, snapshotOwner: parentSession, scope: 'subagent', provider, model: subModel, config,
             snapshot: () => (parentId && config.runtimeObservationReducerV1 === true
               ? writeHistorySnapshot(parentId, parentSession.turnSeq, subHistory, true).catch(() => '')
               : ''),

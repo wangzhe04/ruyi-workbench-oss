@@ -1106,7 +1106,11 @@ if(typeof WorkDataMaintenanceRuntimeHooks!=='undefined'){
   try{
     if(!WorkDataMaintenanceRuntimeHooks.claim&&typeof WorkDataHandoffClaim!=='undefined'&&typeof WorkDataVerifierEntry!=='undefined'){
       const native=WorkDataVerifierEntry.createVerifier({proc:process});
-      WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:require('node:os').tmpdir(),flush:directories=>native.flush(directories)});
+      const temp = require('node:os').tmpdir();
+      // Windows accepts either separator in TEMP. Keep the claim's canonical
+      // path checks (including rejection of dot segments) at the boundary.
+      const claimTemp = process.platform === 'win32' ? temp.replaceAll('/', '\\') : temp;
+      WorkDataMaintenanceRuntimeHooks.claim=WorkDataHandoffClaim.create({temp:claimTemp,flush:directories=>native.flush(directories)});
     }
   }catch{ /* No synthetic claim: a missing adapter leaves the worker unready. */ }
   // One fresh-root activation owner for the whole process. It is carried by that same

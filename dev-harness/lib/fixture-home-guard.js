@@ -70,15 +70,27 @@ function die(methodName, target, problems) {
 function wrap(methodName) {
   const original = cp[methodName];
   if (typeof original !== 'function') return;
-  cp[methodName] = function guardedFixtureSpawn(...argv) {
+  function check(argv) {
     const oi = optionsIndexOf(argv);
     if (oi > 0) {
       const opts = argv[oi];
       const problems = violationsOf(opts && opts.env);
       if (problems.length) die(methodName, argv[0], problems);
     }
+  }
+  cp[methodName] = function guardedFixtureSpawn(...argv) {
+    check(argv);
     return original.apply(this, argv);
   };
+  // exec/execFile resolve to {stdout, stderr} and expose the ChildProcess on
+  // their Promise. Preserve Node's custom adapter with the same env checks.
+  const custom = require('node:util').promisify.custom;
+  if (typeof original[custom] === 'function') {
+    Object.defineProperty(cp[methodName], custom, {value: function (...argv) {
+      check(argv);
+      return original[custom].apply(original, argv);
+    }});
+  }
 }
 
 for (const m of PATCHED_METHODS) wrap(m);

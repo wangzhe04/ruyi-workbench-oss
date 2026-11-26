@@ -245,7 +245,7 @@ try {
     });
     r.on('error', reject); r.on('timeout', () => r.destroy(new Error('timeout'))); r.write(raw); r.end();
   });
-  const newSession = async () => { const c = await requestJson('POST', '/api/sessions', { cwd: WS }); return c.body && c.body.session && c.body.session.id; };
+  const newSession = async (title) => { const c = await requestJson('POST', '/api/sessions', { cwd: WS, title }); return c.body && c.body.session && c.body.session.id; };
   const turn = async (sid, message) => streamTurn({ sessionId: sid, cwd: WS, message });
   const toolResultOf = (callId, tag) => {
     const second = fake.requests.filter(r => r.stream && JSON.stringify(r.messages).includes('[' + tag + ']')).find(r => r.messages.some(m => m && m.role === 'tool' && m.tool_call_id === callId));
@@ -260,7 +260,8 @@ try {
     ok(Boolean(TOKEN), 'H0b 读到 token');
 
     // H1
-    const H1 = await newSession();
+    // A fixed title keeps automatic naming outside the replay measurement.
+    const H1 = await newSession('Memory scope replay');
     const out1 = await turn(H1, '记住:提交信息用中文写 [DOWN]');
     ok(Boolean(H1) && /"type":"result","ok":true/.test(out1), 'H1 回合跑完(主回合真的调了 workbench_memory_propose{scope:global})');
     const res1 = toolResultOf('c_down', 'DOWN');
