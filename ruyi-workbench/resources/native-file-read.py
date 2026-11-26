@@ -752,6 +752,24 @@ def office_text(roots, ext):
     return '\n\n'.join(pieces)
 
 
+# Match the ASCII address form protected by the personal-data policy. The Office
+# preview lays out text itself, so it can omit address glyphs before OCR sees it.
+OFFICE_EMAIL = re.compile(r"\b[A-Za-z0-9.!#$%&'*+/=?^_`{|}~-]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9.-]{0,253}[A-Za-z0-9])?\.[A-Za-z]{2,63}\b", re.ASCII)
+
+
+def draw_office_line(draw, font, line, top, mask_emails):
+    cursor = 0
+    if mask_emails:
+        for address in OFFICE_EMAIL.finditer(line):
+            x = 36 + font.getlength(line[:cursor])
+            draw.text((x, top), line[cursor:address.start()], font=font, fill='black')
+            left = 36 + math.floor(font.getlength(line[:address.start()]))
+            right = 36 + math.ceil(font.getlength(line[:address.end()]))
+            draw.rectangle((left, top, right, top + 31), fill='black')
+            cursor = address.end()
+    draw.text((36 + font.getlength(line[:cursor]), top), line[cursor:], font=font, fill='black')
+
+
 def office_preview(text, opts):
     # This is a reflowed preview of the supported text projection, not a native Office layout.
     # Pillow's bundled font has a deliberately small admitted glyph repertoire.
@@ -778,7 +796,7 @@ def office_preview(text, opts):
         draw = ImageDraw.Draw(image)
         draw.text((36, 24), 'Office content preview (reflowed text)', font=font, fill='black')
         for offset, line in enumerate(lines[index * 34:(index + 1) * 34]):
-            draw.text((36, 64 + offset * 32), line, font=font, fill='black')
+            draw_office_line(draw, font, line, 64 + offset * 32, opts.get('maskOfficeEmails', False))
         return image
 
     return protected_pages(total, opts, 'office-content-preview', render)
@@ -1063,7 +1081,14 @@ def protected_main():
     try:
         _, ext, raw = sys.argv[1:4]
         opts = json.loads(raw)
-        if ext not in OFFICE_EXTENSIONS | {'.pdf'} or not isinstance(opts, dict) or set(opts) != {'pageOffset', 'pageLimit', 'visual', 'ownerStub'}:
+        if not isinstance(opts, dict):
+            raise ProjectionRefusal('document_invalid')
+        expected = {'pageOffset', 'pageLimit', 'visual', 'ownerStub'}
+        if 'maskOfficeEmails' in opts:
+            if ext not in OFFICE_EXTENSIONS or opts.get('visual') is not True or opts['maskOfficeEmails'] is not True:
+                raise ProjectionRefusal('document_invalid')
+            expected.add('maskOfficeEmails')
+        if ext not in OFFICE_EXTENSIONS | {'.pdf'} or set(opts) != expected:
             raise ProjectionRefusal('document_invalid')
         if (type(opts['pageOffset']) is not int or not 1 <= opts['pageOffset'] <= 100000
                 or type(opts['pageLimit']) is not int or not 1 <= opts['pageLimit'] <= 2

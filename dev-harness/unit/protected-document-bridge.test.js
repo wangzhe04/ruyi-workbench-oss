@@ -40,6 +40,22 @@ test('protected text sends only the snapshot and bounded options to the fixed he
   assert.equal(result.images.length, 0);
 });
 
+test('only the captured personal-data policy enables source masking for Office images', async () => {
+  const options = [];
+  const io = await reader((_helper, argv) => {
+    options.push(JSON.parse(argv[2]));
+    return { ok: false, code: 'document_invalid', hint: 'fixture' };
+  });
+  const imageArgs = { as: 'image', maskOfficeEmails: true };
+  const personal = { config: { personal: true } };
+  await io.protectedDocument('preview.docx', imageArgs, null, undefined, bytes, personal);
+  await io.protectedDocument('preview.docx', imageArgs, null, undefined, bytes);
+  await io.protectedDocument('preview.docx', imageArgs, null, undefined, bytes, { config: { personal: false } });
+  await io.protectedDocument('preview.docx', { as: 'text' }, null, undefined, bytes, personal);
+  await io.protectedDocument('preview.pdf', imageArgs, null, undefined, bytes, personal);
+  assert.deepEqual(options.map(item => item.maskOfficeEmails), [true, undefined, undefined, undefined, undefined]);
+});
+
 test('protected vision requires an exact bounded PNG page window', async () => {
   const response = { ok: true, mode: 'document', projection: 'pdf-pages', content: 'PDF page render: page 2 of 3.',
     pageOffset: 2, totalPages: 3, nextPageOffset: 3, images: [{ name: 'page-2.png', mimeType: 'image/png', data: png, path: 'private' }] };

@@ -1453,7 +1453,7 @@ async function readNativeMedia(file, kind, args, ctx, protectedRead) {
           : { ok: true, mode: 'image', content: 'Locally protected image attached. Original filename, path and metadata withheld.',
             images: [{ name: 'image.png', mimeType: 'image/png', data: bytes.toString('base64') }] }
         : kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
-          : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
+          : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes, policy);
       policy?.assert(); source.assert();
       return { value, source };
     }));

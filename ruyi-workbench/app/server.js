@@ -76600,7 +76600,7 @@ const FileVisualIo = (() => {
   }
   const documentRefusals = new Set(['document_encrypted', 'document_stub', 'document_hidden_content', 'document_projection_limit',
     'document_visual_required', 'document_render_unavailable', 'document_page_range', 'document_invalid', 'reader_unavailable']);
-  async function protectedDocument(p, args, _helperPath, signal, bytes) {
+  async function protectedDocument(p, args, _helperPath, signal, bytes, mediaPolicy) {
     const refuse = (code, hint) => ({ ok: false, code, hint });
     const cancelled = () => refuse('aborted', 'The protected document read was cancelled.');
     const unavailable = () => refuse('reader_unavailable', 'Use the Full offline package with the verified media runtime.');
@@ -76614,6 +76614,7 @@ const FileVisualIo = (() => {
     const { pageOffset, pageLimit } = options(args);
     const visual = args.as === 'image';
     const opts = { pageOffset, pageLimit, visual, ownerStub: paths.win32.basename(p).startsWith('~$') };
+    if (visual && ext !== '.pdf' && mediaPolicy?.config.personal === true) opts.maskOfficeEmails = true;
     let result;
     try {
       result = await MediaImageHooks.runLocalMediaHelper('native-file-read.py', ['--protected', ext, JSON.stringify(opts)], bytes,
@@ -78437,7 +78438,7 @@ async function readNativeMedia(file, kind, args, ctx, protectedRead) {
           : { ok: true, mode: 'image', content: 'Locally protected image attached. Original filename, path and metadata withheld.',
             images: [{ name: 'image.png', mimeType: 'image/png', data: bytes.toString('base64') }] }
         : kind === 'video' ? await MediaInspection.videoFrames(file, args, signal, bytes)
-          : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes);
+          : await FileVisualIo.protectedDocument(file, args, helper, signal, bytes, policy);
       policy?.assert(); source.assert();
       return { value, source };
     }));
@@ -121734,7 +121735,7 @@ const MediaImageHost = (() => {
   }
   const LOCAL_SOURCE_LIMIT = 50 * 1024 * 1024;
   const localHelperHashes = Object.freeze({
-    'native-file-read.py': 'b5f8498df7b948c59dbe4a9631725f32eca4da12baea6d25c86fc2606fd1868a',
+    'native-file-read.py': 'ecdcd7957f3554c75d4904ff70ed1757086b2ee6eb445fb0903fc9cab45ba495',
     'native-video-read.py': '91cbfce6403de135c72908e9f8e0ea900d720c5d9c36bcad980084d936f82ab9',
   });
   const localPythonStartupHashes = Object.freeze({

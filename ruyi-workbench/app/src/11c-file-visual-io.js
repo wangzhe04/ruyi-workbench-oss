@@ -106,7 +106,7 @@ const FileVisualIo = (() => {
   }
   const documentRefusals = new Set(['document_encrypted', 'document_stub', 'document_hidden_content', 'document_projection_limit',
     'document_visual_required', 'document_render_unavailable', 'document_page_range', 'document_invalid', 'reader_unavailable']);
-  async function protectedDocument(p, args, _helperPath, signal, bytes) {
+  async function protectedDocument(p, args, _helperPath, signal, bytes, mediaPolicy) {
     const refuse = (code, hint) => ({ ok: false, code, hint });
     const cancelled = () => refuse('aborted', 'The protected document read was cancelled.');
     const unavailable = () => refuse('reader_unavailable', 'Use the Full offline package with the verified media runtime.');
@@ -120,6 +120,7 @@ const FileVisualIo = (() => {
     const { pageOffset, pageLimit } = options(args);
     const visual = args.as === 'image';
     const opts = { pageOffset, pageLimit, visual, ownerStub: paths.win32.basename(p).startsWith('~$') };
+    if (visual && ext !== '.pdf' && mediaPolicy?.config.personal === true) opts.maskOfficeEmails = true;
     let result;
     try {
       result = await MediaImageHooks.runLocalMediaHelper('native-file-read.py', ['--protected', ext, JSON.stringify(opts)], bytes,
