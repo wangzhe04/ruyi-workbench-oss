@@ -354,7 +354,7 @@ try {
   ok(pausedReady.status === 200 && pausedReady.json?.results?.[0]?.id === 'sess-beta'
     && pausedNew.status === 200 && pausedNew.json.coverage.phase === 'paused'
     && pausedNew.json.coverage.pendingSessions >= 1 && pausedNew.json.results.length === 0,
-  'J2 暂停期间已有分片可查，变更后的源明确显示待构建');
+  'J2 暂停期间已有分片可查，变更后的源明确显示待构建 '+JSON.stringify({existing:pausedReady.json?.results?.map(r=>r.id),pending:pausedNew.json?.coverage?.pendingSessions,results:pausedNew.json?.results?.map(r=>r.id),status:[pausedReady.status,pausedNew.status]}));
   const resume = await post(PORT, '/api/config', { sessionSearchIndexPausedV1: false }, auth);
   const resumed = await get(PORT, '/api/sessions/search?q=PendingIndexSourceNeedle', auth);
   ok(resume?.ok === true && resume.config.sessionSearchIndexPausedV1 === false

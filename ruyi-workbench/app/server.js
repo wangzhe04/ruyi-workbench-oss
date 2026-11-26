@@ -46714,11 +46714,16 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         if(Date.now()>=deadline){status='timeout';break;}
       }
       if(generation!==cacheGeneration)return empty('unavailable');
+      // A genuine worker timeout can close the transport before this slice returns.
+      // Discard the slice if that transport can no longer attest its scores.
+      if(requestCodecToken && status==='timeout' && runtime.descriptor?.()?.available===false)return empty('timeout');
       if(requestCodecToken&&codecProof.snapshot(model)!==requestCodecToken)return empty('unavailable');
       const norm=v=>Math.sqrt(v.reduce((sum,n)=>sum+n*n,0)),qn=norm(q);
       const scores=vectors.map(v=>{if(!v)return null;if(v.length!==q.length)throw Error('semantic.invalid_vectors');return v.reduce((sum,n,i)=>sum+n*q[i],0)/(norm(v)*qn);});
       const cached=vectors.filter(Boolean).length,complete=cached===docs.length;
       if(status==='ready'&&!complete)status='partial';
+      // The last successful batch may finish on the slice boundary. No missing scores remain.
+      if(status==='timeout'&&complete)status='ready';
       const effectiveMinimum=typeof minScore==='number'&&Number.isFinite(minScore)?minScore:0.85;
       const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId && Number.isFinite(descriptor.retrievalThresholds?.search)?assessAdmission(query,docs,scores,{complete,minScore:effectiveMinimum}):null;
       const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete},...(admission?{admission}:{})};
@@ -46735,7 +46740,7 @@ const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).
 const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
   weakWindow: 'fixed-best-eligible-original96-overlap16-before-cosine-admission; no-result-driven-window-switch', metadataDisplay: 'same-field-complete-projected-context-not-raw-window-quote', coarseThreshold: null, strong: 'same-original-field-only', unknown: 'not-promoted-and-partial', pools:Object.freeze({session:'complete eligible committed-body pool plus same-field lexically related metadata including strong fields; no unrelated metadata discovery',memory:'complete bounded eligible memory-header fields',observation:'complete bounded registered-tool or authorized-projected-message fields'}),geometry:Object.freeze({message:'canonical-message-v3 original96/16',memory:'raw-original-v1 original96/16',metadata:'raw-metadata-v1 original96/16',committedMessage:'privacy-projected-v1 placeholder-safe96/16'}),metadataContext:'identity title/brief.title/cwd are labels; summary/gist need their own admitted field; recent request omitted without a field proof',automatic: null });
 
-function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false }) {
+function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false, partialLexicalFields = false }) {
   if(typeof readScoreEvidence!=='function')throw TypeError('semantic.scorer_reader_required');
   const issuedDecisions = new WeakMap();
   if ([identify, normalize, terms].some(value => typeof value !== 'function')) throw TypeError('composite.host_invalid');
@@ -46793,9 +46798,23 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     const globalComplete = poolComplete === true && !sourceUnknown && scores.every((score, index) => eligible[index] === false || Number.isFinite(score));
     for(let i=0;i<eligible.length;i++)if(eligible[i]===false)accepted[i]=false;
     if(globalComplete)accepted.fill(false);
-    const order = globalComplete ? scores.map((score, index) => ({ score, index })).filter(item => eligible[item.index] === true)
+    // A lexical hit names a particular field. Its best window is known once
+    // every eligible window of that field has a score and the source pool is intact.
+    const allowFieldRanking = partialLexicalFields && poolComplete && !sourceUnknown;
+    const incompleteFields = new Set();
+    if (!globalComplete && allowFieldRanking) {
+      rows.forEach((row, index) => {
+        if (eligible[index] && !Number.isFinite(scores[index])) incompleteFields.add(row.fieldKey);
+      });
+    }
+    const order = globalComplete || allowFieldRanking ? scores.map((score, index) => ({ score, index })).filter(item => eligible[item.index] === true && !incompleteFields.has(rows[item.index].fieldKey))
       .sort((a, b) => b.score - a.score || rows[a.index].order.localeCompare(rows[b.index].order) || a.index - b.index) : [];
-    const selected = order.slice(0, CONTRACT.topK).map(item => item.index), work = new Map(), requiredWork = [], strongEvidence = [];
+    const bestByField = new Map();
+    for (const item of order) {
+      const field = rows[item.index].fieldKey;
+      if (!bestByField.has(field)) bestByField.set(field, item);
+    }
+    const selected = globalComplete ? order.slice(0, CONTRACT.topK).map(item => item.index) : [], work = new Map(), requiredWork = [], strongEvidence = [];
     async function evidence(index, wholeField, role, lexicalKey = null) {
       let source = await resolved(index, wholeField);
       if (!source) { sourceUnknown = true;if(role==='semantic')accepted[index]=null; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if(rows[index].metadata)metadataDecisions.set(rows[index].fieldKey,null); return; }
@@ -46809,7 +46828,7 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
         strongEvidence.push({ index, role, fieldKey: rows[index].fieldKey, reason: classification.reason }); return;
       }
       if (role === 'weak-lexical' || role === 'metadata') {
-        const choice = order.find(item => rows[item.index].fieldKey === rows[index].fieldKey);
+        const choice = globalComplete || role === 'weak-lexical' ? bestByField.get(rows[index].fieldKey) : null;
         if (!choice) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
         const previous = source; index = choice.index; source = await resolved(index, false);
         if (!source) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
@@ -119697,7 +119716,9 @@ const SessionFullTextIndex = ((io,p,c) => {
         // Lexical shard text is uppercased. Resolve original spelling through
         // the authenticated source owner only when a vector is not cached.
         const semanticDeadline=Math.min(Date.now()+1000,Number.isFinite(options.deadline)?options.deadline:Infinity),policyContext=typeof SemanticOriginalWindows!=='undefined'?SemanticOriginalWindows.createRequest({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}):null;
-        const sourceExpired=Object.freeze({semanticSourceBudget:true}),sourceCheck=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw sourceExpired;};
+        // Scoring yields after its slice; validating a completed score can use the remaining request budget.
+        let sourceDeadline=semanticDeadline;
+        const sourceExpired=Object.freeze({semanticSourceBudget:true}),sourceCheck=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=sourceDeadline)throw sourceExpired;};
         const originalFragments=new Map(),originalFields=new Map(),loadedSources=new Set(),sourceSequences=new Map(),sourceGuards=new Map();let activeSids=[],activeMetadata=new Set();
         const bodyRows=new Map(),sourceEpochs=new Map();
         semanticRows.forEach((entry,index)=>{
@@ -119784,20 +119805,47 @@ const SessionFullTextIndex = ((io,p,c) => {
           return n=>{const row=semanticRows[n];if(!row||row.metadata)return null;const h=row.hit;return vectorGet(h.row.sessionId,model,windowVectorKey(h.row.sessionId,h.row.messageOrdinal,h.row.source,h.row.contentRevision,h.canonicalStart,h.at,h.start,h.end,h.windowHash));};};
         const semanticCold=deferEncoding&&typeof host.semanticReady==='function'&&host.semanticReady()!==true;
         if(semanticCold){try{host.semanticWarm?.();}catch{}semanticState={status:'loading',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}
-        else try{semanticState=await semantic.score(query,semanticRows.map(row=>row.text),{scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,deadline:semanticDeadline,signal:options.signal,...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})});}catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
+        else try{
+          const texts=semanticRows.map(row=>row.text);
+          const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
+          let previousCached=0;
+          const continuationDeadline=Math.min(semanticDeadline+2000,(options.deadline??Infinity)-1000);
+          for(;;){
+            const started=Date.now();
+            semanticState=await semantic.score(query,texts,{...scoreOptions,deadline:sourceDeadline});
+            if(!gemmaMethod||candidates.length||isPaused()||!Number.isFinite(options.deadline))break;
+            const {cached,total,complete}=semanticState.coverage;
+            if(complete||!['timeout','partial'].includes(semanticState.status)||cached<=previousCached||cached>=total)break;
+            // Continue only when measured progress predicts completion before the
+            // request deadline, leaving a slice for source verification and disclosure.
+            const remainingMs=(Date.now()-started)*(total-cached)/(cached-previousCached);
+            if(continuationDeadline-Date.now()<Math.max(1,remainingMs))break;
+            previousCached=cached;
+            sourceDeadline=Math.min(Date.now()+1000,continuationDeadline);
+          }
+        }catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
         check();await authoritative();
         if(policyContext&&(gemmaDecision||SemanticRetrieval.hasScoreEvidence(semanticState)||semanticState.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint)){
-          const expired=Object.freeze({semanticBudget:true}),guard=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=semanticDeadline)throw expired;},policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify,normalize,terms:retrievalTerms}),rawRows=[],entries=[],rowSources=[],tokens=new Map(),fieldRows=new Map(),canonical=new Map(),sourceIndices=[];
+          const verificationDeadline=Math.min(Date.now()+1000,Number.isFinite(options.deadline)?options.deadline:Infinity);
+          sourceDeadline=verificationDeadline;
+          const expired=Object.freeze({semanticBudget:true}),guard=()=>{check();if(options.signal?.aborted)throw options.signal.reason===undefined?Error('semantic.aborted'):options.signal.reason;if(Date.now()>=verificationDeadline)throw expired;},policy=SemanticWindowPolicy.createSemanticCoarsePolicy({identify,normalize,terms:retrievalTerms,partialLexicalFields:true}),rawRows=[],entries=[],rowSources=[],tokens=new Map(),fieldRows=new Map(),canonical=new Map(),sourceIndices=[];
           try{
             guard();await resolveTexts(semanticRows.map((_,n)=>n));guard();
             for(let n=0;n<semanticRows.length;n++){guard();const row=semanticRows[n],full=row.metadata?row.metadata.text:originalFields.get(n);if(typeof full!=='string')continue;const identity=row.metadata?{sourceId:row.metadata.sid,field:'metadata.'+row.metadata.field,revision:digest(full),epoch:row.metadata.epoch,sourceRevision:row.metadata.epoch}:{sourceId:JSON.stringify([row.hit.row.sessionId,row.hit.row.messageId]),field:row.hit.row.source,revision:row.hit.row.contentRevision,epoch:row.hit.epoch,sourceRevision:row.hit.sourceRevision},token=policyContext.captureField(identity,full,row.metadata?'raw-metadata-v1':'canonical-message-v3');let source;
               if(row.metadata)source=policyContext.rawWindow(token,row.identity.at(-2),row.identity.at(-1));else{let windows=canonical.get(token);if(!windows){windows=new Map();for(const window of policyContext.canonicalSlices(token)){guard();windows.set(window.canonicalStart,window);}canonical.set(token,windows);}source=policyContext.canonicalWindow(token,windows.get(row.hit.canonicalStart),row.hit.at,row.hit.width);}
               const raw=policyContext.row(source,[row.hit.row.sessionId,row.hit.row.messageOrdinal??-1,row.hit.row.source??row.metadata.field],row.identity),key=row.metadata?row.metadataKey:sourceKeyOf(row.hit.row);if(!tokens.has(key))tokens.set(key,policyContext.weakKey(token));if(!fieldRows.has(key))fieldRows.set(key,rawRows.length);rawRows.push(raw);entries.push(SemanticRetrieval.hasScoreEvidence(semanticState)?{result:semanticState,index:n}:null);rowSources.push({source,token,full,n});sourceIndices.push(n);
             }
-            const coverage=await rawCoverage({context,access,seen:new Set(),sequences:new Map()},{check:guard,timeout:expired});guard();
-            const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:rawRows,lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:semanticDeadline,signal:options.signal,
-              resolve:async(index,whole)=>{guard();const item=rowSources[index];await resolveTexts([item.n]);guard();if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async event=>{guard();activeSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];activeMetadata=new Set(rowSources.map(item=>semanticRows[item.n].metadata).filter(Boolean));if(event?.phase==='resolved')await beforeEncode();else await authoritative();guard();}});
-            try{const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(let n=0;n<candidates.length;n++)if(sourceKeyOf(candidates[n].row)===key)candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
+            const coverage=await rawCoverage({context,access,seen:new Set(),sequences:new Map()},{check:guard,timeout:expired,manifests:scannedManifests,mutation:searchMutation});guard();
+            const verifiedSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];
+            const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:rawRows,lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:verificationDeadline,signal:options.signal,
+              resolve:async(index,whole)=>{check();const item=rowSources[index];if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async event=>{
+                // The policy stops starting new windows at its soft deadline. Finish
+                // validation of already resolved windows under the outer deadline.
+                check();activeSids=verifiedSids;
+                if(event?.phase==='resolved')await beforeEncode();else await authoritative();
+                check();
+              }});
+            try{const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(let n=0;n<candidates.length;n++)if(sourceKeyOf(candidates[n].row)===key)candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,status:!decision.complete&&Date.now()>=verificationDeadline?'timeout':semanticState.status,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
           }catch(error){if(error!==expired&&error!==sourceExpired)throw error;gemmaDecision={complete:false,policyId:SemanticWindowPolicy.CONTRACT.id};semanticState={...semanticState,status:'timeout',admission:{policyId:gemmaDecision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:'partial',accepted:semanticRows.map(()=>null)},coverage:{...semanticState.coverage,complete:false}};}
         }
         if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');

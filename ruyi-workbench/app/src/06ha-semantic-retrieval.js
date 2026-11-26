@@ -153,11 +153,16 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         if(Date.now()>=deadline){status='timeout';break;}
       }
       if(generation!==cacheGeneration)return empty('unavailable');
+      // A genuine worker timeout can close the transport before this slice returns.
+      // Discard the slice if that transport can no longer attest its scores.
+      if(requestCodecToken && status==='timeout' && runtime.descriptor?.()?.available===false)return empty('timeout');
       if(requestCodecToken&&codecProof.snapshot(model)!==requestCodecToken)return empty('unavailable');
       const norm=v=>Math.sqrt(v.reduce((sum,n)=>sum+n*n,0)),qn=norm(q);
       const scores=vectors.map(v=>{if(!v)return null;if(v.length!==q.length)throw Error('semantic.invalid_vectors');return v.reduce((sum,n,i)=>sum+n*q[i],0)/(norm(v)*qn);});
       const cached=vectors.filter(Boolean).length,complete=cached===docs.length;
       if(status==='ready'&&!complete)status='partial';
+      // The last successful batch may finish on the slice boundary. No missing scores remain.
+      if(status==='timeout'&&complete)status='ready';
       const effectiveMinimum=typeof minScore==='number'&&Number.isFinite(minScore)?minScore:0.85;
       const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId && Number.isFinite(descriptor.retrievalThresholds?.search)?assessAdmission(query,docs,scores,{complete,minScore:effectiveMinimum}):null;
       const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete},...(admission?{admission}:{})};
@@ -174,7 +179,7 @@ const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).
 const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
   weakWindow: 'fixed-best-eligible-original96-overlap16-before-cosine-admission; no-result-driven-window-switch', metadataDisplay: 'same-field-complete-projected-context-not-raw-window-quote', coarseThreshold: null, strong: 'same-original-field-only', unknown: 'not-promoted-and-partial', pools:Object.freeze({session:'complete eligible committed-body pool plus same-field lexically related metadata including strong fields; no unrelated metadata discovery',memory:'complete bounded eligible memory-header fields',observation:'complete bounded registered-tool or authorized-projected-message fields'}),geometry:Object.freeze({message:'canonical-message-v3 original96/16',memory:'raw-original-v1 original96/16',metadata:'raw-metadata-v1 original96/16',committedMessage:'privacy-projected-v1 placeholder-safe96/16'}),metadataContext:'identity title/brief.title/cwd are labels; summary/gist need their own admitted field; recent request omitted without a field proof',automatic: null });
 
-function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false }) {
+function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false, partialLexicalFields = false }) {
   if(typeof readScoreEvidence!=='function')throw TypeError('semantic.scorer_reader_required');
   const issuedDecisions = new WeakMap();
   if ([identify, normalize, terms].some(value => typeof value !== 'function')) throw TypeError('composite.host_invalid');
@@ -232,9 +237,23 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     const globalComplete = poolComplete === true && !sourceUnknown && scores.every((score, index) => eligible[index] === false || Number.isFinite(score));
     for(let i=0;i<eligible.length;i++)if(eligible[i]===false)accepted[i]=false;
     if(globalComplete)accepted.fill(false);
-    const order = globalComplete ? scores.map((score, index) => ({ score, index })).filter(item => eligible[item.index] === true)
+    // A lexical hit names a particular field. Its best window is known once
+    // every eligible window of that field has a score and the source pool is intact.
+    const allowFieldRanking = partialLexicalFields && poolComplete && !sourceUnknown;
+    const incompleteFields = new Set();
+    if (!globalComplete && allowFieldRanking) {
+      rows.forEach((row, index) => {
+        if (eligible[index] && !Number.isFinite(scores[index])) incompleteFields.add(row.fieldKey);
+      });
+    }
+    const order = globalComplete || allowFieldRanking ? scores.map((score, index) => ({ score, index })).filter(item => eligible[item.index] === true && !incompleteFields.has(rows[item.index].fieldKey))
       .sort((a, b) => b.score - a.score || rows[a.index].order.localeCompare(rows[b.index].order) || a.index - b.index) : [];
-    const selected = order.slice(0, CONTRACT.topK).map(item => item.index), work = new Map(), requiredWork = [], strongEvidence = [];
+    const bestByField = new Map();
+    for (const item of order) {
+      const field = rows[item.index].fieldKey;
+      if (!bestByField.has(field)) bestByField.set(field, item);
+    }
+    const selected = globalComplete ? order.slice(0, CONTRACT.topK).map(item => item.index) : [], work = new Map(), requiredWork = [], strongEvidence = [];
     async function evidence(index, wholeField, role, lexicalKey = null) {
       let source = await resolved(index, wholeField);
       if (!source) { sourceUnknown = true;if(role==='semantic')accepted[index]=null; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if(rows[index].metadata)metadataDecisions.set(rows[index].fieldKey,null); return; }
@@ -248,7 +267,7 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
         strongEvidence.push({ index, role, fieldKey: rows[index].fieldKey, reason: classification.reason }); return;
       }
       if (role === 'weak-lexical' || role === 'metadata') {
-        const choice = order.find(item => rows[item.index].fieldKey === rows[index].fieldKey);
+        const choice = globalComplete || role === 'weak-lexical' ? bestByField.get(rows[index].fieldKey) : null;
         if (!choice) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
         const previous = source; index = choice.index; source = await resolved(index, false);
         if (!source) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }

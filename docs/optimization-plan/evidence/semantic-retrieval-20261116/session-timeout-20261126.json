@@ -1,0 +1,684 @@
+{
+  "scope": "Development regression on synthetic encrypted sessions with enhanced privacy and the real CPU Q4 runtime. No independent holdout run.",
+  "referenceCommit": "aa5fbd5a",
+  "archive": {
+    "bytes": 1171898306,
+    "sha256": "3b1e8745233206580fa0dc062f49bcb7d55933025e6bd9380e33f2359c2aa70f",
+    "entries": 21305
+  },
+  "lateBatch": {
+    "before": {
+      "delayed": true,
+      "ids": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "cached": 4,
+      "total": 6
+    },
+    "after": {
+      "delayed": true,
+      "ids": [
+        "S2"
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "cached": 6,
+      "total": 6
+    }
+  },
+  "tests": {
+    "scopedUnitPassed": 368,
+    "includesSeparateExposedGcRun": true,
+    "packagedSessionSearchPassed": 42
+  },
+  "cold": {
+    "serverSha256": "231adf0fc9ce3b36e4c9ac5254047a24da822cff3c12d0fab499b70a1f060b3a",
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "prewarmMs": 30852.7226,
+    "cases": [
+      {
+        "ms": 1697.4237999999968,
+        "encodeMs": [
+          52.81290000000445
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 203,
+        "hits": 5
+      },
+      {
+        "ms": 1646.3916000000027,
+        "encodeMs": [
+          52.075700000001234
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 217,
+        "hits": 5
+      },
+      {
+        "ms": 1672.5662000000011,
+        "encodeMs": [
+          55.85319999999774
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 232,
+        "hits": 5
+      },
+      {
+        "ms": 1705.0823999999993,
+        "encodeMs": [
+          51.228900000001886
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 247,
+        "hits": 5
+      },
+      {
+        "ms": 1707.256699999998,
+        "encodeMs": [
+          61.10650000000169
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 262,
+        "hits": 5
+      },
+      {
+        "ms": 1680.3831000000064,
+        "encodeMs": [
+          54.656699999999546
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 276,
+        "hits": 5
+      },
+      {
+        "ms": 1691.8331000000035,
+        "encodeMs": [
+          53.98950000000332
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 291,
+        "hits": 5
+      },
+      {
+        "ms": 1669.000199999995,
+        "encodeMs": [
+          52.58849999999802
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 306,
+        "hits": 5
+      },
+      {
+        "ms": 1671.7344000000012,
+        "encodeMs": [
+          64.51270000000659
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 320,
+        "hits": 5
+      },
+      {
+        "ms": 1704.588499999998,
+        "encodeMs": [
+          51.25239999999758
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 335,
+        "hits": 5
+      },
+      {
+        "ms": 2321.304600000003,
+        "encodeMs": [
+          52.58179999999993
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 366,
+        "hits": 0
+      },
+      {
+        "ms": 2304.4352,
+        "encodeMs": [
+          53.05240000000049
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 397,
+        "hits": 0
+      },
+      {
+        "ms": 2317.994200000001,
+        "encodeMs": [
+          53.953999999997905
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 428,
+        "hits": 0
+      },
+      {
+        "ms": 2298.3032999999996,
+        "encodeMs": [
+          66.77419999999984
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 457,
+        "hits": 0
+      },
+      {
+        "ms": 2413.1060999999972,
+        "encodeMs": [
+          56.94720000000234
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 486,
+        "hits": 0
+      },
+      {
+        "ms": 2436.523100000006,
+        "encodeMs": [
+          83.51020000000426
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 504,
+        "hits": 0
+      },
+      {
+        "ms": 2458.321499999991,
+        "encodeMs": [
+          81.90540000000328
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 521,
+        "hits": 0
+      },
+      {
+        "ms": 2311.447100000005,
+        "encodeMs": [
+          98.18630000000121
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 538,
+        "hits": 0
+      },
+      {
+        "ms": 2313.162799999991,
+        "encodeMs": [
+          54.83259999999427
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 568,
+        "hits": 0
+      },
+      {
+        "ms": 2373.4284000000043,
+        "encodeMs": [
+          53.6024000000034
+        ],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 599,
+        "hits": 0
+      }
+    ],
+    "nonempty": 10,
+    "complete": 0,
+    "p95Ms": 2436.523100000006
+  },
+  "warm": {
+    "serverSha256": "231adf0fc9ce3b36e4c9ac5254047a24da822cff3c12d0fab499b70a1f060b3a",
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "prewarmMs": 300057.85959999997,
+    "cases": [
+      {
+        "ms": 991.9740999999922,
+        "encodeMs": [
+          58.992199999978766
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 939.1669000000111,
+        "encodeMs": [
+          55.68979999999283
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 981.5023999999976,
+        "encodeMs": [
+          55.5800000000163
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 954.9554999999818,
+        "encodeMs": [
+          55.618099999963306
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 929.0894000000553,
+        "encodeMs": [
+          55.038700000033714
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 888.8513000000385,
+        "encodeMs": [
+          52.084600000001956
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 892.999599999981,
+        "encodeMs": [
+          52.75429999997141
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 898.3924000000115,
+        "encodeMs": [
+          52.335400000039954
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 922.2599000000046,
+        "encodeMs": [
+          52.83830000000307
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 963.3928000000305,
+        "encodeMs": [
+          54.2780999999959
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 5
+      },
+      {
+        "ms": 533.8635999999824,
+        "encodeMs": [
+          53.63980000000447
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 576.75900000002,
+        "encodeMs": [
+          60.461799999990035
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 547.2405000000144,
+        "encodeMs": [
+          60.74580000003334
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 601.5195999999996,
+        "encodeMs": [
+          53.18720000004396
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 582.9467000000295,
+        "encodeMs": [
+          65.3347000000067
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 546.954700000002,
+        "encodeMs": [
+          55.757800000021234
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 538.9602000000305,
+        "encodeMs": [
+          53.664600000018254
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 535.3686999999918,
+        "encodeMs": [
+          53.276499999978114
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 607.2264999999898,
+        "encodeMs": [
+          67.28149999998277
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      },
+      {
+        "ms": 552.6112999999896,
+        "encodeMs": [
+          54.93959999998333
+        ],
+        "status": "ready",
+        "coverage": "complete",
+        "fragments": 1000,
+        "cached": 1000,
+        "hits": 1
+      }
+    ],
+    "nonempty": 20,
+    "complete": 20,
+    "p95Ms": 981.5023999999976
+  },
+  "underConcurrentLoad": {
+    "serverSha256": "231adf0fc9ce3b36e4c9ac5254047a24da822cff3c12d0fab499b70a1f060b3a",
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "prewarmMs": 34385.725900000005,
+    "cases": [
+      {
+        "ms": 4677.595800000003,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 3068.4555000000037,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 3123.914700000001,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 6372.132300000005,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 3330.6521000000066,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 4188.7114,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 3497.0543000000034,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 1892.2880999999907,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 1909.7703000000038,
+        "encodeMs": [],
+        "status": "timeout",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 1525.431700000001,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 793.4912999999942,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 732.2584000000061,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 880.6424999999872,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 1093.3706999999995,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 819.4945000000007,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 1093.131899999993,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 845.6006000000052,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 874.3241000000125,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 736.2578999999969,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      },
+      {
+        "ms": 754.9360999999917,
+        "encodeMs": [],
+        "status": "unavailable",
+        "coverage": "partial",
+        "fragments": 1000,
+        "cached": 0,
+        "hits": 0
+      }
+    ],
+    "nonempty": 0,
+    "complete": 0,
+    "p95Ms": 4677.595800000003
+  }
+}
