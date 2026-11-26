@@ -46499,7 +46499,7 @@ try{await r.identityReady;}catch{/* Missing identity remains unproved. */}try{r.
    record.identityReady=Promise.resolve().then(()=>observe(child.pid)).then(identity=>{const checked=checkedObservation(identity,child.pid);if(!checked.exists){record.absentAtIdentity=checked;throw fault('semantic.owner_identity');}record.identity=checked;}).catch(e=>{if(e&&typeof e==='object')availabilityErrors.add(e);throw e;});staged();await record.identityReady;publish();return await readyPromise;
   }catch(e){primaryFailure={value:e};if(record.child){try{await stop('fault');}catch{}}else{if(record.key&&owners.get(record.key)===record)owners.delete(record.key);if(owner===record)owner=null;}if(e?.code==='semantic.preparation_stopped')return unavailable('unavailable');if(availabilityFailure(e)){markFaulted();descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:e?.code||'unavailable'};return unavailable('unavailable');}startingFailure={value:e};descriptorValue={available:false,state:'failed',modelFingerprint:'',diagnosticCode:typeof e?.code==='string'?e.code:'semantic.startup_failed'};throw e;}finally{clearTimeout(timer);let cleanupFailure=null;if(!record.child&&settings?.onSpawnFailure)try{await settings.onSpawnFailure();}catch(e){record.cleanupFailure={value:e};cleanupFailure={value:e};metrics.cleanupFailures++;}staged();if(starting===record)starting=null;if(cleanupFailure&&!primaryFailure){startingFailure=cleanupFailure;throw cleanupFailure.value;}}})();record.promise.catch(()=>{});return record.promise;}
  async function prepare(options={}){const g=generation;aborted(options.signal);const enabled=await host.enabled();aborted(options.signal);if(enabled!==true){await stop('disabled');aborted(options.signal);return unavailable('disabled');}if(startingFailure)throw startingFailure.value;if(disposed)return unavailable('disabled');if(g!==generation)return unavailable('unavailable');const remaining=Math.min(Number.isFinite(options.deadline)?options.deadline-Date.now():20000,Number.isFinite(options.budgetMs)?Math.max(0,options.budgetMs):250);if(remaining<=0)return unavailable('timeout');if(owner&&['unknown','stopping','closing','cleanup-failed'].includes(owner.state))return unavailable('unavailable',owner.state);const task=start();if(owner?.state==='ready'&&descriptorValue.available)return {ok:true,...descriptor()};return new Promise((resolve,reject)=>{let done=false;const finish=(v,e,failed=false)=>{if(done)return;done=true;clearTimeout(timer);options.signal?.removeEventListener('abort',cancel);if(failed)reject(e);else if(options.signal?.aborted)reject(options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason);else resolve(v);},cancel=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>finish(null,e,true),()=>finish(null,e,true));},timer=setTimeout(()=>finish(unavailable('unavailable','loading')),Math.min(20000,remaining));options.signal?.addEventListener('abort',cancel,{once:true});if(options.signal?.aborted)cancel();task.then(v=>finish(v),e=>finish(null,e,true));});}
- async function encode(texts,options={}){aborted(options.signal);if(!Array.isArray(texts)||!texts.length||texts.length>16||texts.some(x=>typeof x!=='string'||x.length>8192)||texts.reduce((n,x)=>n+x.length,0)>32768)throw TypeError('semantic.invalid_texts');if(!['query','document'].includes(options.role))throw TypeError('semantic.invalid_role');const deadline=Math.min(Number.isFinite(options.deadline)?options.deadline:Infinity,Date.now()+(Number.isFinite(options.budgetMs)?Math.max(0,Math.min(1000,options.budgetMs)):1000));let r,lease=false,wrote=false,callbackFailure=false,sentAt=0;const guard=async()=>{if(options.beforeEncode)try{await options.beforeEncode();}catch(e){callbackFailure=true;throw e;}};const enabled=async()=>{try{return await host.enabled();}catch(e){callbackFailure=true;throw e;}};
+ async function encode(texts,options={}){aborted(options.signal);if(!Array.isArray(texts)||!texts.length||texts.length>16||texts.some(x=>typeof x!=='string'||x.length>8192)||texts.reduce((n,x)=>n+x.length,0)>32768)throw TypeError('semantic.invalid_texts');if(!['query','document'].includes(options.role))throw TypeError('semantic.invalid_role');const deadline=Math.min(Number.isFinite(options.deadline)?options.deadline:Infinity,Date.now()+(Number.isFinite(options.budgetMs)?Math.max(0,Math.min(8000,options.budgetMs)):1000));let r,lease=false,wrote=false,callbackFailure=false,sentAt=0;const guard=async()=>{if(options.beforeEncode)try{await options.beforeEncode();}catch(e){callbackFailure=true;throw e;}};const enabled=async()=>{try{return await host.enabled();}catch(e){callbackFailure=true;throw e;}};
   try{const d=options[WARM]?{available:true}:await prepare({...options,deadline,budgetMs:Math.max(0,deadline-Date.now())});aborted(options.signal);if(!d.available)return d;if(busy)return unavailable('overloaded');busy=true;lease=true;r=owner;const on=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(on!==true){await stop('disabled');return unavailable('disabled');}current(r,options.signal);const minimum=Math.max(estimateEncodingBudget(options.role,texts.length),Number.isFinite(options.minimumBudgetMs)?Math.max(0,Math.min(60000,options.minimumBudgetMs)):0);if(deadline-Date.now()<minimum)return unavailable('timeout');const id=String(++serial),value=await new Promise((resolve,reject)=>{const abort=()=>{const e=options.signal.reason===undefined?fault('ABORT_ERR'):options.signal.reason;void stop('cancelled').then(()=>settle(id,null,e,true),()=>settle(id,null,e,true));},timer=setTimeout(()=>{/* 151 阶段 2:超时先回话、再收进程。修前要等 stop 里那次进程观测(Windows 上起一个 PowerShell,约 0.8 s)做完才回 timeout,检索回复被拖过自己的截止。收进程照旧做:owner 进入 stopping,下一发 prepare 见到就报不可用,不会把文本写给正在被收的进程。 */const stopping=stop('timeout');settle(id,unavailable('timeout'));void stopping.catch(()=>{});},Math.max(1,deadline-Date.now()));pending.set(id,{resolve,reject,timer,signal:options.signal,abort});options.signal?.addEventListener('abort',abort,{once:true});if(options.signal?.aborted){abort();return;}try{current(r,options.signal);wrote=true;metrics.requests++;metrics[options[WARM]?'warmupTexts':options.role==='query'?'queryTexts':'documentTexts']+=texts.length;sentAt=Date.now();r.child.stdin.write(JSON.stringify({requestId:id,op:'encode',role:options.role,texts,deadlineMs:deadline})+'\n');}catch(e){settle(id,null,e,true);}});const repliedAt=Date.now();
    aborted(options.signal);const onAfter=await enabled();aborted(options.signal);await guard();aborted(options.signal);if(onAfter!==true){await stop('disabled');return unavailable('disabled');}if(value.ok!==true)return unavailable(value.reason==='timeout'||/deadline|timeout/i.test(value.error?.code||'')?'timeout':'unavailable');current(r,options.signal);const dimension=descriptorValue.dimensions;if(value.modelFingerprint!==descriptorValue.modelFingerprint||!Array.isArray(value.vectors)||value.vectors.length!==texts.length||value.vectors.some(v=>!Array.isArray(v)||v.length!==dimension||!v.every(Number.isFinite)||Math.abs(Math.hypot(...v)-1)>1e-4))throw fault('semantic.vector_contract');if(value.truncated!==undefined&&(!Array.isArray(value.truncated)||value.truncated.length!==texts.length||value.truncated.some(x=>typeof x!=='boolean')))throw fault('semantic.token_contract');if(host.validateReply)host.validateReply(value,texts,r.settings);/* 150 S9: worker 从不回 metrics.workerEncodeMs(加字段会改模型指纹),修前估计永远停在初值(文档 110 ms/条,4 条要留 592 ms)。没有就用写入到回包的往返计时。 */const reported=value.metrics?.workerEncodeMs,cost=(Number.isFinite(reported)?reported:repliedAt-sentAt)/texts.length;if(!options[WARM]&&Number.isFinite(cost)&&cost>0&&cost<60000)recent[options.role]=Math.min(5000,Math.max(1,recent[options.role]*.6+cost*.4));metrics.peakRssBytes=Math.max(metrics.peakRssBytes,Number.isFinite(value.metrics?.peakRssBytes)?value.metrics.peakRssBytes:0);/* 150 S10: passing warmup is not stability. A worker that warms up then dies on its first real encode must keep doubling its cooldown, so the streak is forgiven only after a real encode on a worker alive for the stable window. */if(!options[WARM]&&faultStreak>0&&stableFor(r))faultStreak=0;return value;
   }catch(e){if(wrote&&!callbackFailure){try{await stop(options.signal?.aborted?'cancelled':'fault');}catch{}}throw e;}finally{if(lease)busy=false;}}
@@ -46603,8 +46603,8 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     // fits even while another scope/model is being warmed.
     const codecProof=typeof SemanticRuntimeTransportProof!=='undefined'?SemanticRuntimeTransportProof:null;
     const documentLimit=Math.max(4096,Math.min(16384,options.documentLimit||8192)),queryLimit=128;
-    const documents=new Map(),queries=new Map();let cacheGeneration=0,codecToken=null;
-    const clear=()=>{cacheGeneration++;documents.clear();queries.clear();};
+    const documents=new Map(),queries=new Map();let cacheGeneration=0,codecToken=null,sourceReserveMs=0;
+    const clear=()=>{cacheGeneration++;sourceReserveMs=0;documents.clear();queries.clear();};
     // 151 阶段 4A(150 S14):删除一条会话只忘掉它自己的文档向量(调用方在 score 时按行给 owners),查询向量与别的会话不动。
     const forget=owner=>{if(typeof owner!=='string'||!owner)return;for(const [k,row]of documents)if(row.owner===owner)documents.delete(k);};
     if(typeof runtime?.registerCache==='function')runtime.registerCache(clear);
@@ -46622,18 +46622,22 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext,stored}={}) {
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
       const deadline=Math.min(Date.now()+Math.max(1,Math.min(1000,deadlineMs)),Number.isFinite(outerDeadline)?outerDeadline:Infinity);
+      // The caller may reserve a bounded window for a slow first fragment or
+      // an admitted native batch. New batches still use the ordinary slice.
+      let finishDeadline=Number.isFinite(progressDeadline)
+        ? Math.max(deadline,Math.min(deadline+2000,progressDeadline)) : deadline;
       const descriptor=await runtime.prepare({scopeId,signal,deadline});
       if(beforeEncode)await beforeEncode();
       if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
       if(generation!==cacheGeneration)return empty('unavailable');
       // 150 号文 S18:先看 descriptor 再看期限。冷模型加载期 prepare 往往正好耗尽期限,修前先判期限就把「加载中」报成 timeout。
       if(!descriptor?.available){if(['disabled','unavailable','timeout','overloaded'].includes(descriptor?.reason))return empty(['loading','warming'].includes(descriptor.state)?'loading':descriptor.reason);throw Error('semantic.prepare_failed');}
-      if(Date.now()>=deadline)return empty('timeout');
+      if(Date.now()>=finishDeadline)return empty('timeout');
       // Codec/startup readiness does not qualify a new retrieval policy. Keep
       // the explicit Gemma2 backend unavailable to consumers until its complete
       // K1/identifier/weak-evidence policy is connected across all entry points.
@@ -46649,6 +46653,14 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       // Gemma 的分数证据要绑原文(encodedTexts),持久层不存原文。读盘途中缓存被清(撤权、换模型)就当没读到。
       if(typeof stored==='function'&&descriptor.modelId!=='embeddinggemma-2-text-q4'&&vectors.some(v=>!v)){const lookup=await stored(model);if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
         if(typeof lookup==='function')for(let n=0;n<vectors.length;n++)if(!vectors[n]){const v=lookup(n);if(v&&v.length>0&&v.length<=8192)vectors[n]=v;}}
+      // If one measured encode exceeds the usual grace, reserve its measured
+      // cost for this request. The source owner keeps time for final validation.
+      const needsDocuments=cachedDocuments.some(row=>!row);
+      if(finishDeadline>deadline && (!q||needsDocuments)){
+        const singleCost=(q?0:minimumBudget('query',1))+
+          (needsDocuments?sourceReserveMs+minimumBudget('document',1):0);
+        finishDeadline=Math.min(progressDeadline,deadline+Math.max(2000,singleCost));
+      }
       async function encode(texts,role){
         if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
         if(beforeEncode)await beforeEncode();
@@ -46661,26 +46673,32 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         if(role==='document')while(encodedCount>1&&minimumBudget(role,encodedCount)>deadline-Date.now())encodedCount--;
         texts=texts.slice(0,encodedCount);
         const minimumBudgetMs=minimumBudget(role,texts.length);
-        if(deadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
+        if(finishDeadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
+        const encodeOptions={role,scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode};
+        if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
         let began=Date.now();
-        let result=await runtime.encode(texts,{role,scopeId,signal,deadline,minimumBudgetMs,...(beforeEncode?{beforeEncode}: {})});
-        // 151 阶段 4A 二审 (e):运行时同一时刻只编一批,后台建索引的一小批(≤约 150 ms)占着时回 overloaded。前台在自己的期限内
-        // 每 25 ms 重试,至多 8 次;期限不够一批就照旧按 overloaded 回退。每次重试前照旧过 beforeEncode(撤权照常截住)。
-        for(let tries=0;result?.ok!==true&&result?.reason==='overloaded'&&tries<8&&typeof setTimeout==='function'&&deadline-Date.now()>minimumBudgetMs+30;tries++){
-          await new Promise(resolve=>setTimeout(resolve,25));
+        let result=await runtime.encode(texts,encodeOptions);
+        // A competing batch can occupy the resident worker beyond the normal
+        // 200 ms retry window. Back off within the same absolute reservation.
+        const extended=finishDeadline>deadline;
+        for(let tries=0;result?.reason==='overloaded'&&tries<(extended?24:8)&&typeof setTimeout==='function';tries++){
+          const delayMs=extended&&tries>=8?100:25;
+          if(finishDeadline-Date.now()<=minimumBudgetMs+delayMs)break;
+          await new Promise(resolve=>setTimeout(resolve,delayMs));
           if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
           if(beforeEncode)await beforeEncode();
           if(generation!==cacheGeneration)return {ok:false,reason:'unavailable'};
           // 4A 三审 P7:只量最后一次真正发出的那次,重试前的等待不进单条耗时估计(否则一次撞车就把预算越学越大)。
           began=Date.now();
-          result=await runtime.encode(texts,{role,scopeId,signal,deadline,minimumBudgetMs,...(beforeEncode?{beforeEncode}: {})});
+          result=await runtime.encode(texts,encodeOptions);
         }
         if(beforeEncode)await beforeEncode();
         if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
         if(generation!==cacheGeneration)return {ok:false,reason:'unavailable'};
         const perText=(Date.now()-began)/Math.max(1,texts.length);
-        if(result?.ok)callMsPerText[role]=Math.min(250,Math.max(12,callMsPerText[role]*0.6+perText*0.4));
-        else if(result?.reason==='timeout')callMsPerText[role]=Math.min(250,Math.max(callMsPerText[role]*1.5,perText));
+        const costCap=finishDeadline>deadline?5000:250;
+        if(result?.ok)callMsPerText[role]=Math.min(costCap,Math.max(12,callMsPerText[role]*0.6+perText*0.4));
+        else if(result?.reason==='timeout')callMsPerText[role]=Math.min(costCap,Math.max(callMsPerText[role]*1.5,perText));
         if(!result?.ok){if(['unavailable','disabled','timeout','overloaded'].includes(result?.reason))return result;throw Error('semantic.encode_failed');}
         const validated=descriptor.modelId==='embeddinggemma-2-text-q4'?codecProof.verify(result,{texts,role,scopeId,modelFingerprint:model}):result;
         if(validated.modelFingerprint!==model||!Array.isArray(validated.vectors)||validated.vectors.length!==texts.length||!validated.vectors.every(vector))throw Error('semantic.invalid_vectors');
@@ -46699,8 +46717,15 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         let batch=selected.slice(offset,offset+count);
         // 151 阶段 2:剩下的预算连一片都编不完时就不再去解析下一批来源(解析要回读会话正文,修前读完才发现编不了,
         // 白白把本次 score 拖过自己的截止)。
-        if(Date.now()>=deadline||minimumBudget('document',1)>deadline-Date.now()){if(beforeEncode)await beforeEncode();status='timeout';break;}
-        let texts=typeof resolveTexts==='function'?await resolveTexts(batch,{signal,deadline}):batch.map(n=>docs[n]);
+        const admissionDeadline=offset===0?finishDeadline:deadline;
+        if(Date.now()>=admissionDeadline||minimumBudget('document',1)>admissionDeadline-Date.now()){if(beforeEncode)await beforeEncode();status='timeout';break;}
+        const readStarted=Date.now();
+        let texts=typeof resolveTexts==='function'?await resolveTexts(batch,{signal,deadline:finishDeadline}):batch.map(n=>docs[n]);
+        // A source scan may itself consume the whole reservation before any
+        // encode is submitted. Keep its observed cost for the next request.
+        const readMs=Date.now()-readStarted;
+        if(finishDeadline>deadline&&generation===cacheGeneration&&readMs>=100)
+          sourceReserveMs=Math.min(15000,Math.ceil(readMs*1.5));
         if(!Array.isArray(texts)||texts.length!==batch.length||texts.some(text=>text!==null&&typeof text!=='string'))throw Error('semantic.invalid_source');
         const usable=batch.map((n,i)=>({n,position:i,text:texts[i]})).filter(item=>typeof item.text==='string'&&item.text.length>0&&item.text.length<=8192);
         if(usable.length<batch.length)status='partial';if(!usable.length){offset+=count;continue;}
@@ -119792,7 +119817,8 @@ const SessionFullTextIndex = ((io,p,c) => {
         };
         // 交给 06ha 的那一份:解析途中撞上截止不再整次抛出(修前抛到 score 外,本次已编好的批次连同计数一起作废),而是交回
         // 已核实的那部分,其余记 null —— 06ha 照旧只编可用的、下一批之前看期限收尾,已缓存的向量计入本次覆盖。
-        const budgetedResolve=async indices=>{
+        const budgetedResolve=async (indices,{deadline}={})=>{
+          if(Number.isFinite(deadline))sourceDeadline=deadline;
           try{return await resolveTexts(indices);}
           catch(error){if(error!==sourceExpired)throw error;await beforeEncode();return indices.map(n=>semanticRows[n].metadata?(verifiedMetadata.has(semanticRows[n].metadata)?semanticRows[n].text:null):(originalFragments.get(n)??null));}
         };
@@ -119810,9 +119836,12 @@ const SessionFullTextIndex = ((io,p,c) => {
           const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
           let previousCached=0;
           const continuationDeadline=Math.min(semanticDeadline+2000,(options.deadline??Infinity)-1000);
+          const allowProgress=gemmaMethod&&!isPaused()&&Number.isFinite(options.deadline);
+          let sliceDeadline=semanticDeadline;
           for(;;){
             const started=Date.now();
-            semanticState=await semantic.score(query,texts,{...scoreOptions,deadline:sourceDeadline});
+            semanticState=await semantic.score(query,texts,{...scoreOptions,deadline:sliceDeadline,
+              ...(allowProgress?{progressDeadline:options.deadline-1000}:{})});
             if(!gemmaMethod||candidates.length||isPaused()||!Number.isFinite(options.deadline))break;
             const {cached,total,complete}=semanticState.coverage;
             if(complete||!['timeout','partial'].includes(semanticState.status)||cached<=previousCached||cached>=total)break;
@@ -119821,7 +119850,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             const remainingMs=(Date.now()-started)*(total-cached)/(cached-previousCached);
             if(continuationDeadline-Date.now()<Math.max(1,remainingMs))break;
             previousCached=cached;
-            sourceDeadline=Math.min(Date.now()+1000,continuationDeadline);
+            sliceDeadline=Math.min(Date.now()+1000,continuationDeadline);
           }
         }catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
         check();await authoritative();

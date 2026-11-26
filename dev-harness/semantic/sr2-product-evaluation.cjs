@@ -101,6 +101,9 @@ async function main() {
       report.samples.push({...metrics,group:q.group,kind:q.kind,hits:top.length,rank});
       save();
     }
+    const counters=runtime.stats().backend;
+    if(counters)report.runtime={starts:counters.starts,stops:counters.stops,faultRetries:counters.faultRetries,
+      queryTexts:counters.queryTexts,documentTexts:counters.documentTexts};
     report.completed=true;
   } catch(e){report.error=e.message;throw e;}
   finally{save();if(runtime)await runtime.shutdown();if(f)await f.close();fs.rmSync(home,{recursive:true,force:true});}

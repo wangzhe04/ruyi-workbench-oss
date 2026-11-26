@@ -726,7 +726,8 @@ const SessionFullTextIndex = ((io,p,c) => {
         };
         // 交给 06ha 的那一份:解析途中撞上截止不再整次抛出(修前抛到 score 外,本次已编好的批次连同计数一起作废),而是交回
         // 已核实的那部分,其余记 null —— 06ha 照旧只编可用的、下一批之前看期限收尾,已缓存的向量计入本次覆盖。
-        const budgetedResolve=async indices=>{
+        const budgetedResolve=async (indices,{deadline}={})=>{
+          if(Number.isFinite(deadline))sourceDeadline=deadline;
           try{return await resolveTexts(indices);}
           catch(error){if(error!==sourceExpired)throw error;await beforeEncode();return indices.map(n=>semanticRows[n].metadata?(verifiedMetadata.has(semanticRows[n].metadata)?semanticRows[n].text:null):(originalFragments.get(n)??null));}
         };
@@ -744,9 +745,12 @@ const SessionFullTextIndex = ((io,p,c) => {
           const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
           let previousCached=0;
           const continuationDeadline=Math.min(semanticDeadline+2000,(options.deadline??Infinity)-1000);
+          const allowProgress=gemmaMethod&&!isPaused()&&Number.isFinite(options.deadline);
+          let sliceDeadline=semanticDeadline;
           for(;;){
             const started=Date.now();
-            semanticState=await semantic.score(query,texts,{...scoreOptions,deadline:sourceDeadline});
+            semanticState=await semantic.score(query,texts,{...scoreOptions,deadline:sliceDeadline,
+              ...(allowProgress?{progressDeadline:options.deadline-1000}:{})});
             if(!gemmaMethod||candidates.length||isPaused()||!Number.isFinite(options.deadline))break;
             const {cached,total,complete}=semanticState.coverage;
             if(complete||!['timeout','partial'].includes(semanticState.status)||cached<=previousCached||cached>=total)break;
@@ -755,7 +759,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             const remainingMs=(Date.now()-started)*(total-cached)/(cached-previousCached);
             if(continuationDeadline-Date.now()<Math.max(1,remainingMs))break;
             previousCached=cached;
-            sourceDeadline=Math.min(Date.now()+1000,continuationDeadline);
+            sliceDeadline=Math.min(Date.now()+1000,continuationDeadline);
           }
         }catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
         check();await authoritative();

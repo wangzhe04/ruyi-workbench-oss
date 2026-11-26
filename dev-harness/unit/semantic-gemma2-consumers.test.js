@@ -191,3 +191,70 @@ test('soft deadline during final epoch checks keeps the already validated lexica
   a.equal(result.semantic.coverage,'partial');
   a.equal(result.results.find(row=>row.id==='Weak')?.reference?.messageId,'m');
 });
+
+test('slow singleton estimates and changing queries still advance the authorized document cache',async t=>{
+  const {f,advance}=await setup(t);
+  const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode,submitted=[];
+  runtime.estimateEncodingBudget=(role,count)=>(role==='document'?3600:1200)*count;
+  runtime.encode=async(texts,options)=>{
+    const remaining=options.deadline-f.context.Date.now();
+    a.ok(remaining>=runtime.estimateEncodingBudget(options.role,texts.length));
+    if(options.role==='document'){
+      a.equal(texts.length,1);
+      submitted.push(texts[0]);
+      advance(3100);
+    }else advance(1100);
+    return encode(texts,options);
+  };
+  const messages=Array.from({length:4},(_,n)=>({id:'m'+n,role:'user',content:'accepted document '+n}));
+  await f.put('Match',messages);
+  for(let n=0;n<messages.length;n++){
+    const result=await f.ui('cedar violet '+String.fromCharCode(97+n));
+    a.equal(result.semantic.cachedFragments,n+1);
+    if(n===messages.length-1)a.equal(result.semantic.coverage,'complete');
+  }
+  a.deepEqual(submitted.slice().sort(),messages.map(row=>row.content).sort());
+});
+
+test('a busy resident worker and slow source scan can finish the first authorized fragment',async t=>{
+  const {f,advance}=await setup(t);
+  await f.put('Match',[{id:'m',role:'user',content:'accepted unrelated wording'}]);
+  const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode,source=f.api.source;
+  let scanPending=false,retries=0,slowReads=0;
+  f.context.setTimeout=(callback,ms)=>{advance(ms);return setImmediate(callback);};
+  runtime.encode=async(texts,options)=>{
+    if(options.role==='query')scanPending=true;
+    if(options.role==='document'&&retries++<10)return {ok:false,reason:'overloaded'};
+    return encode(texts,options);
+  };
+  f.context.createSessionFullTextSource=()=>({...source,async scan(...args){
+    if(scanPending){scanPending=false;slowReads++;advance(1250);}
+    return source.scan(...args);
+  }});
+  const result=await f.ui('cedar violet');
+  a.equal(slowReads,1);
+  a.equal(retries,11);
+  a.equal(result.semantic.coverage,'complete');
+  a.deepEqual(Array.from(result.results,row=>row.id),['Match']);
+});
+
+test('a source that exhausts the first reservation gets enough time on the next request',async t=>{
+  const {f,advance}=await setup(t);
+  await f.put('Match',[{id:'m',role:'user',content:'accepted unrelated wording'}]);
+  const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode,source=f.api.source;
+  let scanPending=false,reads=0;
+  runtime.encode=async(texts,options)=>{
+    if(options.role==='query')scanPending=true;
+    return encode(texts,options);
+  };
+  f.context.createSessionFullTextSource=()=>({...source,async scan(...args){
+    if(scanPending){scanPending=false;reads++;advance(3500);}
+    return source.scan(...args);
+  }});
+  const first=await f.ui('cedar violet');
+  a.equal(first.semantic.cachedFragments,0);
+  const next=await f.ui('cedar indigo');
+  a.equal(reads,2);
+  a.equal(next.semantic.coverage,'complete');
+  a.deepEqual(Array.from(next.results,row=>row.id),['Match']);
+});

@@ -23,18 +23,44 @@ async function main(){
     let descriptor;
     do{descriptor=await runtime.prepare({deadline:until});if(!descriptor.available)await delay(100);}while(!descriptor.available&&Date.now()<until);
     assert.equal(descriptor.modelId,'embeddinggemma-2-text-q4');assert.equal(descriptor.available,true);
-    let delayed=false;
+    const progress=process.argv[3]==='progress';
+    let delayed=false, completedDocuments=0;
+    const submitted=[];
     Object.assign(f.context,ports,{SemanticRuntimeHooks:{...runtime,encode:async(texts,options)=>{
+      const dispatched=Date.now();
+      if(progress && options.role==='document'){
+        // Hold dispatch long enough to exhaust the scheduling slice. The real
+        // transport still enforces its original absolute deadline and provenance.
+        await delay(1100);
+        submitted.push(texts.length);
+      }
       const result=await runtime.encode(texts,options);
-      if(result.ok && options.role==='document' && !delayed){
+      if(result.ok && options.role==='document')completedDocuments+=texts.length;
+      if(!progress && result.ok && options.role==='document' && !delayed){
         delayed=true;
-        await delay(Math.max(0,options.deadline-Date.now())+20);
+        await delay(Math.max(0,dispatched+1020-Date.now()));
       }
       return result;
     }}});
     const records=['周日浇灌花园里的植物。','仓库每月清点一次库存。','出差报销时请同时提交车票和付款凭证。','公路自行车需要定期检查刹车。','暴雨过后检查屋顶是否漏水。','博物馆的门票可以提前预约。'];
     for(const [i,content] of records.entries())await f.put('S'+i,[{role:'user',id:'m'+i,content}]);
     await f.index.prepare(null);
+    if(progress){
+      const checkpoints=[];
+      for(let i=0;i<records.length;i++){
+        const result=await f.ui('Which receipts are required for business travel reimbursement?');
+        checkpoints.push(result.semantic.cachedFragments);
+        if(result.semantic.coverage==='complete'){
+          assert.deepEqual(Array.from(result.results,row=>row.id),['S2']);
+          break;
+        }
+      }
+      console.log(JSON.stringify({checkpoints,submitted,completedDocuments}));
+      assert.ok(checkpoints.every((n,i)=>n>(checkpoints[i-1]??0)));
+      assert.equal(checkpoints.at(-1),records.length);
+      assert.equal(completedDocuments,records.length);
+      return;
+    }
     const result=await f.ui('Which receipts are required for business travel reimbursement?');
     const ids=Array.from(result.results,row=>row.id);
     console.log(JSON.stringify({delayed,ids,status:result.semantic.status,coverage:result.semantic.coverage,cached:result.semantic.cachedFragments,total:result.semantic.candidateFragments}));

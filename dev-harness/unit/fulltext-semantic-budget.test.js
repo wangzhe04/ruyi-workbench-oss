@@ -204,3 +204,17 @@ test('[B9] index files rewritten during a maintenance pause are re-read by reval
   index.setMaintenancePaused(false);
   a.ok((await index.revalidate(result, null)).changed >= 1, 'the rewritten manifest is noticed');
 });
+
+test('a native encode admitted with a longer explicit budget survives the normal one-second slice',async()=>{
+  const worker=`const readline=require('node:readline');${ready}readline.createInterface({input:process.stdin}).on('line',line=>{const r=JSON.parse(line);setTimeout(()=>console.log(JSON.stringify({ok:true,requestId:r.requestId,modelFingerprint:'${fingerprint}',vectors:r.texts.map(()=>[1,0,0,0,0,0,0,0])})),r.role==='document'?1200:0);});`;
+  const f=client({worker});
+  try{
+    a.equal((await f.client.prepare({budgetMs:5000})).available,true);
+    const identity=f.client.identity();
+    for(let i=0;i<2;i++)
+      a.equal((await f.client.encode(['fragment'],{role:'document',budgetMs:3000,deadline:Date.now()+3000})).ok,true);
+    a.equal(f.client.identity().pid,identity.pid);
+    a.equal(f.client.stats().starts,1);
+    a.equal(f.client.stats().stops,0);
+  }finally{await f.close();}
+});
