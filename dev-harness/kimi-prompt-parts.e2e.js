@@ -220,7 +220,7 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
     ok(JSON.stringify(context.config) === configBefore, 'prompt-part processing does not mutate config');
 
     const engine = fs.readFileSync(ENGINE, 'utf8');
-    const snippetStart = engine.indexOf('  const recoveryHistory =');
+    const snippetStart = engine.indexOf('  const recoveryHistorySource =');
     const recoveryEndMarker = '  const historyRecoveryInjected = Boolean(recoveryHistory);\n';
     const recoveryEnd = engine.indexOf(recoveryEndMarker, snippetStart) + recoveryEndMarker.length;
     const promptStart = engine.indexOf('  const currentUserEnvelope =', recoveryEnd);
@@ -239,6 +239,7 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
       const _recoveryHistoryOverride = input.override;
       const agentRecoverySummary = input.summary;
       const recoverySource = input.recoverySource;
+      const session = { id: 'prompt-parts-fixture' };
       const basePrompt = input.basePrompt;
       const indexInjection = input.indexInjection;
       const memoryTurnCheck = input.memoryTurnCheck;
@@ -246,6 +247,10 @@ const resetCounters = () => { statCalls = 0; readCalls = 0; openCalls = 0; guard
       return { slashCommand, kimiNativeSlashCommand, recoveryHistory, historyRecoveryInjected, fullPrompt };
     })`, {
       buildClaudeRecoveryHistory: () => 'claude-history',
+      ObservationRecoveryHooks: { sealRuntimeText: async (id, text) => {
+        if (id !== 'prompt-parts-fixture') throw Error('unexpected recovery session');
+        return text;
+      } },
       // 137 代理模式 v2:这段抽出来的策略里多了一行「下一回合拼入后台代理信封」(EventStreamHooks.drainAgentEnvelopesText)。
       // 抽源件给「钩子未填充」的真实形态(00-boot 里是空对象,13r 加载后才填),斜杠命令分支本就短路不读它。
       EventStreamHooks: {},

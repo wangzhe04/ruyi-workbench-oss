@@ -31,7 +31,7 @@ const t = createRunner('PROVIDER COMPACT RECALL');
 const { ok } = t;
 const FRAME_ID = { id: 'chatcmpl-compact-recall' };
 const textOf = m => typeof m.content === 'string' ? m.content : JSON.stringify(m.content || '');
-const RAWREF = /history:\d+:[a-f0-9]{16}:\d+:[a-f0-9]{16}/;
+const RAWREF = /history:v2:[a-f0-9]{32}\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/;
 
 function bigText(tag) {
   const filler = n => Array.from({ length: n }, (_, i) => `${tag} 第 ${i} 行:普通的填充内容,用来把工具结果撑大到会被缩减的程度。`).join('\n');

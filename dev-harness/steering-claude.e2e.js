@@ -130,9 +130,15 @@ async function getToken(port) {
     'S35 回合末作废 relay 快照（根因：信念的依据没了就不许继续用）');
   ok(/state\.sessionRelay = null;[\s\S]{0,600}updateSendBtn\(\);/.test(app),
     'S36 作废之后同一拍刷新发送键（否则按钮还写着「插话」，直到用户再敲一个字）');
-  // ④ 兜底码不许再吞掉服务端原话（app.js 组合根那一处）。
-  ok(/info\.code === 'api\.request_failed' && info\.message\) return info\.message;/.test(app),
-    'S37 api.request_failed 这个【兜底码】走 message 优先 —— 它本身不带信息，真话全在 message 里');
+  // Exercise the presenter so its raw-payload filtering can evolve independently.
+  const presenterModule = fs.readFileSync(path.join(WB, 'app/public/js/api-error-i18n.js'));
+  const { createApiErrorPresenter } = await import('data:text/javascript;base64,' + presenterModule.toString('base64'));
+  const present = createApiErrorPresenter({ t: key => key, apiErrorInfo: error => error,
+    rawApiErrText: () => '', privacyFailure: () => null });
+  const friendly = 'Kimi is finishing; send it as the next message';
+  ok(present({ code: 'api.request_failed', message: friendly }) === friendly
+    && present({ code: 'api.request_failed', message: '{"nested":true}' }) === 'error.api.unreadableResponse',
+  'S37 preserves actionable server messages and hides raw response payloads');
   // 50-fix:三态按钮(用户报告"流式中输入后还是停止,不会变成 Steer")
   ok(app.includes('function updateSendBtn()'), 'S11 updateSendBtn 三态函数在(发送/插话/停止)');
   // 117s-G：插话态不再只看「本页自己在流式」(state.streaming)，改看 live = 本页在流 或 服务端说这条会话有别处起的活回合

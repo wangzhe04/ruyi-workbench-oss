@@ -146,7 +146,7 @@ const wireFile = path.join(KIMI_HOME, 's1', 'agents', 'main', 'wire.jsonl');
     const indexBlock = constBlock(actualScanSource,'SessionFullTextIndex');
     if (!indexBlock) throw Error('W1 diagnostic full-text index block unavailable');
     const roleLine = (name,marker) => {
-      const block = functionBlock(indexBlock,name);
+      const block = name === 'verifySource' ? constBlock(indexBlock,name) : functionBlock(indexBlock,name);
       if (!block) throw Error('W1 diagnostic full-text function unavailable');
       const offset = actualScanSource.indexOf(block), within = block.indexOf(marker);
       if (offset < 0 || actualScanSource.indexOf(block,offset+1) !== -1 || within < 0 || block.indexOf(marker,within+1) !== -1) throw Error('W1 diagnostic role callsite unavailable');
@@ -156,7 +156,7 @@ const wireFile = path.join(KIMI_HOME, 's1', 'agents', 'main', 'wire.jsonl');
       {role:'build-preview',line:roleLine('build','const preview=await host.scan(sid,async(row,ordinal)=>{')},
       {role:'build-proof',line:roleLine('build','const proof=await host.scan(sid,async(row,ordinal)=>{')},
       {role:'coverage-proof',line:roleLine('rawCoverage','const proof=await host.scan(sid,async(row,ordinal)=>{')},
-      {role:'hit-proof',line:roleLine('search','const proof=await host.scan(sid,async(row,ordinal)=>{')},
+      {role:'hit-proof',line:roleLine('verifySource','const proof=await host.scan(sid,async(row,ordinal)=>{')},
     ];
     fs.writeFileSync(BODY_SCAN_PRELOAD, '(' + installBodyScanCounter.toString() + ')();\n', { flag: 'wx' });
     const PORT = await getFreePort();
