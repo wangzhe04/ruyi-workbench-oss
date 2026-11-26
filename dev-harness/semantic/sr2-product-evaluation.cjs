@@ -13,7 +13,7 @@ const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const fixtureHash = '63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3';
 const topics = ['delivery schedule','garden watering','inventory records','camera lenses','building insulation','railway routes','book lending','weather station','office supplies','bicycle repair'];
 async function main() {
-  assert.ok(['smoke','performance','quality'].includes(mode));
+  assert.ok(['smoke','performance','sustained','quality'].includes(mode));
   const server = path.resolve(packageRoot,'app/server.js');
   const bytes = fs.readFileSync(server);
   assert.equal(sha(bytes),sha(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/server.js'))));
@@ -77,15 +77,19 @@ async function main() {
     const warm=performance.now();
     report.prewarm=[];
     do {
-      const r=await search('inspection notes for maintenance');
+      let r;
+      try { r=await search('inspection notes for maintenance'); }
+      catch(error){report.prewarm.push({error:error.message});break;}
       const {top,...counts}=r; report.prewarm.push(counts);
       assert.equal(r.policy,'embeddinggemma2-global-eligible-k1-cos070-window-v1');
       if(r.coverage==='complete')break;
-    } while(performance.now()-warm<30000);
+    } while(performance.now()-warm<(mode==='sustained'?300000:30000));
     report.prewarmMs=performance.now()-warm;
     const queries=corpus?corpus.queries:Array.from({length:mode==='smoke'?2:20},(_,i)=>({text:'Which '+topics[i%10]+' tasks need '+(i<10?'inspection':'additional review')+'?',group:'performance'}));
     for(const q of queries){
-      const r=await search(q.text);
+      let r;
+      try { r=await search(q.text); }
+      catch(error){report.samples.push({group:q.group,kind:q.kind,error:error.message});save();continue;}
       assert.ok(r.top.every(Boolean));
       const rank=corpus?r.top.findIndex(id=>q.relevant?.includes(id))+1:undefined;
       const {top,...metrics}=r;

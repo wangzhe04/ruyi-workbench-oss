@@ -1,0 +1,34 @@
+{
+  "mode": "quality",
+  "serverSha256": "2f57c3ee07a7c52f496d9acfd548090c38db00d8b9736b34a8b3ebe28f5b8e1e",
+  "samples": [],
+  "encryptedSource": true,
+  "privacy": "enhanced",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "coldReadyMs": 4326.4502,
+  "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "indexBuildMs": 1362.4983000000002,
+  "prewarm": [
+    {
+      "ms": 1601.3181999999997,
+      "encodeMs": [
+        51.69509999999991
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 6,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1353.3919999999998,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 13,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    }
+  ],
+  "error": "semantic.untrusted_codec_result"
+}

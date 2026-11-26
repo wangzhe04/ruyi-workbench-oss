@@ -1,0 +1,457 @@
+{
+  "mode": "performance",
+  "serverSha256": "2f57c3ee07a7c52f496d9acfd548090c38db00d8b9736b34a8b3ebe28f5b8e1e",
+  "samples": [
+    {
+      "ms": 1439.6964000000007,
+      "encodeMs": [
+        83.25590000000375
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 195,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1345.7564000000057,
+      "encodeMs": [
+        56.325700000001234
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 206,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1305.7716999999975,
+      "encodeMs": [
+        69.16189999999915
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 220,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1308.240700000002,
+      "encodeMs": [
+        62.94569999999658
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 234,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1301.6373999999996,
+      "encodeMs": [
+        53.89959999999701
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 248,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1291.8865000000005,
+      "encodeMs": [
+        53.32360000000335
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 262,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1296.7157000000007,
+      "encodeMs": [
+        55.854000000006636
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 276,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1293.1955000000016,
+      "encodeMs": [
+        52.58030000000144
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 290,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1341.1694000000061,
+      "encodeMs": [
+        54.61149999999907
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 303,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1320.8629,
+      "encodeMs": [
+        54.4887000000017
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 317,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1139.017200000002,
+      "encodeMs": [
+        86.42949999999837
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 329,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1117.5886000000028,
+      "encodeMs": [
+        54.72030000000086
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 342,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1131.1592000000019,
+      "encodeMs": [
+        57.12909999999829
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 356,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1111.719999999994,
+      "encodeMs": [
+        55.48559999999998
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 370,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1121.7344000000012,
+      "encodeMs": [
+        58.62550000000192
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 383,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1123.0747000000047,
+      "encodeMs": [
+        54.669800000003306
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 397,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1115.3622000000032,
+      "encodeMs": [
+        61.298900000001595
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 411,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1119.9100000000035,
+      "encodeMs": [
+        62.27700000000186
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 425,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1119.794200000004,
+      "encodeMs": [
+        53.90009999999893
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 438,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1151.8488999999972,
+      "encodeMs": [
+        73.26340000000346
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 450,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    }
+  ],
+  "encryptedSource": true,
+  "privacy": "enhanced",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "coldReadyMs": 6493.9349,
+  "indexBuildMs": 1034.2474000000002,
+  "prewarm": [
+    {
+      "ms": 1581.7842,
+      "encodeMs": [
+        79.75920000000042
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 9,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1514.7870999999996,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 18,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1529.4264999999996,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 28,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1550.610999999999,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 38,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1505.0581999999995,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 48,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1524.6728999999978,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 58,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1514.3055000000022,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 68,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1558.3578000000016,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 78,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1552.7250999999997,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 87,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1504.5520999999972,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 96,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1500.9991999999984,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 106,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1579.2295999999988,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 115,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1593.5347999999976,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 119,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1530.2043999999987,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 128,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1504.7807999999968,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 138,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1509.4406999999992,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 148,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1516.263500000001,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 157,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1521.8979000000036,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 167,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1482.5602,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 177,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 1544.8093999999983,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 187,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    }
+  ],
+  "prewarmMs": 30620.501800000005,
+  "completed": true
+}

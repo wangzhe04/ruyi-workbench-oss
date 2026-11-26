@@ -1,0 +1,9 @@
+{
+  "productChanged": false,
+  "fixtureChanged": false,
+  "previousQualityQueriesAttempted": 0,
+  "previousPrewarmFailed": true,
+  "previousReceiptSha256": "31D25408F9D71B115596632A39E560711865E1F982A80836D8CA675EB43698C9",
+  "runnerSha256": "D62EA1D1F32B9BC33F23B1F40C260146AAB5232585CE0CF1E22D0AF8668C5959",
+  "policy": "Record prewarm error and continue. Exactly one attempt per frozen query. Errors are misses for positive metrics, never successful no-answer results. Coverage requires all requests to succeed and be complete. Record separately a sustained performance run with up to five minutes of prewarm."
+}
