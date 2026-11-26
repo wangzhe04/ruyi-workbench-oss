@@ -649,6 +649,7 @@
         "tokenMatches",
         "tokenOk",
         "waitForBootCliPathProbes",
+        "withCredentialWriteLock",
         "writeConfig",
         "writeConfigAtomic",
         "writeDesktopPythonDiskEntry",

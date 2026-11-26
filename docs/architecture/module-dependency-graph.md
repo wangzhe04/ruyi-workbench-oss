@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4458 | 4402 | 972 | 67 | 0 | 1 |
+| 145 | 4459 | 4402 | 972 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -27,7 +27,7 @@
 | 9 | `01h-privacy-core.js` | foundation | 1 | 1 | 1 |
 | 10 | `01m-privacy-regex.js` | foundation | 1 | 1 | 1 |
 | 11 | `01j-local-crypto.js` | foundation | 1 | 0 | 0 |
-| 12 | `01-config.js` | foundation | 210 | 65 | 13 |
+| 12 | `01-config.js` | foundation | 211 | 65 | 13 |
 | 13 | `01k-credential-vault.js` | foundation | 1 | 8 | 4 |
 | 14 | `01l-credential-recovery.js` | foundation | 2 | 13 | 3 |
 | 15 | `01n-work-data-crypto.js` | foundation | 1 | 1 | 1 |

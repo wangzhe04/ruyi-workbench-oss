@@ -1948,6 +1948,23 @@ function configReadFence() {
   return () => { if (generation !== configReadGeneration || stamp() !== captured) throw Object.assign(new Error('thread_relay.permission_changed'), { code: 'thread_relay.permission_changed', statusCode: 409 }); };
 }
 function invalidateConfigReads() { configReadGeneration++; configReadCache = null; }
+// Serialize desktop and CLI vault writers. Windows releases the pipe on process exit.
+async function withCredentialWriteLock(work) {
+  if (process.platform !== 'win32') return work();
+  const root = (await fsp.realpath(paths.data)).toLowerCase();
+  const name = '\\\\.\\pipe\\ruyi-credential-write-' + crypto.createHash('sha256').update(root).digest('hex');
+  const deadline = Date.now() + 20000;
+  for (;;) {
+    const lock = require('node:net').createServer(socket => socket.destroy());
+    try { await new Promise((resolve, reject) => { lock.once('error', reject); lock.listen(name, resolve); }); }
+    catch (error) {
+      if (error.code !== 'EADDRINUSE' || Date.now() >= deadline) throw error;
+      await new Promise(resolve => setTimeout(resolve, 50));
+      continue;
+    }
+    try { return await work(); } finally { await new Promise(resolve => lock.close(resolve)); }
+  }
+}
 async function writeConfigAtomic(data, options = {}) {
   if (typeof WorkDataRootHooks !== 'undefined' && WorkDataRootHooks.guarded?.()) {
     const raw = safeJsonParse(data, null);
@@ -1961,11 +1978,24 @@ async function writeConfigAtomic(data, options = {}) {
   invalidateConfigReads();
   const generation = configReadGeneration;
   const superseded = () => conditionalRead && generation !== configReadGeneration;
-  const thisWrite = configWriteChain.catch(() => {}).then(async () => {
+  const save = async () => {
     if (superseded()) return { saved: false };
     // 81-P1: encrypt a serialized persistence copy; never pass runtime plaintext to the disk writer.
     if (typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.protectConfig) {
-      let previous; try { previous = safeJsonParse(await fsp.readFile(paths.config, 'utf8'), null); } catch { /* The existing backup/read recovery path remains authoritative. */ }
+      let previousText = null;
+      try { previousText = await fsp.readFile(paths.config, 'utf8'); }
+      catch (error) { if (error.code !== 'ENOENT') throw error; }
+      if (options.expectedCredentialSource !== undefined && previousText !== options.expectedCredentialSource) {
+        return { saved: false };
+      }
+      const previous = safeJsonParse(previousText, null);
+      if (options.credentialBefore) {
+        const encrypted = previous && (previous.credentialRefsV1 || previous.credentialEncryptionV1 === true);
+        const live = encrypted && await PrivacyCore.configHooks.hydrateConfig(previous);
+        if (!live || !PrivacyCore.configHooks.sameCredentialSlots(normalizeConfig(live.raw).config, options.credentialBefore)) {
+          throw Object.assign(new Error('credential_vault.config_changed'), { code: 'credential_vault.config_changed', statusCode: 409 });
+        }
+      }
       const alreadyPlaintext = previous && typeof previous === 'object' && !Array.isArray(previous) && !previous.credentialRefsV1 && previous.credentialEncryptionV1 !== true;
       data = await PrivacyCore.configHooks.protectConfig(data, { allowPlaintext: options.credentialEncryptionDisable === true || !!alreadyPlaintext });
     }
@@ -1993,7 +2023,10 @@ async function writeConfigAtomic(data, options = {}) {
     if (superseded()) return { saved: false };
     await atomicWriteJson(paths.config, data, { mode: 0o600 });   // 安全走查 S11:密钥落盘文件只给属主读写
     return { saved: true };
-  });
+  };
+  const nextConfig = safeJsonParse(data, null);
+  const encrypted = options.credentialBefore || nextConfig?.credentialEncryptionV1 === true || nextConfig?.credentialRefsV1;
+  const thisWrite = configWriteChain.catch(() => {}).then(() => encrypted ? withCredentialWriteLock(save) : save());
   configWriteChain = thisWrite;
   try { return await thisWrite; }
   finally { configReadCache = null; }   // 写在飞的这段时间里别的读者可能按旧戳填过缓存:落盘之后再清一次
@@ -2211,7 +2244,8 @@ async function readConfig(options) {
   // 128a:写的是投影(显式键 ＋ 簿记键 ＋ 不认识的键),不是整份内存视图。
   if (changed || recoveredFrom || credentialsNeedMigration) {
     if (!current()) return config;
-    const writing = writeConfigAtomic(JSON.stringify(persisted, null, 2), { credentialEncryptionDisable: preserveKnownPlaintext, expectedReadGeneration: generation });
+    const writing = writeConfigAtomic(JSON.stringify(persisted, null, 2), { credentialEncryptionDisable: preserveKnownPlaintext, expectedReadGeneration: generation,
+      ...(config.credentialEncryptionV1 === true ? { expectedCredentialSource: text } : {}) });
     generation = configReadGeneration; // This read's own migration reserved a generation synchronously.
     const written = await writing.catch(error => {
       if (config.privacyPolicyRecoveryRequiredV1 === true || String(error?.code || '').startsWith('credential_vault.')) throw error;
@@ -2271,7 +2305,8 @@ async function writeConfig(next, before = null, options = {}) {
     if (!configValueEquals(configComparableValue(config, key), configComparableValue(before, key))) explicit.add(key);
   }
   finalizeConfigExplicitKeys(config, explicit);
-  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2), options);
+  await writeConfigAtomic(JSON.stringify(persistableConfig(config, base), null, 2),
+    before.credentialEncryptionV1 === true ? { ...options, credentialBefore: before } : options);
   configEmitWritten(config);
   if (typeof SemanticRuntimeHooks !== 'undefined' && typeof SemanticRuntimeHooks.configChanged === 'function') await SemanticRuntimeHooks.configChanged(semanticBefore, config);
   return config;

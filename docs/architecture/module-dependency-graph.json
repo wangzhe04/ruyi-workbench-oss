@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4458,
+    "providedSymbols": 4459,
     "requiredSymbols": 4402,
     "edges": 972,
     "forwardEdges": 67,
@@ -685,6 +685,7 @@
         "tokenMatches",
         "tokenOk",
         "waitForBootCliPathProbes",
+        "withCredentialWriteLock",
         "writeConfig",
         "writeConfigAtomic",
         "writeDesktopPythonDiskEntry",

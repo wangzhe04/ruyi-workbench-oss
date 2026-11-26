@@ -276,16 +276,61 @@ const CredentialVault = ((cryptoApi) => {
       raw.configExplicitKeysV1 = [...new Set([...(Array.isArray(raw.configExplicitKeysV1) ? raw.configExplicitKeysV1 : []), 'credentialEncryptionV1'])].sort();
       return raw;
     }
+    // 3.0.2 normalized encrypted placeholders before reading the vault. Authenticate the
+    // original record and its provider binding before accepting any conflicting edit.
+    function hydrateCompatible(raw, state, key, report) {
+      if (raw.version !== '3.0.2' || !Array.isArray(raw.credentialRefsV1?.slots)) return hydrate(raw, state, key, report);
+      const edits = [];
+      let repaired = false;
+      if (raw.credentialRefsV1.slots.length > MAX.slots) fail('reference_invalid');
+      for (const ref of raw.credentialRefsV1.slots) {
+        if (!object(ref)) fail('reference_invalid');
+        const slot = at(raw, ref.pointer);
+        if (slot.value === '') continue;
+        const emptyMap = /^(?:\/providers\/\d+\/extraHeaders|\/externalMcpServers\/\d+\/(?:env|headers))$/.test(ref.pointer)
+          && object(slot.value) && Object.keys(slot.value).length === 0;
+        const emptyArgs = /^\/externalMcpServers\/\d+\/args$/.test(ref.pointer) && Array.isArray(slot.value) && !slot.value.length;
+        const providerKey = /^\/providers\/(\d+)\/apiKey$/.exec(ref.pointer);
+        if (providerKey && typeof slot.value === 'string' && slot.value.trim() && slot.value.length <= 2048) {
+          edits.push({ index: Number(providerKey[1]), value: slot.value });
+        } else if (!emptyMap && !emptyArgs) fail('reference_collision');
+        repaired = true;
+        slot.parent[slot.key] = '';
+      }
+      if (!repaired) return hydrate(raw, state, key, report);
+      // A damaged 3.0.2 config may have a second provider key. Only duplicate a
+      // provider after every live reference authenticates at its original site.
+      const refs = raw.credentialRefsV1.slots;
+      hydrate(raw, state, key, report);
+      const restored = new Map(slots(raw).map(slot => [slot.pointer, slot]));
+      for (const ref of refs) {
+        const slot = restored.get(ref.pointer), record = state.records.find(row => row.id === ref.id);
+        if (!slot || hash(key, JSON.stringify([slot.pointer, slot.binding])) !== record.owner
+          || hash(key, record.owner + ':' + slot.serialized) !== record.fingerprint) fail('binding_mismatch');
+      }
+      report.moved = true;
+      for (const { index, value } of edits) {
+        const provider = raw.providers[index];
+        if (provider.apiKey === value) continue;
+        if (raw.providers.length >= 20) fail('recovery_provider_limit');
+        let suffix = 1, id;
+        do { id = 'vault-recovered-' + index + '-' + suffix++; } while (raw.providers.some(p => p.id === id));
+        raw.providers.push({ ...structuredClone(provider), id, label: String(provider.label || provider.id).slice(0, 45) + '（原凭据库）' });
+        provider.apiKey = value;
+      }
+      return raw;
+    }
     // Withheld references of the last configuration this vault hydrated (pointers and record ids only).
     let withheldMemory = [];
     const shownWithheld = rows => rows.filter(row => row.shown).map(({ pointer: p, containerId }) => ({ pointer: p, containerId }));
     async function hydrateConfig(raw) {
       if (!object(raw)) return { raw, needsMigration: false };
+      if (Object.hasOwn(raw, 'credentialRefsV1') && !raw.credentialRefsV1) fail('reference_invalid');
       return serial(async () => {
         const clone = structuredClone(raw);
         if (clone.credentialRefsV1 || Array.isArray(clone[WITHHELD_KEY])) {
           const state = await stateRead(), key = await master(state, false), report = { moved: false, withheld: [] };
-          const hydrated = hydrate(clone, state, key, report);
+          const hydrated = hydrateCompatible(clone, state, key, report);
           withheldMemory = report.withheld;
           // A moved or restored credential is rewritten at its position once; withheld ones are carried by protectConfig.
           return { raw: hydrated, needsMigration: report.moved, withheld: shownWithheld(report.withheld) };
@@ -301,7 +346,7 @@ const CredentialVault = ((cryptoApi) => {
       if (!object(raw)) fail('config_invalid');
       let state, key;
       const report = { moved: false, withheld: [] }, ownRefs = !!raw.credentialRefsV1 || Array.isArray(raw[WITHHELD_KEY]);
-      if (ownRefs) { state = await stateRead(); key = await master(state, false); raw = hydrate(raw, state, key, report); }
+      if (ownRefs) { state = await stateRead(); key = await master(state, false); raw = hydrateCompatible(raw, state, key, report); }
       delete raw[WITHHELD_KEY];
       const enabled = force || raw.credentialEncryptionV1 === true;
       if (!enabled) {
@@ -536,7 +581,8 @@ const CredentialVault = ((cryptoApi) => {
     });
     // Positions only (never values): the settings page names which credentials need re-entry.
     const credentialWithheld = () => shownWithheld(withheldMemory);
-    return Object.freeze({ protectConfig, protectBackup, protectCorrupt, hydrateConfig, migrateBackups, exportBackup, prepareImport, stateStamp, sealLocal, openLocal, snapshotForWorkDataRecovery, stageRecoveredForWorkData, clear, credentialWithheld });
+    const sameCredentialSlots = (a, b) => JSON.stringify(slots(a)) === JSON.stringify(slots(b));
+    return Object.freeze({ sameCredentialSlots, protectConfig, protectBackup, protectCorrupt, hydrateConfig, migrateBackups, exportBackup, prepareImport, stateStamp, sealLocal, openLocal, snapshotForWorkDataRecovery, stageRecoveredForWorkData, clear, credentialWithheld });
   }
   return Object.freeze({ create, validate, empty, MAX });
 })(require('node:crypto'));

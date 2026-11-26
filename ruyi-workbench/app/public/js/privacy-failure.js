@@ -148,6 +148,8 @@ const FAILURES = Object.freeze({
   'credential_vault.backup_unavailable': ['vaultBackupUnavailable', 'privacy'],
   'credential_vault.binding_mismatch': ['vaultBinding', 'privacy'],
   'credential_vault.capacity': ['vaultCapacity', 'privacy'],
+  'credential_vault.config_changed': ['vaultRecoveryChanged', 'privacy'],
+  'credential_vault.recovery_provider_limit': ['vaultCapacity', 'privacy'],
   'credential_vault.config_invalid': ['vaultConfigInvalid', 'privacy'],
   'credential_vault.decrypt_failed': ['vaultDecrypt', 'privacy'],
   'credential_vault.disable_requires_migration': ['vaultDisableMigration', 'privacy'],
