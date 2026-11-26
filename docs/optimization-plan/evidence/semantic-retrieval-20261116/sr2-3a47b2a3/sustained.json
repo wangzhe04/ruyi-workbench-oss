@@ -1,0 +1,249 @@
+{
+  "mode": "sustained",
+  "serverSha256": "2f57c3ee07a7c52f496d9acfd548090c38db00d8b9736b34a8b3ebe28f5b8e1e",
+  "samples": [
+    {
+      "ms": 2229.667300000001,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1995.3580000000002,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 2385.5226999999977,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1991.4457000000002,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1891.8390999999974,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1835.2034999999996,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 2342.7732000000033,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 2027.232600000003,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 2212.834600000002,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 2426.748800000001,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1913.9319000000032,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1554.2039000000004,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1510.4035999999978,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1722.3312000000005,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1782.1503999999986,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1909.9113999999972,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1669.2769999999946,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1863.712599999999,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1861.888500000001,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    },
+    {
+      "ms": 1437.1231999999945,
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 0,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "performance",
+      "hits": 0
+    }
+  ],
+  "encryptedSource": true,
+  "privacy": "enhanced",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "coldReadyMs": 10623.0184,
+  "indexBuildMs": 1533.9573,
+  "prewarm": [
+    {
+      "ms": 2192.135399999999,
+      "encodeMs": [
+        155.56790000000183
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 1000,
+      "cached": 4,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "error": "semantic.untrusted_codec_result"
+    }
+  ],
+  "prewarmMs": 3576.6918000000005,
+  "completed": true
+}

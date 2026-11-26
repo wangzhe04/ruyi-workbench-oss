@@ -1,0 +1,9 @@
+{
+  "mode": "sustained",
+  "serverSha256": "2f57c3ee07a7c52f496d9acfd548090c38db00d8b9736b34a8b3ebe28f5b8e1e",
+  "samples": [],
+  "encryptedSource": true,
+  "privacy": "enhanced",
+  "model": null,
+  "error": "{\"ok\":false,\"available\":false,\"reason\":\"unavailable\",\"state\":\"closing\"}\n\nfalse !== true\n"
+}

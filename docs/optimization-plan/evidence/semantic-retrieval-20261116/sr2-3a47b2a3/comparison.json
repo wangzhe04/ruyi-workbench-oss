@@ -1,0 +1,261 @@
+{
+  "scope": "Retrospective comparisons on consumed V7 R3; no changes to product code or selection. Encoder runs use max cosine per document across the same 324 original windows, size 96 stride 80, with unconditional top five. Historical 874b7564 uses its own 96-session encrypted and enhanced privacy fixture, restored index owner and packaged MiniLM; background tick driven until idle for warm reference. Current 3a47b2a3 warm diagnostic waits for all 324 candidate vectors before asking evaluation questions. No performance comparisons across fixtures.",
+  "runs": {
+    "quality-once": {
+      "sha256": "b0cefd693718b1c5a5a822f833e55fdda21369dfb8b0e5b00eea309a17d0615a",
+      "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+      "complete": 89,
+      "zh-zh": {
+        "n": 24,
+        "top5Hits": 4,
+        "complete": 12,
+        "nonempty": 12
+      },
+      "zh-en": {
+        "n": 24,
+        "top5Hits": 15,
+        "complete": 18,
+        "nonempty": 18
+      },
+      "en-zh": {
+        "n": 24,
+        "top5Hits": 5,
+        "complete": 11,
+        "nonempty": 11
+      },
+      "en-en": {
+        "n": 24,
+        "top5Hits": 12,
+        "complete": 15,
+        "nonempty": 15
+      },
+      "positive": {
+        "n": 136,
+        "top5Hits": 50,
+        "complete": 70,
+        "nonempty": 70
+      },
+      "negative-ood": {
+        "n": 80,
+        "top5Hits": 0,
+        "complete": 17,
+        "nonempty": 0
+      }
+    },
+    "gemma-warm-reference": {
+      "sha256": "5a69d6ce745e75bc95d43debf924f8b7c47e93ee81ea0d33f50488d5ed93414f",
+      "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+      "complete": 209,
+      "zh-zh": {
+        "n": 24,
+        "top5Hits": 0,
+        "complete": 9,
+        "nonempty": 9
+      },
+      "zh-en": {
+        "n": 24,
+        "top5Hits": 19,
+        "complete": 24,
+        "nonempty": 24
+      },
+      "en-zh": {
+        "n": 24,
+        "top5Hits": 5,
+        "complete": 9,
+        "nonempty": 9
+      },
+      "en-en": {
+        "n": 24,
+        "top5Hits": 17,
+        "complete": 21,
+        "nonempty": 21
+      },
+      "positive": {
+        "n": 136,
+        "top5Hits": 69,
+        "complete": 96,
+        "nonempty": 96
+      },
+      "negative-ood": {
+        "n": 80,
+        "top5Hits": 0,
+        "complete": 74,
+        "nonempty": 5
+      }
+    },
+    "minilm-reference": {
+      "sha256": "450fce5362faa75de1c95291084b7b84f7b16c2b0bbb6d80ac943430f652cb2d",
+      "model": "sha256:41aeab62bf0d3a3675834194c0ea062e52e556eb2671825d94ad9128dc4d7df9",
+      "complete": 0,
+      "zh-zh": {
+        "n": 24,
+        "top5Hits": 0,
+        "complete": 0,
+        "nonempty": 0
+      },
+      "zh-en": {
+        "n": 24,
+        "top5Hits": 0,
+        "complete": 0,
+        "nonempty": 0
+      },
+      "en-zh": {
+        "n": 24,
+        "top5Hits": 0,
+        "complete": 0,
+        "nonempty": 14
+      },
+      "en-en": {
+        "n": 24,
+        "top5Hits": 4,
+        "complete": 0,
+        "nonempty": 19
+      },
+      "positive": {
+        "n": 136,
+        "top5Hits": 19,
+        "complete": 0,
+        "nonempty": 52
+      },
+      "negative-ood": {
+        "n": 80,
+        "top5Hits": 0,
+        "complete": 0,
+        "nonempty": 31
+      }
+    },
+    "minilm-warm-reference": {
+      "sha256": "954af076cb67340c55d5969f01d4102f8656c81ef6c6f8ed36993b46693dc860",
+      "model": "sha256:41aeab62bf0d3a3675834194c0ea062e52e556eb2671825d94ad9128dc4d7df9",
+      "complete": 256,
+      "zh-zh": {
+        "n": 24,
+        "top5Hits": 17,
+        "complete": 24,
+        "nonempty": 24
+      },
+      "zh-en": {
+        "n": 24,
+        "top5Hits": 18,
+        "complete": 24,
+        "nonempty": 24
+      },
+      "en-zh": {
+        "n": 24,
+        "top5Hits": 17,
+        "complete": 24,
+        "nonempty": 24
+      },
+      "en-en": {
+        "n": 24,
+        "top5Hits": 17,
+        "complete": 24,
+        "nonempty": 24
+      },
+      "positive": {
+        "n": 136,
+        "top5Hits": 105,
+        "complete": 136,
+        "nonempty": 136
+      },
+      "negative-ood": {
+        "n": 80,
+        "top5Hits": 0,
+        "complete": 80,
+        "nonempty": 55
+      }
+    },
+    "encoder-minilm": {
+      "sha256": "ddf3743f400788c9542af050233023b805e4fed6071b7179bc416cfb652fb6e4",
+      "model": "paraphrase-multilingual-MiniLM-L12-v2",
+      "complete": null,
+      "zh-zh": {
+        "n": 24,
+        "top5Hits": 17,
+        "complete": null,
+        "nonempty": null
+      },
+      "zh-en": {
+        "n": 24,
+        "top5Hits": 18,
+        "complete": null,
+        "nonempty": null
+      },
+      "en-zh": {
+        "n": 24,
+        "top5Hits": 19,
+        "complete": null,
+        "nonempty": null
+      },
+      "en-en": {
+        "n": 24,
+        "top5Hits": 18,
+        "complete": null,
+        "nonempty": null
+      },
+      "positive": {
+        "n": 136,
+        "top5Hits": 102,
+        "complete": null,
+        "nonempty": null
+      },
+      "negative-ood": {
+        "n": 80,
+        "top5Hits": 0,
+        "complete": null,
+        "nonempty": null
+      }
+    },
+    "encoder-gemma": {
+      "sha256": "9486058991906552f6dc857ce6c47f29c18b122efce23884b33f3d265b5c0a1b",
+      "model": "embeddinggemma-2-text-q4",
+      "complete": null,
+      "zh-zh": {
+        "n": 24,
+        "top5Hits": 20,
+        "complete": null,
+        "nonempty": null
+      },
+      "zh-en": {
+        "n": 24,
+        "top5Hits": 24,
+        "complete": null,
+        "nonempty": null
+      },
+      "en-zh": {
+        "n": 24,
+        "top5Hits": 21,
+        "complete": null,
+        "nonempty": null
+      },
+      "en-en": {
+        "n": 24,
+        "top5Hits": 23,
+        "complete": null,
+        "nonempty": null
+      },
+      "positive": {
+        "n": 136,
+        "top5Hits": 126,
+        "complete": null,
+        "nonempty": null
+      },
+      "negative-ood": {
+        "n": 80,
+        "top5Hits": 0,
+        "complete": null,
+        "nonempty": null
+      }
+    }
+  },
+  "positiveQueries": {
+    "timedOutNoHits": 66,
+    "completeButMissed": 20,
+    "encoderRankAmongCompleteProductMisses": {
+      "2": 7,
+      "0": 6,
+      "3": 6,
+      "4": 1
+    }
+  }
+}

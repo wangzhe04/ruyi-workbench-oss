@@ -1,0 +1,4016 @@
+{
+  "mode": "quality",
+  "serverSha256": "325f2876e6363ccb49340cbdb19ec78689d73d022f55ffa0da3c640012d3da5f",
+  "samples": [
+    {
+      "ms": 423.47630000000026,
+      "encodeMs": [
+        8.71349999999984
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 396.6345000000001,
+      "encodeMs": [
+        7.767700000000332
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 402.1748000000007,
+      "encodeMs": [
+        8.301799999999275
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 416.2596000000012,
+      "encodeMs": [
+        7.168900000000576
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 375.0640000000003,
+      "encodeMs": [
+        7.618899999999485
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 398.5637999999999,
+      "encodeMs": [
+        7.833199999999124
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 412.7277000000013,
+      "encodeMs": [
+        10.306300000000192
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 384.5115000000005,
+      "encodeMs": [
+        7.90730000000076
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 434.29829999999856,
+      "encodeMs": [
+        7.800499999999374
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 426.64030000000093,
+      "encodeMs": [
+        7.550999999999476
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 439.28800000000047,
+      "encodeMs": [
+        7.084199999999328
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 381.41439999999966,
+      "encodeMs": [
+        7.450800000000527
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 411.6839,
+      "encodeMs": [
+        6.944700000000012
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 418.84999999999854,
+      "encodeMs": [
+        7.220900000000256
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 388.6798999999992,
+      "encodeMs": [
+        6.941000000000713
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 383.23969999999827,
+      "encodeMs": [
+        7.92410000000018
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 378.6215000000011,
+      "encodeMs": [
+        7.901300000001356
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 380.50670000000173,
+      "encodeMs": [
+        7.408199999998033
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 418.34400000000096,
+      "encodeMs": [
+        8.56499999999869
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 415.39540000000125,
+      "encodeMs": [
+        8.072000000000116
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 433.4805000000015,
+      "encodeMs": [
+        7.421699999998964
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 413.27739999999903,
+      "encodeMs": [
+        8.425400000000081
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 413.21990000000005,
+      "encodeMs": [
+        8.88969999999972
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 386.200499999999,
+      "encodeMs": [
+        9.107299999999668
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 386.46659999999974,
+      "encodeMs": [
+        7.6239000000023225
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 421.20690000000104,
+      "encodeMs": [
+        8.083800000000338
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 461.33680000000095,
+      "encodeMs": [
+        7.464599999999336
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 461.1099000000031,
+      "encodeMs": [
+        9.895700000000943
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 401.1428999999989,
+      "encodeMs": [
+        8.911900000002788
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 400.2366000000002,
+      "encodeMs": [
+        11.063900000001013
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 418.90710000000036,
+      "encodeMs": [
+        10.560699999998178
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 438.14110000000073,
+      "encodeMs": [
+        8.04609999999957
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 406.40740000000005,
+      "encodeMs": [
+        10.000800000001618
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 444.7332999999999,
+      "encodeMs": [
+        10.245300000002317
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 427.8773000000001,
+      "encodeMs": [
+        7.563799999999901
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 429.65689999999813,
+      "encodeMs": [
+        9.811399999998685
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 424.2051999999967,
+      "encodeMs": [
+        9.601199999997334
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 385.9821000000011,
+      "encodeMs": [
+        8.450600000000122
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 401.47209999999905,
+      "encodeMs": [
+        6.979199999997945
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 421.5015000000021,
+      "encodeMs": [
+        10.089499999998225
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 468.2528999999995,
+      "encodeMs": [
+        10.479299999999057
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 416.36559999999736,
+      "encodeMs": [
+        8.082099999999627
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 469.68169999999736,
+      "encodeMs": [
+        7.544600000001083
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 424.9483,
+      "encodeMs": [
+        8.784800000001269
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 377.4412999999986,
+      "encodeMs": [
+        12.664499999998952
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 368.91479999999865,
+      "encodeMs": [
+        10.620100000000093
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 458.35449999999764,
+      "encodeMs": [
+        8.599699999998847
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 435.3790000000008,
+      "encodeMs": [
+        8.3195999999989
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 404.9881000000023,
+      "encodeMs": [
+        8.924999999999272
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 403.9239000000016,
+      "encodeMs": [
+        7.097200000000157
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 406.47339999999895,
+      "encodeMs": [
+        7.291300000000774
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 406.79899999999907,
+      "encodeMs": [
+        8.193200000001525
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 391.2027999999991,
+      "encodeMs": [
+        7.6512000000002445
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 346.4808000000012,
+      "encodeMs": [
+        7.205799999999726
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 417.8747999999978,
+      "encodeMs": [
+        7.750099999997474
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 437.71770000000106,
+      "encodeMs": [
+        10.371699999996054
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 405.9458999999988,
+      "encodeMs": [
+        7.0966000000044005
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 402.11249999999563,
+      "encodeMs": [
+        8.94090000000142
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 412.67869999999675,
+      "encodeMs": [
+        7.156399999999849
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 398.3853999999992,
+      "encodeMs": [
+        6.993099999999686
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 394.30459999999584,
+      "encodeMs": [
+        8.395700000000943
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 389.5679000000018,
+      "encodeMs": [
+        6.7282000000050175
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 377.43300000000454,
+      "encodeMs": [
+        9.295099999995728
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 359.76980000000185,
+      "encodeMs": [
+        10.33640000000014
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 387.15439999999944,
+      "encodeMs": [
+        11.462800000001153
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 382.0570000000007,
+      "encodeMs": [
+        8.130700000001525
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 408.0353000000032,
+      "encodeMs": [
+        7.704599999997299
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 615.1670000000013,
+      "encodeMs": [
+        8.285499999998137
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 450.19409999999334,
+      "encodeMs": [
+        8.65690000000177
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 407.8920999999973,
+      "encodeMs": [
+        7.579300000004878
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 417.655700000003,
+      "encodeMs": [
+        7.83179999999993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 416.6912999999986,
+      "encodeMs": [
+        7.60740000000078
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 483.31230000000505,
+      "encodeMs": [
+        7.851300000002084
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 396.72780000000057,
+      "encodeMs": [
+        7.287100000001374
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 372.30889999999636,
+      "encodeMs": [
+        7.723999999994703
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 366.6851999999999,
+      "encodeMs": [
+        7.127300000000105
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 409.4754999999932,
+      "encodeMs": [
+        7.491000000001804
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 386.17029999999795,
+      "encodeMs": [
+        8.222900000000664
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 475.2418000000034,
+      "encodeMs": [
+        8.078499999995984
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 412.1661000000022,
+      "encodeMs": [
+        9.907999999995809
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 530.0774999999994,
+      "encodeMs": [
+        8.117599999997765
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 396.9661000000051,
+      "encodeMs": [
+        10.000099999997474
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 416.1754000000001,
+      "encodeMs": [
+        9.953600000000733
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 392.1725000000006,
+      "encodeMs": [
+        8.195899999998801
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 421.0760999999984,
+      "encodeMs": [
+        8.901700000002165
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 427.7563999999984,
+      "encodeMs": [
+        7.997100000000501
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 423.40669999999955,
+      "encodeMs": [
+        7.471699999994598
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 436.97869999999966,
+      "encodeMs": [
+        7.984299999996438
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 420.27160000000003,
+      "encodeMs": [
+        11.505499999999302
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 531.9429999999993,
+      "encodeMs": [
+        8.752599999999802
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 463.231200000002,
+      "encodeMs": [
+        7.291700000001583
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 464.66999999999825,
+      "encodeMs": [
+        7.484700000000885
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 439.27180000000226,
+      "encodeMs": [
+        10.141499999997905
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 407.9277000000002,
+      "encodeMs": [
+        10.802999999999884
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 432.53289999999834,
+      "encodeMs": [
+        10.411299999999756
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 401.1038000000044,
+      "encodeMs": [
+        7.031699999999546
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 358.28139999999985,
+      "encodeMs": [
+        8.893599999995786
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 11,
+      "cached": 11,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 345.12140000000363,
+      "encodeMs": [
+        6.6819999999934225
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 339.16399999999703,
+      "encodeMs": [
+        8.005499999999302
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 339.1386999999959,
+      "encodeMs": [
+        7.738499999999476
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 348.27739999999903,
+      "encodeMs": [
+        6.385999999998603
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 335.7262000000046,
+      "encodeMs": [
+        6.912300000003597
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 338.4251000000004,
+      "encodeMs": [
+        7.298600000001898
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 365.00249999999505,
+      "encodeMs": [
+        6.8298999999969965
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 369.68879999999626,
+      "encodeMs": [
+        7.105100000000675
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 332.79039999999804,
+      "encodeMs": [
+        9.275300000001153
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 12,
+      "cached": 12,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 373.30339999999705,
+      "encodeMs": [
+        6.669099999999162
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 328.2328000000052,
+      "encodeMs": [
+        6.959000000002561
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "minilm-search-relevance-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 458.6843000000008,
+      "encodeMs": [
+        9.912099999994098
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 398.8544000000038,
+      "encodeMs": [
+        7.400000000001455
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 407.28169999999955,
+      "encodeMs": [
+        7.558899999996356
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 419.1392999999953,
+      "encodeMs": [
+        7.743000000002212
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 436.1446999999971,
+      "encodeMs": [
+        9.170599999997648
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 441.79790000000503,
+      "encodeMs": [
+        7.7880999999979394
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 444.89689999999973,
+      "encodeMs": [
+        8.451300000000629
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 494.09470000000147,
+      "encodeMs": [
+        7.8387000000002445
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 381.97379999999976,
+      "encodeMs": [
+        7.526699999994889
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 381.72000000000116,
+      "encodeMs": [
+        7.703800000002957
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 402.1800000000003,
+      "encodeMs": [
+        7.873200000001816
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 387.03229999999894,
+      "encodeMs": [
+        7.641899999995076
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 380.24929999999586,
+      "encodeMs": [
+        7.118999999998778
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 365.62629999999626,
+      "encodeMs": [
+        7.6656999999977415
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 432.09300000000076,
+      "encodeMs": [
+        6.920200000000477
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 393.9403999999995,
+      "encodeMs": [
+        7.055400000004738
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 426.87019999999757,
+      "encodeMs": [
+        7.838199999998324
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 461.5847999999969,
+      "encodeMs": [
+        9.231999999996333
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 474.5708000000013,
+      "encodeMs": [
+        7.50810000000638
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 420.7962000000043,
+      "encodeMs": [
+        8.041199999999662
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 365.51380000000063,
+      "encodeMs": [
+        7.524499999999534
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 412.1186000000016,
+      "encodeMs": [
+        7.434600000000501
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 387.3234999999986,
+      "encodeMs": [
+        6.4606000000057975
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 390.4493000000002,
+      "encodeMs": [
+        7.747199999997974
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 417.29320000000007,
+      "encodeMs": [
+        7.763299999998708
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 463.261599999998,
+      "encodeMs": [
+        7.2027000000016415
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 428.6820999999982,
+      "encodeMs": [
+        6.981999999989057
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 410.9456999999966,
+      "encodeMs": [
+        6.6203999999997905
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 372.3932999999961,
+      "encodeMs": [
+        6.58179999999993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 378.25479999999516,
+      "encodeMs": [
+        6.481799999994109
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 348.43249999999534,
+      "encodeMs": [
+        6.60120000000461
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 4,
+      "rank": 1
+    },
+    {
+      "ms": 380.4802000000054,
+      "encodeMs": [
+        6.486799999998766
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 360.8765999999887,
+      "encodeMs": [
+        6.77270000000135
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 377.32600000000093,
+      "encodeMs": [
+        7.792000000001281
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 355.1802000000025,
+      "encodeMs": [
+        6.777799999996205
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 359.34769999999844,
+      "encodeMs": [
+        6.498399999996764
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 351.5744999999879,
+      "encodeMs": [
+        7.473100000002887
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 363.7109999999957,
+      "encodeMs": [
+        7.108399999997346
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 357.7187999999878,
+      "encodeMs": [
+        6.3994000000093365
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 341.27090000000317,
+      "encodeMs": [
+        6.449099999997998
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 379.88780000001134,
+      "encodeMs": [
+        6.646699999997509
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 349.04929999999877,
+      "encodeMs": [
+        6.032500000001164
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 366.8518999999942,
+      "encodeMs": [
+        6.5090000000054715
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 367.7075000000041,
+      "encodeMs": [
+        6.493799999996554
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 354.4024000000063,
+      "encodeMs": [
+        6.97630000000936
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 368.33520000000135,
+      "encodeMs": [
+        7.326300000000629
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 376.66270000000077,
+      "encodeMs": [
+        6.387799999996787
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 4
+    },
+    {
+      "ms": 366.5630000000092,
+      "encodeMs": [
+        6.914899999988847
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 378.4974999999977,
+      "encodeMs": [
+        6.889799999989918
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 3
+    },
+    {
+      "ms": 346.2305000000051,
+      "encodeMs": [
+        6.490499999999884
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 365.21579999999085,
+      "encodeMs": [
+        7.466200000009849
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 1
+    },
+    {
+      "ms": 404.83099999999104,
+      "encodeMs": [
+        6.633300000001327
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 5,
+      "rank": 5
+    },
+    {
+      "ms": 286.5652999999875,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 331.45010000000184,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 296.4805999999953,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 326.4189000000042,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 315.2138999999879,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 290.67269999999553,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 286.7323000000033,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 288.87309999999707,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 301.1588999999949,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 298.7231000000029,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 296.90000000000873,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 304.55869999999413,
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 353.7228000000032,
+      "encodeMs": [
+        6.296799999996438
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 313.3365999999951,
+      "encodeMs": [
+        7.41359999999986
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 313.05130000000645,
+      "encodeMs": [
+        6.702399999994668
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 313.1412999999884,
+      "encodeMs": [
+        6.153999999994994
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 344.10389999998733,
+      "encodeMs": [
+        6.617599999997765
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 352.05260000001,
+      "encodeMs": [
+        6.978500000011991
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 306.63009999999485,
+      "encodeMs": [
+        6.40779999998631
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 376.3182000000088,
+      "encodeMs": [
+        6.33289999999397
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 390.6171999999933,
+      "encodeMs": [
+        8.736300000004121
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 375.07050000000163,
+      "encodeMs": [
+        9.548300000009476
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 320.29159999999683,
+      "encodeMs": [
+        8.207399999999325
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 347.8381999999983,
+      "encodeMs": [
+        6.507500000006985
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 407.2140999999974,
+      "encodeMs": [
+        8.202699999994365
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 374.8734000000113,
+      "encodeMs": [
+        8.816500000000815
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 322.3836999999912,
+      "encodeMs": [
+        6.396200000002864
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 362.10629999999946,
+      "encodeMs": [
+        6.842799999998533
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 336.63120000000345,
+      "encodeMs": [
+        7.353099999992992
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 313.48309999999765,
+      "encodeMs": [
+        6.448099999994156
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 376.32050000000163,
+      "encodeMs": [
+        7.01929999999993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 304.5558999999921,
+      "encodeMs": [
+        6.478600000002189
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 342.603099999993,
+      "encodeMs": [
+        6.994899999990594
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 303.133600000001,
+      "encodeMs": [
+        6.496300000013434
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 311.94199999999546,
+      "encodeMs": [
+        6.9879000000073574
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 344.77369999999064,
+      "encodeMs": [
+        6.628800000005867
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 369.4756000000052,
+      "encodeMs": [
+        6.596300000004703
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 346.7652999999991,
+      "encodeMs": [
+        7.102899999998044
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 320.29939999998896,
+      "encodeMs": [
+        6.6788999999989755
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 358.90499999999884,
+      "encodeMs": [
+        6.205700000005891
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 362.7905000000028,
+      "encodeMs": [
+        6.766399999993155
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 310.449099999998,
+      "encodeMs": [
+        6.447100000004866
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 370.7720999999874,
+      "encodeMs": [
+        6.387799999996787
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 354.79929999999877,
+      "encodeMs": [
+        6.753599999996368
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 314.0671000000002,
+      "encodeMs": [
+        6.728400000007241
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 382.0317000000068,
+      "encodeMs": [
+        8.156499999997322
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 339.82519999999204,
+      "encodeMs": [
+        6.060700000001816
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 335.13150000000314,
+      "encodeMs": [
+        9.268199999991339
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 320.98940000000584,
+      "encodeMs": [
+        9.459799999996903
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 309.6505000000034,
+      "encodeMs": [
+        7.970400000005611
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 399.38730000000214,
+      "encodeMs": [
+        6.52719999999681
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 334.94809999999416,
+      "encodeMs": [
+        8.045099999988452
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 349.9930999999924,
+      "encodeMs": [
+        6.716399999990244
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 311.6704000000027,
+      "encodeMs": [
+        7.128000000011525
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 312.31380000000354,
+      "encodeMs": [
+        6.595499999995809
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 318.95870000000286,
+      "encodeMs": [
+        7.294399999998859
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 314.2427999999927,
+      "encodeMs": [
+        6.835999999995693
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 324.70629999999073,
+      "encodeMs": [
+        7.680900000006659
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 320.4368000000104,
+      "encodeMs": [
+        6.7942000000039116
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 317.97840000000724,
+      "encodeMs": [
+        6.35460000000603
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 340.0766000000003,
+      "encodeMs": [
+        7.256600000007893
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 342.1828000000096,
+      "encodeMs": [
+        6.612099999998463
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 357.57360000000335,
+      "encodeMs": [
+        6.657300000006217
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 341.3491999999969,
+      "encodeMs": [
+        6.661399999997229
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 339.67660000000615,
+      "encodeMs": [
+        7.277600000001257
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 322.87450000000536,
+      "encodeMs": [
+        7.322499999994761
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 318.99789999998757,
+      "encodeMs": [
+        7.4284999999945285
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 323.60040000001027,
+      "encodeMs": [
+        6.6875
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 365.2286999999924,
+      "encodeMs": [
+        6.36710000000312
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 311.8261999999959,
+      "encodeMs": [
+        6.739399999991292
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 332.40969999998924,
+      "encodeMs": [
+        6.994000000006054
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 316.22080000001006,
+      "encodeMs": [
+        9.504000000000815
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 315.1984000000084,
+      "encodeMs": [
+        7.020099999994272
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 393.8379999999888,
+      "encodeMs": [
+        6.522400000001653
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 357.78749999999127,
+      "encodeMs": [
+        9.50680000000284
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 404.51480000000447,
+      "encodeMs": [
+        9.509700000009616
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 446.5066999999981,
+      "encodeMs": [
+        8.555500000002212
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 396.9418000000005,
+      "encodeMs": [
+        8.918600000004517
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 415.6501999999891,
+      "encodeMs": [
+        10.01820000000589
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 364.4676000000036,
+      "encodeMs": [
+        9.687999999994645
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 398.7982999999949,
+      "encodeMs": [
+        10.595900000000256
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 387.4676999999938,
+      "encodeMs": [
+        10.89440000000468
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 418.92230000000563,
+      "encodeMs": [
+        12.112899999992806
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 444.2158000000054,
+      "encodeMs": [
+        9.913300000000163
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 434.0622000000003,
+      "encodeMs": [
+        12.05340000000433
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 432.90469999999914,
+      "encodeMs": [
+        9.031199999997625
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 463.800900000002,
+      "encodeMs": [
+        11.878700000001118
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 500.2247999999963,
+      "encodeMs": [
+        11.612999999997555
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 591.3184000000037,
+      "encodeMs": [
+        13.123600000006263
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 685.7203000000009,
+      "encodeMs": [
+        13.319699999992736
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 460.15989999999874,
+      "encodeMs": [
+        11.546999999991385
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 511.28250000000116,
+      "encodeMs": [
+        11.13190000000759
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 483.27509999999893,
+      "encodeMs": [
+        12.157900000005611
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 475.6137000000017,
+      "encodeMs": [
+        10.984000000011292
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 389.84709999999905,
+      "encodeMs": [
+        8.643199999991339
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 380.6787999999942,
+      "encodeMs": [
+        11.900799999988521
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 423.8841000000102,
+      "encodeMs": [
+        8.034299999999348
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 407.23540000000503,
+      "encodeMs": [
+        9.998500000001513
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 358.93970000000263,
+      "encodeMs": [
+        10.337400000003981
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 370.61849999999686,
+      "encodeMs": [
+        6.6745000000082655
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 404.59560000000056,
+      "encodeMs": [
+        9.01589999999851
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 5,
+      "rank": 0
+    },
+    {
+      "ms": 381.39860000000044,
+      "encodeMs": [
+        7.705999999991036
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 357.2682000000059,
+      "encodeMs": [
+        10.239400000005844
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 379.8570999999938,
+      "encodeMs": [
+        7.9342000000033295
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 363.3130999999994,
+      "encodeMs": [
+        9.220499999995809
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 367.8067999999912,
+      "encodeMs": [
+        9.096899999989546
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 340.52700000000186,
+      "encodeMs": [
+        7.309500000003027
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 318.58640000000014,
+      "encodeMs": [
+        7.3457000000053085
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    }
+  ],
+  "encryptedSource": true,
+  "privacy": "enhanced",
+  "model": "sha256:41aeab62bf0d3a3675834194c0ea062e52e556eb2671825d94ad9128dc4d7df9",
+  "coldReadyMs": 2548.7999,
+  "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "indexBuildMs": 1299.2835,
+  "background": {
+    "state": "idle",
+    "complete": true,
+    "skippedSessions": 0,
+    "encodedFragments": 324
+  },
+  "backgroundMs": 4652.339100000001,
+  "prewarm": [
+    {
+      "ms": 420.22839999999997,
+      "encodeMs": [],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "minilm-search-relevance-v1"
+    }
+  ],
+  "prewarmMs": 420.2716999999993,
+  "completed": true
+}

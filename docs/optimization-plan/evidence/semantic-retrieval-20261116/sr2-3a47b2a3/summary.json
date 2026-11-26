@@ -1,0 +1,169 @@
+{
+  "passed": false,
+  "groups": {
+    "zh-zh": {
+      "n": 24,
+      "hits": 4,
+      "recallAt5": 0.16666666666666666,
+      "mrr": 0.16666666666666666,
+      "anyResult": 12,
+      "errors": 0,
+      "complete": 12
+    },
+    "en-zh": {
+      "n": 24,
+      "hits": 5,
+      "recallAt5": 0.20833333333333334,
+      "mrr": 0.16666666666666666,
+      "anyResult": 11,
+      "errors": 0,
+      "complete": 11
+    },
+    "zh-en": {
+      "n": 24,
+      "hits": 15,
+      "recallAt5": 0.625,
+      "mrr": 0.625,
+      "anyResult": 18,
+      "errors": 0,
+      "complete": 18
+    },
+    "en-en": {
+      "n": 24,
+      "hits": 12,
+      "recallAt5": 0.5,
+      "mrr": 0.375,
+      "anyResult": 15,
+      "errors": 0,
+      "complete": 15
+    },
+    "exact-entity": {
+      "n": 12,
+      "hits": 12,
+      "recallAt5": 1,
+      "mrr": 1,
+      "anyResult": 12,
+      "errors": 0,
+      "complete": 12
+    },
+    "correction": {
+      "n": 12,
+      "hits": 0,
+      "recallAt5": 0,
+      "mrr": 0,
+      "anyResult": 0,
+      "errors": 0,
+      "complete": 0
+    },
+    "mixed-to-zh": {
+      "n": 8,
+      "hits": 1,
+      "recallAt5": 0.125,
+      "mrr": 0.125,
+      "anyResult": 1,
+      "errors": 0,
+      "complete": 1
+    },
+    "mixed-to-en": {
+      "n": 8,
+      "hits": 1,
+      "recallAt5": 0.125,
+      "mrr": 0.125,
+      "anyResult": 1,
+      "errors": 0,
+      "complete": 1
+    },
+    "near-topic": {
+      "n": 24,
+      "hits": 2,
+      "recallAt5": 0.08333333333333333,
+      "mrr": 0.0625,
+      "anyResult": 2,
+      "errors": 0,
+      "complete": 2
+    },
+    "negative-entity": {
+      "n": 12,
+      "hits": 0,
+      "recallAt5": 0,
+      "mrr": 0,
+      "anyResult": 0,
+      "errors": 0,
+      "complete": 0
+    },
+    "negative-ood": {
+      "n": 80,
+      "hits": 0,
+      "recallAt5": 0,
+      "mrr": 0,
+      "anyResult": 0,
+      "errors": 0,
+      "complete": 17
+    },
+    "mixed-ood": {
+      "n": 16,
+      "hits": 0,
+      "recallAt5": 0,
+      "mrr": 0,
+      "anyResult": 0,
+      "errors": 0,
+      "complete": 0
+    }
+  },
+  "positive": {
+    "n": 136,
+    "hits": 50,
+    "recallAt5": 0.36764705882352944,
+    "mrr": 0.3382352941176471,
+    "anyResult": 70,
+    "errors": 0,
+    "complete": 70
+  },
+  "qualityComplete": 89,
+  "qualityErrors": 0,
+  "initial": {
+    "fragments": 1000,
+    "complete": 0,
+    "errors": 0,
+    "availableEncodes": 20,
+    "totalP95": 1345.7564000000057,
+    "encodeP95": 83.25590000000375,
+    "cachedRange": [
+      195,
+      450
+    ],
+    "prewarmMs": 30620.501800000005,
+    "indexBuildMs": 1034.2474000000002,
+    "coldReadyMs": 6493.9349
+  },
+  "sustained": {
+    "fragments": 1000,
+    "complete": 0,
+    "errors": 0,
+    "availableEncodes": 0,
+    "totalP95": 2385.5226999999977,
+    "encodeP95": null,
+    "cachedRange": [
+      0,
+      0
+    ],
+    "prewarmMs": 3576.6918000000005,
+    "indexBuildMs": 1533.9573,
+    "coldReadyMs": 10623.0184
+  },
+  "sustainedRecovery": {
+    "fragments": 1000,
+    "complete": 20,
+    "errors": 0,
+    "availableEncodes": 20,
+    "totalP95": 1124.2023000000045,
+    "encodeP95": 65.80529999994906,
+    "cachedRange": [
+      1000,
+      1000
+    ],
+    "prewarmMs": 300951.2572,
+    "indexBuildMs": 958.4987000000001,
+    "coldReadyMs": 7695.7785
+  }
+}

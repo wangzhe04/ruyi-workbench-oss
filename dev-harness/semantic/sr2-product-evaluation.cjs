@@ -13,7 +13,7 @@ const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const fixtureHash = '63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3';
 const topics = ['delivery schedule','garden watering','inventory records','camera lenses','building insulation','railway routes','book lending','weather station','office supplies','bicycle repair'];
 async function main() {
-  assert.ok(['smoke','performance','sustained','quality'].includes(mode));
+  assert.ok(['smoke','performance','sustained','quality','quality-warm'].includes(mode));
   const server = path.resolve(packageRoot,'app/server.js');
   const bytes = fs.readFileSync(server);
   assert.equal(sha(bytes),sha(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/server.js'))));
@@ -37,10 +37,10 @@ async function main() {
     const cold=performance.now();
     let ready;
     do {
-      ready=await runtime.prepare({deadline:Date.now()+15000});
-      if(ready.available || ready.state!=='loading')break;
+      ready=await runtime.prepare({deadline:Date.now()+(mode==='sustained'?60000:15000)});
+      if(ready.available || (ready.state!=='loading' && mode!=='sustained'))break;
       await new Promise(r=>setTimeout(r,100));
-    } while(performance.now()-cold<30000);
+    } while(performance.now()-cold<(mode==='sustained'?90000:30000));
     assert.equal(ready.available,true,JSON.stringify(ready));
     assert.equal(ready.modelId,'embeddinggemma-2-text-q4');
     report.coldReadyMs=performance.now()-cold; report.model=ready.modelFingerprint;
@@ -52,14 +52,14 @@ async function main() {
       finally{if(options.role==='query')timings.push(performance.now()-start);}
     }}});
     let corpus;
-    if(mode==='quality'){
+    if(mode.startsWith('quality')){
       assert.equal(sha(fs.readFileSync(holdout)),fixtureHash);
       report.fixtureSha256=fixtureHash;
       corpus=require(path.resolve(holdout));
       assert.equal(corpus.documents.length,96); assert.equal(corpus.queries.length,268);
     }
     const map=new Map();
-    const n=mode==='quality'?96:mode==='smoke'?2:25;
+    const n=mode.startsWith('quality')?96:mode==='smoke'?2:25;
     for(let i=0;i<n;i++){
       const sid='S'+String(i).padStart(3,'0');
       const texts=corpus?[corpus.documents[i].text]:Array.from({length:mode==='smoke'?2:40},(_,j)=>topics[(i+j)%topics.length]+' notes for inspection batch '+i+' section '+j);
@@ -79,11 +79,16 @@ async function main() {
     do {
       let r;
       try { r=await search('inspection notes for maintenance'); }
-      catch(error){report.prewarm.push({error:error.message});break;}
-      const {top,...counts}=r; report.prewarm.push(counts);
+      catch(error){
+        report.prewarm.push({error:error.message});
+        if(mode!=='sustained' && mode!=='quality-warm')break;
+        await new Promise(resolve=>setTimeout(resolve,500));
+        continue;
+      }
+      const {top,...counts}=r; report.prewarm.push(counts); if(mode==='sustained')save();
       assert.equal(r.policy,'embeddinggemma2-global-eligible-k1-cos070-window-v1');
-      if(r.coverage==='complete')break;
-    } while(performance.now()-warm<(mode==='sustained'?300000:30000));
+      if(r.coverage==='complete'||(mode==='quality-warm' && r.cached===r.fragments && r.cached>0))break;
+    } while(performance.now()-warm<(mode==='sustained'?300000:mode==='quality-warm'?180000:30000));
     report.prewarmMs=performance.now()-warm;
     const queries=corpus?corpus.queries:Array.from({length:mode==='smoke'?2:20},(_,i)=>({text:'Which '+topics[i%10]+' tasks need '+(i<10?'inspection':'additional review')+'?',group:'performance'}));
     for(const q of queries){

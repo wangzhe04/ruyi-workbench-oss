@@ -24,7 +24,7 @@
     {
       "id": "SR2",
       "name": "real-model-quality-and-performance",
-      "status": "pending",
+      "status": "failed",
       "evidence": [
         {
           "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/reports-manifest.json",
@@ -45,9 +45,17 @@
         {
           "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/s3c-stateless-owner-v5-r1/manifest.json",
           "sha256": "7ffbc5bc541ed1839e7e9d1adf12c0a47c8661bb5da39c33ccb1f20de2d8d94c"
+        },
+        {
+          "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/sr2-3a47b2a3/summary.json",
+          "sha256": "d102a0861aba42ef226b5067ad02363c3b172dd9e375fd4acb9c4d3604239307"
         }
       ],
-      "notes": "Development selection is fixed at full768 K1/.70, automatic:null. Real-model component work is scoped; independent unexposed V7R3 and complete1000-fragment source/privacy/search p95 remain pending. Earlier failed model/quality results remain historical."
+      "notes": "Frozen 3a47b2a3 V7 R3 evaluation: 268 questions attempted once, 89 complete. Recall@5 zh-zh 4/24, zh-en 15/24, en-zh 5/24. 30s prewarm 1000-fragment end-to-end p95 1346ms, 0/20 complete; separate 301s prewarm attained 20/20 complete, p95 1124ms. Holdout consumed. See linked receipts.",
+      "acceptance": {
+        "path": "docs/optimization-plan/evidence/semantic-retrieval-20261116/sr2-3a47b2a3/acceptance.json",
+        "sha256": "16a7adff823ad758df87b64bd3f8479db4ab2365211ca4faa97464ddc4ba83c5"
+      }
     },
     {
       "id": "SR3",

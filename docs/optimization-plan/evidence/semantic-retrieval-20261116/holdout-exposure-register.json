@@ -1,18 +1,18 @@
 {
   "schema": 1,
-  "status": "V7_R3_STATIC_QA_PASS_UNCONSUMED_FINAL_IMPLEMENTATION_AND_EXECUTION_FREEZE_PENDING",
+  "status": "V7_R3_CONSUMED_SR2_FAILED_3A47B2A3",
   "newHoldout": {
     "fixture": "dev-harness/semantic/acceptance-v7-r3-fixture.cjs",
     "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
     "publicFreeze": "dev-harness/semantic/acceptance-v7-r3-freeze.json",
     "publicFreezeSha256": "f6ccfdfb58c9309b073f890fca0767abc186b4fc079af69aca6d1159308b993e",
-    "state": "UNCONSUMED",
+    "state": "CONSUMED",
     "documents": 96,
     "queries": 268,
     "independentAuthorNoOldDataOrScores": true,
     "bodyDisplayedToRoot": false,
-    "modelExecuted": false,
-    "tokenizerExecuted": false,
+    "modelExecuted": true,
+    "tokenizerExecuted": true,
     "independentGroundTruthQa": {
       "status": "STATIC_QA_PASS_NOT_MODEL_ACCEPTANCE",
       "review": "dev-harness/semantic/acceptance-v7-r3-review.json",
@@ -22,9 +22,9 @@
       "newIssues": 0,
       "scope": "R2 full96/268 independent QA plus sole R3 query change verified; unchanged documents and group denominators."
     },
-    "finalExecutionFreeze": "PENDING_FINAL_IMPLEMENTATION_AND_RESIDENT_RUNTIME_FREEZE",
+    "finalExecutionFreeze": "sr2-3a47b2a3/freeze.json",
     "blindFinalQualificationAllowed": false,
-    "disposition": "Keep body confidential; root inspected public freeze/hash metadata only. No ordinary source inventory/search/archive or scoring. Static QA does not authorize model execution; final implementation/execution contract still required."
+    "disposition": "Executed under the 2026-11-26 freeze. Initial prewarm stopped before any evaluation query. The amended run attempted each of 268 questions once. Do not reuse this fixture as independent acceptance after changing retrieval."
   },
   "events": [
     {
@@ -40,6 +40,15 @@
       "oneShotMarkerCreated": false,
       "blindFinalQualificationAllowed": false,
       "disposition": "Preserve original fixture/freeze/decision unchanged. V6 is not a valid blind final test after this exposure, even though it was never executed. Freeze a new independent full-language fixture after selecting the final method; no substitution of old labels or threshold tuning on the exposed material."
+    },
+    {
+      "date": "2026-11-26",
+      "fixture": "dev-harness/semantic/acceptance-v7-r3-fixture.cjs",
+      "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+      "kind": "FROZEN_HOLDOUT_CONSUMED",
+      "queryCount": 268,
+      "bodyDisplayedToRoot": false,
+      "evidence": "sr2-3a47b2a3/quality-once.json"
     }
   ],
   "prevention": "dev-harness/semantic/.rgignore excludes acceptance sources/directories from default rg searches. Inclusive command-line -g globs override ignore files, so every broad semantic search using -g must append explicit negative acceptance*.cjs and acceptance-*/** globs. Do not archive or inspect still-blind fixture bodies during progress work.",

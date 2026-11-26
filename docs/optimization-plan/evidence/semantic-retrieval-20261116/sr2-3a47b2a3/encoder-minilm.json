@@ -1,0 +1,1351 @@
+{
+  "model": "paraphrase-multilingual-MiniLM-L12-v2",
+  "fingerprint": "sha256:41aeab62bf0d3a3675834194c0ea062e52e556eb2671825d94ad9128dc4d7df9",
+  "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "documents": 96,
+  "windows": 324,
+  "truncated": 0,
+  "method": "96 UTF-16 units, stride 80; maximum cosine per document, unconditional top 5; no answerability or product latency inference",
+  "samples": [
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 5
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-zh",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "en-zh",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 5
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 5
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 5
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "zh-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "en-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 5
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 4
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "exact-entity",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 3
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "correction",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 5
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 0
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 2
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 0
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 4
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 3
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 2
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 0
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 5
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 5
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-field",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 0
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 2
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 3
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 0
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 3
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 2
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 2
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 1
+    },
+    {
+      "group": "near-topic",
+      "kind": "missing-number",
+      "rank": 4
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "negative-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    },
+    {
+      "group": "mixed-ood",
+      "kind": "ood",
+      "rank": 0
+    }
+  ]
+}
