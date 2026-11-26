@@ -120,6 +120,19 @@ async function idle(sid, runId) {
     ok((await get('/api/sessions/' + c)).json.session.turnSeq === 1, 'real existing C runs after B acceptance');
     const removeRun = (sid, rid) => request(port, 'DELETE', '/api/agent-runs/' + rid + '?sessionId=' + sid, null, token);
     await idle(b, first.runId); await idle(c, completedNext.runId); await idle(a, relay.id);
+    const requestsBeforeReplay = fake.requests.length;
+    await killOwnTree(proc); proc = null; await start();
+    const coldCreate = await post('/api/thread-relays', command);
+    ok(coldCreate.status === 200 && coldCreate.json.relay?.id === relay.id,
+      'cold restart binds a repeated create to the original relay');
+    const coldStart = await post('/api/thread-relays', { action: 'start', sessionId: a, relayId: relay.id, edgeId: next.id });
+    const coldEdge = coldStart.json.relay?.threadRelay.edges.find(edge => edge.id === next.id);
+    ok(coldStart.status === 200 && coldEdge?.state === 'review' && coldEdge.runId === completedNext.runId
+      && coldEdge.receipt?.status === 'succeeded' && coldEdge.receipt.identity === completedNext.runId,
+      'cold replay of the completed target returns its original success receipt');
+    await idle(c, completedNext.runId);
+    ok((await get('/api/sessions/' + c)).json.session.turnSeq === 1 && fake.requests.length === requestsBeforeReplay,
+      'replaying the completed target after restart adds no target turn or provider request');
     const removedB = await removeRun(b, first.runId); diagnostic('delete B current receipt', removedB, { runId: first.runId });
     ok(removedB.status === 200, 'ordinary target history removal succeeds');
     const retained = (await get('/api/agent-runs/' + first.runId + '?sessionId=' + b)).json;

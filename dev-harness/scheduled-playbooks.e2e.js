@@ -11,6 +11,12 @@ const { getFreePort } = require('./free-port');
 const t = createRunner('SCHEDULED PLAYBOOKS');
 const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-scheduled-playbooks-'));
 const home = path.join(root, 'home'), work = path.join(root, 'work'), clock = path.join(root, 'clock.txt');
+const approvedReport = path.join(work, 'approval-old.md'), writeLog = path.join(root, 'report-writes.log');
+const crashReport = path.join(work, 'interrupted-report.md'), expiredReport = path.join(work, 'expired-report.md');
+function writesTo(target) {
+  if (!fs.existsSync(writeLog)) return [];
+  return fs.readFileSync(writeLog, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)).filter(row => row.target === target);
+}
 for (const dir of [home, work]) fs.mkdirSync(dir, { recursive: true });
 const wb = path.resolve(__dirname, '../ruyi-workbench');
 let server, fake, port, token = '', diagnostic = '';
@@ -29,10 +35,11 @@ async function request(method, route, body, auth = token) {
     return { status: response.status, body: await response.json() };
   } catch (error) { return { status: 0, error: String(error) }; }
 }
-async function start() {
+async function start(extraEnv = {}) {
   port = await getFreePort(); diagnostic = '';
-  server = cp.spawn(process.execPath, ['app/server.js', 'serve', '--port', String(port)], { cwd: wb, windowsHide: true,
+  server = cp.spawn(process.execPath, ['--require', require.resolve('./lib/scheduled-playbook-callback-probe'), 'app/server.js', 'serve', '--port', String(port)], { cwd: wb, windowsHide: true,
     env: { ...fixtureChildEnv(), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home,
+      RUYI_FIXTURE_REPORT_PATHS: JSON.stringify([approvedReport, crashReport, expiredReport]), RUYI_FIXTURE_WRITE_LOG: writeLog, ...extraEnv,
       WCW_SCHEDULER_CLOCK_FILE: clock, WCW_SCHEDULER_TICK_MS: '100', WCW_TEST_NO_NET_ANCHORS: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
   for (const stream of [server.stdout, server.stderr]) stream.on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-12000); });
   await wait('health', async () => (await request('GET', '/health')).status === 200);
@@ -132,9 +139,32 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     const ask = await wait('real file-write permission', () => pending(session.id));
     await request('PATCH', '/api/scheduler/tasks/' + task.id, { payload: payload('approval-future.md') });
     t.ok(JSON.stringify(ask).includes('approval-old.md') && !fs.existsSync(path.join(work, 'approval-old.md')), 'permission pending item is bound to old output before any write');
-    await request('POST', '/api/permission/decision', { requestId: ask.id, behavior: 'allow' });
+    const decision = { requestId: ask.id, behavior: 'allow' };
+    const bodyDeadline = new AbortController();
+    const ack = await fetch('http://127.0.0.1:' + port + '/api/permission/decision', {
+      method: 'POST', signal: AbortSignal.any([AbortSignal.timeout(30000), bodyDeadline.signal]), body: JSON.stringify(decision),
+      headers: { 'content-type': 'application/json', 'x-wcw-token': token, 'x-fixture-hold-ack': '1' },
+    });
+    const timer = setTimeout(() => bodyDeadline.abort(), 150);
+    let timedOut = false;
+    try {
+      await ack.text();
+    } catch (error) {
+      if (!bodyDeadline.signal.aborted || error.name !== 'AbortError') throw error;
+      timedOut = true;
+    } finally {
+      clearTimeout(timer);
+    }
+    t.ok(ack.status === 200 && timedOut, 'first approval is accepted but its client times out reading the acknowledgement');
+    const retry = () => request('POST', '/api/permission/decision', decision);
+    const retries = await Promise.all([retry(), retry()]);
+    t.ok(retries.every(row => row.status === 404 && row.body?.ok === false), 'both duplicate callbacks after timeout reject the consumed approval ID');
     const permitted = await run;
     t.ok(permitted.status === 200 && fs.existsSync(path.join(work, 'approval-old.md')) && !fs.existsSync(path.join(work, 'approval-future.md')), 'editing during approval cannot redirect the authorized old operation');
+    const writes = writesTo(approvedReport);
+    t.ok(permitted.body?.outcome === 'succeeded' && writes.length === 1 && ['writeFile', 'rename'].includes(writes[0].method)
+      && fs.readFileSync(approvedReport, 'utf8').replace(/\r\n/g, '\n') === '# Scheduled report\n33.75\nSource: new material\n',
+    'after timeout and two duplicate approvals the completed run publishes the exact report once');
     const nextRun = request('POST', '/api/scheduler/tasks/' + task.id + '/run-now', {});
     const nextAsk = await wait('future permission is fresh', () => pending(session.id, [ask.id]));
     t.ok(nextAsk.id !== ask.id && JSON.stringify(nextAsk).includes('approval-future.md'), 'template approval never grants future changed operations');
@@ -175,7 +205,7 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     'changing template and target preserves the already generated late snapshot');
     const modelCalls = () => fake.requests.filter(row => row.messages.some(message => message.role === 'user' && String(message.content).includes('SCHEDULE_HTTP'))).length;
     const countBeforeRestart = modelCalls();
-    await stop(); await start();
+    await stop(); await start({ RUYI_FIXTURE_HOLD_AFTER_WRITE: crashReport });
     const unknownRun = await wait('unknown recovery', async () => (await runs(task.id)).find(row => row.outcome === 'unknown'));
     const unknownHead = (await request('GET', '/api/sessions/' + session.id)).body?.session;
     t.ok(unknownHead?.stewardLastTurn?.scheduler?.state === 'unknown' && unknownHead.stewardLastTurn.scheduler.runId === unknownRun.runId && unknownHead.stewardLastTurn.seq === unknownRun.turnSeq, 'R4: cold unknown receipt and exact session turn retain the same uncertainty authority');
@@ -202,6 +232,37 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     t.ok(futureRun.snapshot?.payload?.revision === newer.revision && futureRun.snapshot.target.sessionId === futureTarget.id
       && fs.existsSync(path.join(work, 'future-after-restart.md')) && !fs.existsSync(path.join(work, 'late-original.md')),
     'the resumed occurrence writes only its approved edited output');
+
+    await request('PATCH', taskRoute, { payload: { ...payload(path.basename(crashReport)), revision: newer.revision } });
+    const crashKey = task.id + '@2026-11-03T09:00:00.000Z';
+    tickAt('2026-11-03T09:00:01Z');
+    const crashAsk = await wait('next occurrence requests interrupted report', () => pending(futureTarget.id));
+    const allowCrash = () => request('POST', '/api/permission/decision', { requestId: crashAsk.id, behavior: 'allow' });
+    const original = (await runs(task.id)).find(row => row.occurrenceKey === crashKey);
+    if (!original?.runId || !JSON.stringify(crashAsk).includes(path.basename(crashReport))) throw Error('missing original occurrence or permission');
+    if ((await allowCrash()).status !== 200) throw Error('approval rejected before crash');
+    await wait('file published before tool returns', () => writesTo(crashReport).some(row => row.pid === server.pid));
+    const callsAtCrash = modelCalls();
+    await stop(); await start({ WCW_SCHEDULER_ASK_WAIT_MS: '2000' });
+    const recovered = await wait('recover original interrupted occurrence', async () => (await runs(task.id))
+      .find(row => row.runId === original.runId && row.occurrenceKey === crashKey && row.outcome === 'unknown'));
+    const stale = await Promise.all([allowCrash(), allowCrash()]);
+    t.ok(stale.every(row => row.status === 404) && recovered.snapshot.target.sessionId === futureTarget.id
+      && (await runs(task.id)).filter(row => row.occurrenceKey === crashKey).length === 1 && modelCalls() === callsAtCrash
+      && writesTo(crashReport).length === 1 && fs.readFileSync(crashReport, 'utf8').replace(/\r\n/g, '\n') === '# Scheduled report\n33.75\nSource: new material\n',
+    'cold restart after actual publication retains one write, one unknown run and rejects both stale approvals');
+
+    await request('PATCH', taskRoute, { payload: { ...payload(path.basename(expiredReport)), revision: newer.revision } });
+    const expiring = request('POST', taskRoute + '/run-now', {});
+    const expires = await wait('permission pending for expiring write', () => pending(futureTarget.id));
+    const expiredRun = await expiring;
+    const terminal = (await request('GET', '/api/interventions/' + futureTarget.id)).body?.interventions?.find(row => row.id === expires.id);
+    const lateAllow = () => request('POST', '/api/permission/decision', { requestId: expires.id, behavior: 'allow' });
+    const rejected = await Promise.all([lateAllow(), lateAllow()]);
+    t.ok(JSON.stringify(expires).includes(path.basename(expiredReport)) && terminal?.status === 'denied' && terminal.decidedBy === 'timeout'
+      && expiredRun.body?.outcome === 'needs_you' && rejected.every(row => row.status === 404)
+      && !fs.existsSync(expiredReport) && writesTo(expiredReport).length === 0,
+    'server-side approval timeout retains its terminal decision and rejects two late callbacks with zero publications');
   } catch (error) { t.fail(error.stack || String(error)); }
   finally {
     await stop(); if (fake) await fake.close();
