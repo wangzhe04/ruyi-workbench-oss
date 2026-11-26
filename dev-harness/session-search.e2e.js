@@ -19,7 +19,13 @@ const fs = require('fs');
 const os = require('os');
 const { getFreePort } = require('./free-port.js');
 
-const WB = path.resolve(__dirname, '..', 'ruyi-workbench');
+const packageArg = process.argv.indexOf('--gemma2-package');
+if (packageArg >= 0 && !process.argv[packageArg + 1]) throw Error('--gemma2-package requires an extracted candidate directory');
+const packaged = packageArg >= 0;
+const WB = packaged ? fs.realpathSync(process.argv[packageArg + 1]) : path.resolve(__dirname, '..', 'ruyi-workbench');
+const node = packaged ? path.join(WB, 'runtime', 'node', 'node.exe') : process.execPath;
+const serverArgs = packaged ? ['--require', path.join(WB, 'resources', 'gemma2-candidate', 'preload.cjs')] : [];
+serverArgs.push(path.join(WB, 'app', 'server.js'));
 const HOME = path.join(os.tmpdir(), 'ruyi-session-search-e2e');
 const HOME_OFF = path.join(os.tmpdir(), 'ruyi-session-search-e2e-off');
 const PORT = await getFreePort();
@@ -137,12 +143,12 @@ fs.writeFileSync(path.join(HOME_OFF, 'config.json'), JSON.stringify({
   sessionSearchIndexV1: false,
 }, null, 2));
 
-const server = cp.spawn(process.execPath, [path.join(WB, 'app', 'server.js')],
+const server = cp.spawn(node, serverArgs,
   { env: { ...isolatedEnv(HOME), PORT: String(PORT), WCW_NO_BROWSER: '1' }, cwd: WB, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
 const serverDone = lifetime(server);
 server.stdout.on('data', () => {});
 server.stderr.on('data', () => {});
-const serverOff = cp.spawn(process.execPath, [path.join(WB, 'app', 'server.js')],
+const serverOff = cp.spawn(node, serverArgs,
   { env: { ...isolatedEnv(HOME_OFF), PORT: String(PORT_OFF), WCW_NO_BROWSER: '1' }, cwd: WB, windowsHide: true, stdio: ['ignore', 'pipe', 'pipe'] });
 const serverOffDone = lifetime(serverOff);
 serverOff.stdout.on('data', () => {});
@@ -155,7 +161,7 @@ try {
   const tokenOff = (await post(PORT_OFF, '/api/bootstrap', {}))?.token;
   ok(typeof token === 'string' && token.length > 0, 'S1 取到工作台 token');
   const auth = { 'x-wcw-token': token };
-  const gemma2 = process.env.RUYI_SEMANTIC_BACKEND === 'gemma2' && process.env.RUYI_DISABLE_SEMANTIC !== '1';
+  const gemma2 = packaged || (process.env.RUYI_SEMANTIC_BACKEND === 'gemma2' && process.env.RUYI_DISABLE_SEMANTIC !== '1');
   // 用 --require-semantic 对照默认模型，确保 B4、B5 和 H2b 取得首个完整的语义响应。
   const requireCompleteSemantic = gemma2 || process.argv.includes('--require-semantic');
   const semanticComplete = response => response.json?.semantic?.status === 'ready' && response.json.semantic.coverage === 'complete';
@@ -192,6 +198,11 @@ try {
   ok((hereString.json?.results || [])[0]?.id === 'sess-beta', 'B3 ASCII 词命中正文');
 
   const canary = await scoredSearch('流量 观察');
+  if (packaged) {
+    const policy = canary.json?.semantic?.admission?.policyId;
+    ok(semanticComplete(canary) && policy === 'embeddinggemma2-global-eligible-k1-cos070-window-v1',
+      `解压包使用 EmbeddingGemma 2 的完整索引和检索策略（${policy}）`);
+  }
   ok((!requireCompleteSemantic || semanticComplete(canary)) && (canary.json?.results || []).some(r => r.id === 'sess-delta'),
     `B4 多词查询命中(语义 ${canary.json?.semantic?.status}/${canary.json?.semantic?.coverage})`);
 

@@ -102,7 +102,7 @@ const MemoryCliRelay = (() => {
     if (value.query !== undefined && (typeof value.query !== 'string' || value.query.length > 4096)) fail('arguments_invalid');
     const scopes = name === 'workbench_memory_read' ? ['global', 'project'] : ['global', 'project', 'all'];
     if (value.scope !== undefined && !scopes.includes(value.scope)) fail('arguments_invalid');
-    if (value.limit !== undefined && (!Number.isSafeInteger(value.limit) || value.limit < 1 || value.limit > 50)) fail('arguments_invalid');
+    if (value.limit !== undefined && (!Number.isSafeInteger(value.limit) || value.limit < 1 || value.limit > 128)) fail('arguments_invalid');
     return value;
   }
   async function handle(req, res, pathname) {

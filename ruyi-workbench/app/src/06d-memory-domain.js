@@ -956,7 +956,7 @@ async function listWorkbenchMemories(args, ctx) {
   const scope = args && args.scope === 'global' ? 'global' : (args && args.scope === 'project' ? 'project' : 'all');
   const query = String(args && args.query || '').trim();
   const limitNum = Math.floor(Number(args && args.limit));   // ≤ 0 / 非数字回默认 20(修前 0 → 20、-5 → 1)
-  const limit = limitNum > 0 ? Math.min(50, limitNum) : 20;
+  const limit = limitNum > 0 ? Math.min(128, limitNum) : 20;
   // 150 号文 S16:令牌先于注册表读取,之后的库回验先比令牌(memoryToolLibraryCurrentFast),变了才完整重读。
   const librarySnapshot = await memoryToolLibrarySnapshot(cwd);
   const all = await loadMemoryRegistry(cwd);

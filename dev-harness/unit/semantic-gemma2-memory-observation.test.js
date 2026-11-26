@@ -12,3 +12,21 @@ function observationArgs(f,fragments,extra={}){return{scopeId:'observation:scope
 test('actual observation helper raw snapshot obeys one globalK and independent weak windows',async()=>{const f=setup(),fragments=[{id:'A',start:0,text:'accepted needle subject',full:'accepted needle subject'},{id:'B',start:0,text:'needle unrelated',full:'needle unrelated'}],r=await f.api.observationWindowAdmission('needle fact',fragments,observationArgs(f,fragments));a.deepEqual(Array.from(r.scored.admission.accepted),[true,false]);a.equal(r.weak.get(r.keys[0]),true);a.equal(r.weak.get(r.keys[1]),false);a.equal(r.complete,true);});
 test('actual committed-message helper never uses raw hidden ID for whole-field eligibility or encode',async()=>{const f=setup(),mask='[[RUYI_PVT:KEY:'+('a'.repeat(32))+']]',projected='accepted '+mask+' subject',fragments=[{id:'A',start:0,text:projected,full:projected,raw:'OP-12 private hidden value'}],r=await f.api.observationWindowAdmission('Decision OP-12',fragments,observationArgs(f,fragments,{geometry:'privacy-projected-v1'}));a.deepEqual(Array.from(r.scored.admission.accepted),[false]);a.ok(f.calls.every(call=>call.texts.every(text=>!text.includes('private hidden value'))));a.equal(r.complete,true);});
 test('actual observation authority denial and falsy cancellation remain original and produce no inference',async()=>{for(const value of [0,false,'']){const f=setup(),fragments=[{id:'A',start:0,text:'accepted subject',full:'accepted subject'}],signal=new AbortController();signal.abort(value);let caught=Symbol();try{await f.api.observationWindowAdmission('needle fact',fragments,observationArgs(f,fragments,{signal:signal.signal}));}catch(e){caught=e;}a.equal(caught,value);a.equal(f.calls.length,0);}});
+
+test('Gemma2 searches short memory headers beyond the first 64 without filling unrelated matches',async()=>{
+  const f=setup();
+  const entries=Array.from({length:90},(_,i)=>({id:'m'+i,memoryVersion:'1',text:'unrelated '+i}));
+  entries[89].text='accepted needle subject';
+  const result=await memory(f,entries).search(entries,'needle fact',128,{},context());
+  a.deepEqual(Array.from(result.matched,entry=>entry.id),['m89']);
+  a.equal(result.semantic.coverage.selectedHeaders,90);
+  a.equal(result.semantic.coverage.complete,true);
+});
+
+test('Gemma2 explicit recall can return more than 64 individually matched memories',async()=>{
+  const f=setup();
+  const entries=Array.from({length:90},(_,i)=>({id:'m'+i,memoryVersion:'1',text:'needle fact '+i}));
+  const result=await memory(f,entries).search(entries,'needle fact',85,{},context());
+  a.equal(new Set(Array.from(result.matched,entry=>entry.id)).size,85);
+  a.equal(result.semantic.coverage.complete,true);
+});

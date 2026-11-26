@@ -102,7 +102,7 @@ const MemorySemanticRecall = (() => {
       const complete = nextOffset === registry.length && unavailableHeaders === 0 && !!policyId;
       const eligible = new Map(registry.map(entry=>[host.key(entry),entry]));
       const lexicalKeys = new Set(lexical.filter(row=>row.shared>0).map(row=>host.key(row.entry)));
-      const accepted = [...hits].filter(([key])=>eligible.has(key)&&!lexicalKeys.has(key)).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,50);
+      const accepted = [...hits].filter(([key])=>eligible.has(key)&&!lexicalKeys.has(key)).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,128);
       if(key && searchProgress.get(key) === prior) {
         searchProgress.delete(key);
         if (sameModel && policyId && modelFingerprint) {
@@ -197,7 +197,7 @@ const MemorySemanticRecall = (() => {
       }
       // Full selected metadata is split before encoding; neither memory bodies
       // nor text-bearing identities enter this path. Coverage is explicit.
-      const fragments=[],selected=registry.slice(0,64);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
+      const fragments=[],selected=registry.slice(0,128);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
       for(const entry of selected){
         const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096){omittedHeaders++;continue;}
         let complete=true;
@@ -209,7 +209,7 @@ const MemorySemanticRecall = (() => {
         }
         if(!complete)omittedHeaders++;
       }
-      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-64-eligible-headers',headerLimit:64,fragmentLimit:128,
+      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-128-eligible-headers',headerLimit:128,fragmentLimit:128,
         candidateHeaders:registry.length,selectedHeaders:selected.length,fragments:fragments.length,omittedHeaders,headerComplete:omittedHeaders===0,
         encodedFragments:0,admissionEvaluated:false,complete:false};
       if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
@@ -223,9 +223,17 @@ const MemorySemanticRecall = (() => {
           await context.check?.('finish');
           const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
           const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish',selected),verifyField:async snapshot=>{await context.check?.('finish',selected);const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
-          const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),added=[];
-          for(let n=0;n<d.semanticAccepted.length;n++){if(d.semanticAccepted[n]!==true)continue;const field=request.fieldAt(n),entry=selected.find(item=>fields.get(host.key(item))===field);if(!entry||lexicalKeys.has(host.key(entry)))continue;added.push({entry,shared:0,semanticOnly:true,semanticScore:scored.scores[n]});}
-          added.sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
+          const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),bestByKey=new Map();
+          for(let n=0;n<d.semanticAccepted.length;n++){
+            if(d.semanticAccepted[n]!==true)continue;
+            const field=request.fieldAt(n);
+            const entry=selected.find(item=>fields.get(host.key(item))===field);
+            if(!entry)continue;
+            const key=host.key(entry),score=scored.scores[n];
+            if(!lexicalKeys.has(key)&&(!bestByKey.has(key)||score>bestByKey.get(key).semanticScore))
+              bestByKey.set(key,{entry,shared:0,semanticOnly:true,semanticScore:score});
+          }
+          const added=[...bestByKey.values()].sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
           await context.check?.('finish');request.read();return result(rows,decision.complete?'ready':'partial',{modelFingerprint:scored.modelFingerprint,admissionPolicy:decision.policyId,semanticOnlyMatches:rows.filter(row=>row.semanticOnly).length,coverage:{...coverage,encodedFragments:scored.coverage?.cached||0,admissionEvaluated:true,complete:decision.complete}});
         }finally{request.dispose();}
       }

@@ -143,3 +143,11 @@ test('full MCP retries refresh the reader overlay without modifying or reinterpr
  assert.notEqual(first.configPath,base);assert.equal(first.configPath,second.configPath);assert.notEqual(first.definition.env.RUYI_MEMORY_CAP,second.definition.env.RUYI_MEMORY_CAP);assert.equal(fs.readFileSync(base,'utf8'),raw);assert.equal((await f.request(first.definition.env.RUYI_MEMORY_CAP,{op:'list'})).status,403);
  f.relay.bindNode(second,child());assert.equal((await f.request(second.definition.env.RUYI_MEMORY_CAP,{op:'list'})).status,200);
 });
+
+test('explicit memory limits from 51 through 128 reach the list handler, 129 is refused', async () => {
+  const f = fixture(), {token} = await f.acquire();
+  for (const limit of [51, 90, 128, 129]) {
+    const response = await f.request(token, {op: 'call', name: 'workbench_memory_list', args: {query: 'deploy', limit}});
+    assert.equal(response.status, limit <= 128 ? 200 : 403);
+  }
+});

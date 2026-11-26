@@ -8,6 +8,7 @@
   [switch]$LocalMediaSources,
   [string]$BuildPython = "",
   [string]$SemanticRuntimeSource = "",
+  [string]$Gemma2CandidateProfile = "",
   [string]$Variant = "offline"
 )
 
@@ -618,6 +619,11 @@ $zip = Join-Path $dist "$archiveBase.zip"
 $explorerDefaultPathBudget = 200
 # Node's Unicode filesystem APIs can enumerate deep Chromium resources even when PS5.1's
 # Get-ChildItem fails before the relative-path budget can be measured. Do not skip unreadable paths.
+if ($Gemma2CandidateProfile) {
+  & $nodeSource (Join-Path $root 'tools/bundle-gemma2-candidate.cjs') $stage $Gemma2CandidateProfile
+  if ($LASTEXITCODE -ne 0) { throw "EmbeddingGemma candidate bundle verification failed." }
+}
+
 $measurePaths = @'
 const fs=require('node:fs'),path=require('node:path');let longest=0;function walk(dir,prefix){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const relative=prefix?prefix+'/'+entry.name:entry.name;if(entry.isDirectory())walk(path.join(dir,entry.name),relative);else longest=Math.max(longest,relative.length);}}walk(process.argv[1],'');process.stdout.write(String(longest));
 '@

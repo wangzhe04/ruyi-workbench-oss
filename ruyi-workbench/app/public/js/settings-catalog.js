@@ -106,7 +106,7 @@ export const SETTINGS_CATALOG = Object.freeze([
   {
     id: 'setcatMemoryCap', tab: 'limits', titleKey: 'settings.catalog.memoryCap.title', hintKey: 'settings.catalog.memoryCap.hint', fold: true,
     fields: [
-      { key: 'memoryRelevanceMaxV1', type: 'number', min: 0, max: 64, fallback: 8 },
+      { key: 'memoryRelevanceMaxV1', type: 'number', min: 0, max: 128, fallback: 8 },
       { key: 'coreMemoryMaxItemsV1', type: 'number', min: 0, max: 2000, fallback: 200 },
       { key: 'coreMemoryCharBudgetV1', type: 'number', min: 0, max: 200000, step: 1000, unitKey: 'settings.catalog.unit.chars', fallback: 16000 },
       { key: 'memoryFixedSelectionMaxV1', type: 'number', min: 1, max: 1024, fallback: 64 },

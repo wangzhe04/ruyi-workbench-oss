@@ -190,7 +190,7 @@ function memoryLimit(config, key, lo, hi, fallback) {
 }
 function coreMemoryMaxItems(config) { return memoryLimit(config, 'coreMemoryMaxItemsV1', 0, 2000, 200); }
 function coreMemoryCharBudget(config) { return memoryLimit(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000); }
-function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 64, 8); }
+function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 128, 8); }
 // 固定选择上限的「钳位上界」:配置可调范围 [1, 1024],默认 64。会话落盘清洗(02 normalizeSession)取同一个上界,
 // 路由按 memoryFixedSelectionMax(config) 接受多少条、重载就保留多少条 —— 修前 normalizeSession 写死 12,保存成功后重载被截。
 const MEMORY_FIXED_SELECTION_HARD_MAX = 1024;

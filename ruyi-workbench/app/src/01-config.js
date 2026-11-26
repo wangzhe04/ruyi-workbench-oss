@@ -279,7 +279,7 @@ function defaultConfig() {
     // 所以把天花板抬高本身是安全的，真正的闸门是字符预算。
     coreMemoryMaxItemsV1: 200,      // 核心胶囊席位数（旧常量 24）;钳位 [0, 2000]
     coreMemoryCharBudgetV1: 16000,  // 核心胶囊字符预算（旧常量 4200）;钳位 [0, 200000]
-    memoryRelevanceMaxV1: 8,        // 默认检索每轮注入条数（旧常量 3）;钳位 [0, 64]
+    memoryRelevanceMaxV1: 8,        // 默认检索每轮注入条数（旧常量 3）;钳位 [0, 128]
     memoryFixedSelectionMaxV1: 64,  // 会话固定选择上限（旧常量 12）;钳位 [1, 1024]
     memoryIndexCharCapV1: 6000,     // 相关记忆索引整段字符上限（旧常量 2600）;钳位 [500, 100000]
     // 113b: 会话内容搜索索引。侧栏搜索此前只能模 title/summary/cwd 三个字段的子串，
@@ -1143,7 +1143,7 @@ function normalizeConfig(raw, opts = {}) {
     for (const [key, lo, hi, fallback] of [
       ['coreMemoryMaxItemsV1', 0, 2000, 200],
       ['coreMemoryCharBudgetV1', 0, 200000, 16000],
-      ['memoryRelevanceMaxV1', 0, 64, 8],
+      ['memoryRelevanceMaxV1', 0, 128, 8],
       ['memoryFixedSelectionMaxV1', 1, 1024, 64],
       ['memoryIndexCharCapV1', 500, 100000, 6000],
     ]) {

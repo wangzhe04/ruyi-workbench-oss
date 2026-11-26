@@ -39,7 +39,7 @@ const MCP_TOOLS = [
       properties: {
         query: { type: 'string', description: 'Optional relevance query. Omit to list newest entries.' },
         scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all', description: 'filter by scope' },
-        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'max entries' },
+        limit: { type: 'integer', minimum: 1, maximum: 128, default: 20, description: 'max entries' },
       },
     },
   },

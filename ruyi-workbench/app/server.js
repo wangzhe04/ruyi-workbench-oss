@@ -2182,7 +2182,7 @@ function memoryLimit(config, key, lo, hi, fallback) {
 }
 function coreMemoryMaxItems(config) { return memoryLimit(config, 'coreMemoryMaxItemsV1', 0, 2000, 200); }
 function coreMemoryCharBudget(config) { return memoryLimit(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000); }
-function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 64, 8); }
+function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 128, 8); }
 // 固定选择上限的「钳位上界」:配置可调范围 [1, 1024],默认 64。会话落盘清洗(02 normalizeSession)取同一个上界,
 // 路由按 memoryFixedSelectionMax(config) 接受多少条、重载就保留多少条 —— 修前 normalizeSession 写死 12,保存成功后重载被截。
 const MEMORY_FIXED_SELECTION_HARD_MAX = 1024;
@@ -4456,7 +4456,7 @@ function defaultConfig() {
     // 所以把天花板抬高本身是安全的，真正的闸门是字符预算。
     coreMemoryMaxItemsV1: 200,      // 核心胶囊席位数（旧常量 24）;钳位 [0, 2000]
     coreMemoryCharBudgetV1: 16000,  // 核心胶囊字符预算（旧常量 4200）;钳位 [0, 200000]
-    memoryRelevanceMaxV1: 8,        // 默认检索每轮注入条数（旧常量 3）;钳位 [0, 64]
+    memoryRelevanceMaxV1: 8,        // 默认检索每轮注入条数（旧常量 3）;钳位 [0, 128]
     memoryFixedSelectionMaxV1: 64,  // 会话固定选择上限（旧常量 12）;钳位 [1, 1024]
     memoryIndexCharCapV1: 6000,     // 相关记忆索引整段字符上限（旧常量 2600）;钳位 [500, 100000]
     // 113b: 会话内容搜索索引。侧栏搜索此前只能模 title/summary/cwd 三个字段的子串，
@@ -5320,7 +5320,7 @@ function normalizeConfig(raw, opts = {}) {
     for (const [key, lo, hi, fallback] of [
       ['coreMemoryMaxItemsV1', 0, 2000, 200],
       ['coreMemoryCharBudgetV1', 0, 200000, 16000],
-      ['memoryRelevanceMaxV1', 0, 64, 8],
+      ['memoryRelevanceMaxV1', 0, 128, 8],
       ['memoryFixedSelectionMaxV1', 1, 1024, 64],
       ['memoryIndexCharCapV1', 500, 100000, 6000],
     ]) {
@@ -50216,7 +50216,7 @@ async function listWorkbenchMemories(args, ctx) {
   const scope = args && args.scope === 'global' ? 'global' : (args && args.scope === 'project' ? 'project' : 'all');
   const query = String(args && args.query || '').trim();
   const limitNum = Math.floor(Number(args && args.limit));   // ≤ 0 / 非数字回默认 20(修前 0 → 20、-5 → 1)
-  const limit = limitNum > 0 ? Math.min(50, limitNum) : 20;
+  const limit = limitNum > 0 ? Math.min(128, limitNum) : 20;
   // 150 号文 S16:令牌先于注册表读取,之后的库回验先比令牌(memoryToolLibraryCurrentFast),变了才完整重读。
   const librarySnapshot = await memoryToolLibrarySnapshot(cwd);
   const all = await loadMemoryRegistry(cwd);
@@ -52500,7 +52500,7 @@ const MemorySemanticRecall = (() => {
       const complete = nextOffset === registry.length && unavailableHeaders === 0 && !!policyId;
       const eligible = new Map(registry.map(entry=>[host.key(entry),entry]));
       const lexicalKeys = new Set(lexical.filter(row=>row.shared>0).map(row=>host.key(row.entry)));
-      const accepted = [...hits].filter(([key])=>eligible.has(key)&&!lexicalKeys.has(key)).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,50);
+      const accepted = [...hits].filter(([key])=>eligible.has(key)&&!lexicalKeys.has(key)).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0])).slice(0,128);
       if(key && searchProgress.get(key) === prior) {
         searchProgress.delete(key);
         if (sameModel && policyId && modelFingerprint) {
@@ -52595,7 +52595,7 @@ const MemorySemanticRecall = (() => {
       }
       // Full selected metadata is split before encoding; neither memory bodies
       // nor text-bearing identities enter this path. Coverage is explicit.
-      const fragments=[],selected=registry.slice(0,64);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
+      const fragments=[],selected=registry.slice(0,128);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
       for(const entry of selected){
         const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096){omittedHeaders++;continue;}
         let complete=true;
@@ -52607,7 +52607,7 @@ const MemorySemanticRecall = (() => {
         }
         if(!complete)omittedHeaders++;
       }
-      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-64-eligible-headers',headerLimit:64,fragmentLimit:128,
+      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-128-eligible-headers',headerLimit:128,fragmentLimit:128,
         candidateHeaders:registry.length,selectedHeaders:selected.length,fragments:fragments.length,omittedHeaders,headerComplete:omittedHeaders===0,
         encodedFragments:0,admissionEvaluated:false,complete:false};
       if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
@@ -52621,9 +52621,17 @@ const MemorySemanticRecall = (() => {
           await context.check?.('finish');
           const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
           const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish',selected),verifyField:async snapshot=>{await context.check?.('finish',selected);const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
-          const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),added=[];
-          for(let n=0;n<d.semanticAccepted.length;n++){if(d.semanticAccepted[n]!==true)continue;const field=request.fieldAt(n),entry=selected.find(item=>fields.get(host.key(item))===field);if(!entry||lexicalKeys.has(host.key(entry)))continue;added.push({entry,shared:0,semanticOnly:true,semanticScore:scored.scores[n]});}
-          added.sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
+          const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),bestByKey=new Map();
+          for(let n=0;n<d.semanticAccepted.length;n++){
+            if(d.semanticAccepted[n]!==true)continue;
+            const field=request.fieldAt(n);
+            const entry=selected.find(item=>fields.get(host.key(item))===field);
+            if(!entry)continue;
+            const key=host.key(entry),score=scored.scores[n];
+            if(!lexicalKeys.has(key)&&(!bestByKey.has(key)||score>bestByKey.get(key).semanticScore))
+              bestByKey.set(key,{entry,shared:0,semanticOnly:true,semanticScore:score});
+          }
+          const added=[...bestByKey.values()].sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
           await context.check?.('finish');request.read();return result(rows,decision.complete?'ready':'partial',{modelFingerprint:scored.modelFingerprint,admissionPolicy:decision.policyId,semanticOnlyMatches:rows.filter(row=>row.semanticOnly).length,coverage:{...coverage,encodedFragments:scored.coverage?.cached||0,admissionEvaluated:true,complete:decision.complete}});
         }finally{request.dispose();}
       }
@@ -81099,7 +81107,7 @@ const MCP_TOOLS = [
       properties: {
         query: { type: 'string', description: 'Optional relevance query. Omit to list newest entries.' },
         scope: { type: 'string', enum: ['all', 'project', 'global'], default: 'all', description: 'filter by scope' },
-        limit: { type: 'integer', minimum: 1, maximum: 50, default: 20, description: 'max entries' },
+        limit: { type: 'integer', minimum: 1, maximum: 128, default: 20, description: 'max entries' },
       },
     },
   },
@@ -114229,7 +114237,7 @@ const MemoryCliRelay = (() => {
     if (value.query !== undefined && (typeof value.query !== 'string' || value.query.length > 4096)) fail('arguments_invalid');
     const scopes = name === 'workbench_memory_read' ? ['global', 'project'] : ['global', 'project', 'all'];
     if (value.scope !== undefined && !scopes.includes(value.scope)) fail('arguments_invalid');
-    if (value.limit !== undefined && (!Number.isSafeInteger(value.limit) || value.limit < 1 || value.limit > 50)) fail('arguments_invalid');
+    if (value.limit !== undefined && (!Number.isSafeInteger(value.limit) || value.limit < 1 || value.limit > 128)) fail('arguments_invalid');
     return value;
   }
   async function handle(req, res, pathname) {
