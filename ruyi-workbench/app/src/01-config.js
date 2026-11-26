@@ -1992,7 +1992,10 @@ async function writeConfigAtomic(data, options = {}) {
       if (options.credentialBefore) {
         const encrypted = previous && (previous.credentialRefsV1 || previous.credentialEncryptionV1 === true);
         const live = encrypted && await PrivacyCore.configHooks.hydrateConfig(previous);
-        if (!live || !PrivacyCore.configHooks.sameCredentialSlots(normalizeConfig(live.raw).config, options.credentialBefore)) {
+        // A warm reader can repair malformed JSON from its last good snapshot.
+        // Bind that exception to the exact corrupt file and vault observed during this read.
+        const repair = !previous && options.credentialRepairStamp && (await configFileStamp())?.key === options.credentialRepairStamp;
+        if (!repair && (!live || !PrivacyCore.configHooks.sameCredentialSlots(normalizeConfig(live.raw).config, options.credentialBefore))) {
           throw Object.assign(new Error('credential_vault.config_changed'), { code: 'credential_vault.config_changed', statusCode: 409 });
         }
       }
@@ -2082,12 +2085,13 @@ async function ensureDirsForConfigRead() {
 //     路径全部照旧走完整流程(它们有写盘或降级状态副作用)。
 const CONFIG_CACHE_MIN_AGE_MS = 2500;
 let configReadCache = null;   // { key, claudeProbe, kimiProbe, snapshot }
+const configRepairStamps = new WeakMap();
 async function configFileStamp() {
   try {
     const st = await fsp.stat(paths.config, { bigint: true });
     const vaultStamp = typeof PrivacyCore !== 'undefined' && PrivacyCore.configHooks.stateStamp ? await PrivacyCore.configHooks.stateStamp() : '';
     // ctimeNs:任何内容写入都会推它、utimes 改不回去 —— 「同尺寸改写后把 mtime 还原」(cp -p、rsync -t、robocopy /COPY:DAT)也认得出(审查轮)
-    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}|${vaultStamp}`, mtimeMs: Number(st.mtimeMs) };
+    return { key: `${paths.config}|${os.homedir()}|${st.size}|${st.mtimeNs}|${st.ctimeNs}|${st.ino}|${vaultStamp}`, mtimeMs: Number(st.mtimeMs), vaultStamp };
   } catch { return null; }
 }
 function cloneConfigSnapshot(config) {
@@ -2163,7 +2167,11 @@ async function readConfig(options) {
   const degrade = code => {
     if (current() && typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.markPrivacyUnavailable?.();
     try { logEvent({ kind: 'config_read_failed', code, degraded: !lastGoodConfig }); } catch { /* 日志是旁路 */ }
-    if (lastGoodConfig) return { ...lastGoodConfig, privacyPolicyRecoveryRequiredV1: true };
+    if (lastGoodConfig) {
+      const snapshot = { ...lastGoodConfig, privacyPolicyRecoveryRequiredV1: true };
+      if (code === 'EJSON' && stamp?.vaultStamp && stamp.vaultStamp !== 'absent') configRepairStamps.set(snapshot, stamp.key);
+      return snapshot;
+    }
     if (current()) configDegraded = true;
     // 只供本次请求使用，绝不落盘。权限档钉最保守的 'default':读不出用户配置时不该按出厂的智能自动放权。
     return { ...normalizeConfig(null).config, permissionMode: 'default', privacyPolicyRecoveryRequiredV1: true };
@@ -2338,7 +2346,9 @@ function mutateConfig(mutator, options = {}) {
     const decision = await mutator(current);
     const d = (decision && typeof decision === 'object') ? decision : {};
     if (Object.prototype.hasOwnProperty.call(d, 'abort')) return { ok: false, config: current, value: d.abort };
-    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current, before, options);
+    const repairStamp = configRepairStamps.get(current);
+    const next = await writeConfig(Object.prototype.hasOwnProperty.call(d, 'next') ? d.next : current, before,
+      repairStamp ? { ...options, credentialRepairStamp: repairStamp } : options);
     return { ok: true, config: next, value: d.value };
   });
   configMutateChain = run.then(() => {}, () => {});

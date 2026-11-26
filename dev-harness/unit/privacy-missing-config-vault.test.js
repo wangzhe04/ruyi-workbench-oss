@@ -45,7 +45,9 @@ function setup(t, seed = initial(true)) {
     mod.paths = Module._nodeModulePaths(path.dirname(SERVER));
     mod._compile(fs.readFileSync(CANDIDATE, 'utf8') + '\n;module.exports.__review = { CredentialVault, PrivacyCore, PrivacyGateway, readConfig, mutateConfig, handleApi, __eval: code => eval(code) };', SERVER);
     const app = mod.exports.__review;
-    app.__eval('detectClaudePath=()=>"";detectKimiPath=()=>"";detectAgentCliPath=()=>"";resolveClaudeLauncher=value=>value;RUNTIME.token="synthetic-missing-config-token";'
+    // This recovery fixture has one in-process writer. The real Windows pipe
+    // and two-process rotation are exercised by credential-config-upgrade.test.js.
+    app.__eval('withCredentialWriteLock=work=>work();detectClaudePath=()=>"";detectKimiPath=()=>"";detectAgentCliPath=()=>"";resolveClaudeLauncher=value=>value;RUNTIME.token="synthetic-missing-config-token";'
       + 'desktopMcpDetectionPending=()=>true;computeHealth=async()=>({health:{},manifest:{}});'
       + 'agentConversationContextMeta=async()=>({contextWindow:4096,contextWindowSource:"fixture",contextAgentCliType:"claude"});probeRgAsync=async()=>null;');
     let wraps = 0;

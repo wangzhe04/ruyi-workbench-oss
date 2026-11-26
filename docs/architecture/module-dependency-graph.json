@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4459,
+    "providedSymbols": 4460,
     "requiredSymbols": 4402,
     "edges": 972,
     "forwardEdges": 67,
@@ -564,6 +564,7 @@
         "configReadFence",
         "configReadGeneration",
         "configRecoveryCredentialChoice",
+        "configRepairStamps",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",

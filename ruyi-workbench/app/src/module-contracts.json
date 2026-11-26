@@ -528,6 +528,7 @@
         "configReadFence",
         "configReadGeneration",
         "configRecoveryCredentialChoice",
+        "configRepairStamps",
         "configValueEquals",
         "configWriteChain",
         "contentTypeFor",
