@@ -82,8 +82,8 @@ function check(root, { force = false } = {}) {
   const bindings = data.bindings;
   if (!Array.isArray(bindings) || !bindings.length || !bindings.every(verify)
     || !bindings.some(item => item.path === 'ruyi-workbench/app/server.js')
-    || !bindings.some(item => item.path === 'ruyi-workbench/semantic-runtime/models.lock.json')
-    || !bindings.some(item => item.path === 'ruyi-workbench/semantic-runtime/worker.cjs')) errors.push('final source/model bindings are missing or changed');
+    || !bindings.some(item => item.path === 'ruyi-workbench/semantic-runtime/gemma2-profile-validation.cjs')
+    || !bindings.some(item => item.path === 'ruyi-workbench/semantic-runtime/gemma2-provider.cjs')) errors.push('final source/model bindings are missing or changed');
   if (errors.length) throw Error('3.1 semantic release gates: ' + errors.join('; '));
   return { applicable: true, version, passed: true };
 }

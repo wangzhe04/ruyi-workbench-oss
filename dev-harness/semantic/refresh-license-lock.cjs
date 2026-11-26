@@ -6,13 +6,11 @@ const crypto = require('node:crypto');
 const sources = [
   { file: 'bge-MIT.txt', repository: 'FlagOpen/FlagEmbedding', revision: 'c086741f5e117b7b8ce1745ea00b6c262f281a01', spdx: 'MIT' },
   { file: 'e5-MIT.txt', repository: 'microsoft/unilm', revision: '0e31c7c09737df491e7ff74ded19614b884c52b4', spdx: 'MIT' },
-  { file: 'minilm-Apache-2.0.txt', repository: 'UKPLab/sentence-transformers', revision: '8df3ee50155394062734fde687fb1936e8396966', spdx: 'Apache-2.0' },
   { file: 'transformers-js-Apache-2.0.txt', repository: 'huggingface/transformers.js', revision: '9665c1e2f046782a61d34ce399c16682f96c7b0a', spdx: 'Apache-2.0' },
 ];
 const models = [
   { repository: 'BAAI/bge-small-zh-v1.5', revision: '7999e1d3359715c523056ef9478215996d62a620', spdx: 'MIT' },
   { repository: 'intfloat/multilingual-e5-small', revision: '614241f622f53c4eeff9890bdc4f31cfecc418b3', spdx: 'MIT' },
-  { repository: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2', revision: 'e8f8c211226b894fcb81acc59f3b34ba3efd5f42', spdx: 'Apache-2.0' },
   ...require('../../ruyi-workbench/semantic-runtime/models.lock.json').models.filter(m => m.repository.startsWith('Xenova/')).map(m => ({ repository: m.repository, revision: m.revision, spdx: m.license, upstream: m.upstream })),
 ];
 const digest = bytes => crypto.createHash('sha256').update(bytes).digest('hex');

@@ -7,7 +7,7 @@ const {validate} = require('../semantic-runtime/gemma2-profile-validation.cjs');
 async function bundle(stage, profile) {
   const lock = JSON.parse(fs.readFileSync(path.join(profile, 'asset-lock.json'), 'utf8'));
   await validate(lock).verify(lock);
-  const prefix = 'resources/gemma2-candidate';
+  const prefix = 'resources/gemma2';
   const destination = path.join(stage, prefix);
   fs.mkdirSync(destination);
   function copy(source, relative) {
@@ -40,11 +40,6 @@ async function bundle(stage, profile) {
   const node = fs.readFileSync(path.join(stage, lock.node.file));
   if (crypto.createHash('sha256').update(node).digest('hex') !== lock.node.sha256) throw Error('Candidate Node mismatch');
   fs.writeFileSync(path.join(destination, 'portable-lock.json'), JSON.stringify(lock), {flag: 'wx'});
-  copy(path.join(__dirname, 'gemma2-candidate-preload.cjs'), prefix + '/preload.cjs');
-  fs.writeFileSync(path.join(stage, 'Start-EmbeddingGemma-Candidate.cmd'), [
-    '@echo off', 'setlocal',
-    '"%~dp0runtime\\node\\node.exe" --require "%~dp0resources\\gemma2-candidate\\preload.cjs" "%~dp0app\\server.js" serve --open',
-    'exit /b %ERRORLEVEL%', '',
-  ].join('\r\n'), {flag: 'wx'});
+
 }
 bundle(...process.argv.slice(2).map(p => path.resolve(p))).catch(error => { console.error(error); process.exitCode = 1; });

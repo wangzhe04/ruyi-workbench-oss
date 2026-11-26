@@ -19,7 +19,7 @@ test('3.1 release rejects pending gates and stale evidence while candidate 3.0 b
   data.gates[1].acceptance=write('sr2.json',JSON.stringify(metrics));
   const privacy=acceptedPrivacy();privacy.rawEvidence=[write('privacy.json','{}'),write('replay.json','{}'),write('lifecycle.json','{}')];
   data.gates[5].acceptance=write('sr6.json',JSON.stringify(privacy));
-  data.bindings = ['app/server.js', 'semantic-runtime/models.lock.json', 'semantic-runtime/worker.cjs'].map(name => write('ruyi-workbench/' + name, name));
+  data.bindings = ['app/server.js', 'semantic-runtime/gemma2-profile-validation.cjs', 'semantic-runtime/gemma2-provider.cjs'].map(name => write('ruyi-workbench/' + name, name));
   save(); assert.equal(check(root).passed, true);
   const historical = structuredClone(metrics);
   delete historical.performance.warmQueryEncodeSamplesMs;

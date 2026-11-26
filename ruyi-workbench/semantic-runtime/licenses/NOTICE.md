@@ -6,7 +6,6 @@ Ruyi's encoder and provisioning code are original. Model weights and npm depende
 | --- | --- | --- |
 | bge-small-zh-v1.5 | BAAI, MIT | bge-MIT.txt, from the authors' FlagEmbedding repository |
 | multilingual-e5-small | intfloat / Microsoft, MIT | e5-MIT.txt, from the authors' UniLM repository |
-| paraphrase-multilingual-MiniLM-L12-v2 | Sentence Transformers, Apache-2.0 | minilm-Apache-2.0.txt, from the authors' sentence-transformers repository |
 
 The upstream model repositories publish their license declarations in the model cards and do not provide separate LICENSE files in the inspected fixed revisions. Included texts are the corresponding license texts from the model authors' official software repositories; this notice does not claim those software files contain an additional model-specific copyright grant. `provenance.lock.json` pins both the declarations and the exact source, revision and SHA-256 of the included texts. The original upstream model revisions and converted asset revisions differ and are identified separately.
 

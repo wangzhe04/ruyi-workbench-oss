@@ -35,7 +35,7 @@ test('encoder receives a conservative minimum budget and known scores survive a 
   assert.ok(calls.every(options => options.minimumBudgetMs >= 64 && options.deadline <= Date.now() + 1000));
 });
 test('production admission keeps raw cosine and treats missing scores as unknown', async () => {
-  const descriptor={available:true,modelFingerprint:'measured-test',modelId:pure.searchPolicy.modelId,retrievalThresholds:{search:.34,automatic:null}};
+  const descriptor={available:true,modelFingerprint:'measured-test',modelId:'synthetic-scalar-model',retrievalThresholds:{search:.34,automatic:null}};
   const semantic=pure.create({prepare:async()=>descriptor,encode:async texts=>({ok:true,modelFingerprint:descriptor.modelFingerprint,vectors:texts.map(()=>[1,0])})});
   const result=await semantic.score('Inspect ZZ-91',['ZZ-91 rule','ZZ-92 rule','an unencoded rule'],{maxEncodeDocuments:2});
   assert.deepEqual(Array.from(result.scores),[1,1,null]);
@@ -43,10 +43,12 @@ test('production admission keeps raw cosine and treats missing scores as unknown
   assert.equal(result.admission.status,'partial');assert.equal(result.admission.answerability,'not-assessed');
   assert.equal(result.admission.policyId,pure.searchPolicy.id);
 });
-test('production policy agrees with the calibration audit descriptor and keeps automatic disabled',()=>{
+test('production search contract matches the offline model and keeps automatic additions disabled',()=>{
   const policy=require('../../ruyi-workbench/semantic-runtime/search-admission-policy.json');
-  const models=require('../../ruyi-workbench/semantic-runtime/models.lock.json'),model=models.models.find(row=>row.id===models.defaultModel);
-  assert.equal(policy.policy.id,pure.searchPolicy.id);assert.equal(policy.policy.minimumCosine,pure.searchPolicy.minScore);
-  assert.equal(model.retrievalThresholds.search,pure.searchPolicy.minScore);assert.equal(model.retrievalThresholds.automatic,null);
-  assert.equal(model.retrievalPolicy.automatic,null);assert.equal(policy.development.checkOodFpr>.05,true,'The failed precision gate remains explicitly visible');
+  const contract=pure.windowPolicy.CONTRACT;
+  assert.equal(policy.model,contract.modelId);
+  assert.equal(policy.sessionSemanticResults,contract.topK);
+  assert.equal(policy.minimumCosine,contract.threshold);
+  assert.equal(policy.automatic,contract.automatic);
+  assert.equal(policy.explicitMemoryDistinctResults,3);
 });

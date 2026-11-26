@@ -57,7 +57,7 @@ function rewriteSameSize(file, from, to) {
     // 刚写过的文件在时间戳粒度窗口内不当快照基线(复核 F3),读次数类断言要在窗口过后量。
     await sleep(2700);
     let onEncode = null, encodeCalls = 0, prepareCalls = 0, prewarmCalls = 0;
-    const ready = () => ({ available: true, state: 'ready', modelFingerprint: 'synthetic-snapshot-model', modelId: 'paraphrase-multilingual-MiniLM-L12-v2', retrievalThresholds: { search: .34, automatic: null } });
+    const ready = () => ({ available: true, state: 'ready', modelFingerprint: 'synthetic-snapshot-model', modelId: 'synthetic-scalar-model', retrievalThresholds: { search: .34, automatic: null } });
     const encodeLog = []; let onDocEncode = null;
     const encode = async (texts, { role }) => {
       encodeCalls++; encodeLog.push({ role, texts: texts.slice() });

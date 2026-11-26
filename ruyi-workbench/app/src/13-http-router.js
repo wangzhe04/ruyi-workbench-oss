@@ -1,19 +1,43 @@
 // One trusted host installation; the pure core owns fixed-code transport issuance.
 const semanticRuntimeHostPorts = (() => {
-function legacySemanticRuntimeSettings() {
-  const base=externalRoot(),root=process.env.RUYI_SEMANTIC_RUNTIME_ROOT||path.join(base,'semantic-runtime'),worker=path.join(base,'semantic-runtime','worker.cjs');
-  const command=isPkg()?path.join(base,'runtime','node',process.platform==='win32'?'node.exe':'node'):process.execPath;
-  if(![worker,command,path.join(root,'package.json')].every(file=>fs.existsSync(file)))return null;
-  const env={};for(const [key,value]of Object.entries(process.env))if(/^(SystemRoot|WINDIR|TEMP|TMP|PATH|PATHEXT|COMSPEC|NUMBER_OF_PROCESSORS|PROCESSOR_ARCHITECTURE)$/i.test(key))env[key]=value;
-  env.HF_HUB_OFFLINE='1';env.TRANSFORMERS_OFFLINE='1';const args=[worker,'--root',root];if(process.env.RUYI_SEMANTIC_MODEL)args.push('--model',process.env.RUYI_SEMANTIC_MODEL);return {command,args,cwd:base,env};
+// Resolve the packaged, portable lock only when a semantic client is requested.
+// An explicit profile is useful for development and must supply its own pin.
+function gemmaSettings() {
+  const base = externalRoot();
+  const directory = process.env.RUYI_SEMANTIC_GEMMA2_ROOT, pin = process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256;
+  if (directory || pin) return {base, directory, pin};
+  const portable = path.join(base, 'resources', 'gemma2', 'portable-lock.json');
+  let lock;
+  try { lock = JSON.parse(fs.readFileSync(portable, 'utf8')); }
+  catch (error) { if (error.code === 'ENOENT') return {base}; throw error; }
+  function resolveMember(relative) {
+    const file = path.resolve(base, relative);
+    if (path.isAbsolute(relative) || !file.startsWith(path.resolve(base) + path.sep)) throw Error('semantic.invalid_package_member');
+    return file;
+  }
+  for (const key of ['assetsRoot', 'runtimeRoot', 'workerFile']) lock[key] = resolveMember(lock[key]);
+  for (const binding of [...lock.sourceBindings, ...lock.licenseBindings, lock.node]) binding.file = resolveMember(binding.file);
+  const bytes = Buffer.from(JSON.stringify(lock)), digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  const profile = path.join(fs.realpathSync(os.tmpdir()), 'ruyi-gemma2-' + digest);
+  fs.mkdirSync(profile, {recursive:true, mode:0o700});
+  if (fs.realpathSync(profile) !== profile) throw Error('semantic.invalid_profile_directory');
+  const file = path.join(profile, 'asset-lock.json');
+  if (!fs.existsSync(file)) {
+    const staging = path.join(profile, crypto.randomUUID() + '.tmp');
+    fs.writeFileSync(staging, bytes, {flag:'wx', mode:0o600});
+    try { fs.linkSync(staging, file); }
+    catch (error) { if (error.code !== 'EEXIST') throw error; }
+    finally { fs.unlinkSync(staging); }
+  }
+  if (fs.realpathSync(file) !== file || !fs.readFileSync(file).equals(bytes)) throw Error('semantic.invalid_profile_lock');
+  return {base, directory:profile, pin:digest};
 }
 
 return SemanticRuntimeCore.installHost({
  enabled:async()=>process.env.RUYI_DISABLE_SEMANTIC!=='1'&&(await readConfig()).semanticRetrievalV1!==false,
- selectedMethod:()=>process.env.RUYI_DISABLE_SEMANTIC!=='1'&&process.env.RUYI_SEMANTIC_BACKEND==='gemma2',
- legacySettings:legacySemanticRuntimeSettings,
- gemma2Settings:()=>({base:externalRoot(),directory:process.env.RUYI_SEMANTIC_GEMMA2_ROOT,pin:process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256}),
- selection:async()=>{const config=await readConfig(),id=process.env.RUYI_SEMANTIC_BACKEND==='gemma2'?'gemma2':'legacy';return {enabled:process.env.RUYI_DISABLE_SEMANTIC!=='1'&&config.semanticRetrievalV1!==false,id,signature:JSON.stringify([id,process.env.RUYI_SEMANTIC_MODEL||'',process.env.RUYI_SEMANTIC_RUNTIME_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256||''])};},
+ selectedMethod:()=>process.env.RUYI_DISABLE_SEMANTIC!=='1',
+ gemma2Settings:gemmaSettings,
+ selection:async()=>{const config=await readConfig(),id='gemma2';return {enabled:process.env.RUYI_DISABLE_SEMANTIC!=='1'&&config.semanticRetrievalV1!==false,id,signature:JSON.stringify([id,process.env.RUYI_SEMANTIC_GEMMA2_ROOT||'',process.env.RUYI_SEMANTIC_GEMMA2_LOCK_SHA256||''])};},
  policyDescriptor:value=>value?.modelId!=='embeddinggemma-2-text-q4'?value:{...value,policyReady:value.modelFingerprint===SemanticWindowPolicy.CONTRACT.modelFingerprint&&['session','memory','observation-snapshot','observation-message'].every(kind=>SemanticPolicyConsumers.has(kind))},
 });
 })();

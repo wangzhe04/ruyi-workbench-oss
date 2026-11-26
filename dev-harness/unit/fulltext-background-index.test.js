@@ -14,8 +14,8 @@ const fs = require('node:fs'), fsp = require('node:fs/promises'), path = require
 const { fixture } = require('../lib/fulltext-owned-producer-fixture');
 const SRC = path.resolve(__dirname, '../../ruyi-workbench/app/src');
 const semanticApi = () => vm.runInNewContext(fs.readFileSync(path.join(SRC, '06ha-semantic-retrieval.js'), 'utf8') + '\nSemanticRetrieval;', { require, Date });
-const MODEL = 'fake-background-minilm';
-const DESCRIPTOR = { available: true, modelFingerprint: MODEL, modelId: 'paraphrase-multilingual-MiniLM-L12-v2', retrievalThresholds: { search: 0.34 } };
+const MODEL = 'fake-background-encoder';
+const DESCRIPTOR = { available: true, modelFingerprint: MODEL, modelId: 'synthetic-scalar-model', retrievalThresholds: { search: 0.34 } };
 // 「大巴」「客车」同义 → [1,0,0];「解释」类口头语与「大巴」余弦 0.58(150 U5 实测的噪声量级);其余正交。
 const embed = text => /大巴|客车/.test(text) ? [1, 0, 0] : /解释/.test(text) ? [0.58, Math.sqrt(1 - 0.58 * 0.58), 0] : [0, 0, 1];
 function runtime() {

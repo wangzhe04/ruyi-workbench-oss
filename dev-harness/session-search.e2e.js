@@ -20,12 +20,12 @@ const os = require('os');
 const { getFreePort } = require('./free-port.js');
 
 const packageArg = process.argv.indexOf('--gemma2-package');
-if (packageArg >= 0 && !process.argv[packageArg + 1]) throw Error('--gemma2-package requires an extracted candidate directory');
+if (packageArg >= 0 && !process.argv[packageArg + 1]) throw Error('--gemma2-package requires an extracted package directory');
 const packaged = packageArg >= 0;
 const WB = packaged ? fs.realpathSync(process.argv[packageArg + 1]) : path.resolve(__dirname, '..', 'ruyi-workbench');
-const node = packaged ? path.join(WB, 'runtime', 'node', 'node.exe') : process.execPath;
-const serverArgs = packaged ? ['--require', path.join(WB, 'resources', 'gemma2-candidate', 'preload.cjs')] : [];
-serverArgs.push(path.join(WB, 'app', 'server.js'));
+const packagedExe = packaged && process.argv.includes('--package-exe');
+const node = packagedExe ? path.join(WB, 'Ruyi.exe') : packaged ? path.join(WB, 'runtime', 'node', 'node.exe') : process.execPath;
+const serverArgs = packagedExe ? ['serve'] : [path.join(WB, 'app', 'server.js')];
 const HOME = path.join(os.tmpdir(), 'ruyi-session-search-e2e');
 const HOME_OFF = path.join(os.tmpdir(), 'ruyi-session-search-e2e-off');
 const PORT = await getFreePort();
@@ -161,7 +161,7 @@ try {
   const tokenOff = (await post(PORT_OFF, '/api/bootstrap', {}))?.token;
   ok(typeof token === 'string' && token.length > 0, 'S1 取到工作台 token');
   const auth = { 'x-wcw-token': token };
-  const gemma2 = packaged || (process.env.RUYI_SEMANTIC_BACKEND === 'gemma2' && process.env.RUYI_DISABLE_SEMANTIC !== '1');
+  const gemma2 = process.env.RUYI_DISABLE_SEMANTIC !== '1' && (packaged || Boolean(process.env.RUYI_SEMANTIC_GEMMA2_ROOT) || fs.existsSync(path.join(WB, 'resources/gemma2/portable-lock.json')));
   // 用 --require-semantic 对照默认模型，确保 B4、B5 和 H2b 取得首个完整的语义响应。
   const requireCompleteSemantic = gemma2 || process.argv.includes('--require-semantic');
   const semanticComplete = response => response.json?.semantic?.status === 'ready' && response.json.semantic.coverage === 'complete';

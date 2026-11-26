@@ -1,4 +1,4 @@
-﻿param(
+param(
   [string]$OutputDir = "dist",
   [switch]$SkipExeBuild,
   [switch]$IncludeAcc,
@@ -8,7 +8,7 @@
   [switch]$LocalMediaSources,
   [string]$BuildPython = "",
   [string]$SemanticRuntimeSource = "",
-  [string]$Gemma2CandidateProfile = "",
+  [Alias('Gemma2CandidateProfile')][string]$Gemma2Profile = "",
   [string]$Variant = "offline"
 )
 
@@ -294,28 +294,16 @@ foreach ($desktopFile in @("RuyiDesktop.exe", "WebView2Loader.dll")) {
 
 Copy-Item (Join-Path $root "app") (Join-Path $stage "app") -Recurse
 
-# 147: independent local encoder; never install npm dependencies in server.js.
-# Preparation is explicit and separate. Packaging only verifies/copies locked assets.
-if (-not $SemanticRuntimeSource -and $env:RUYI_SEMANTIC_RUNTIME_ROOT) {
-  $SemanticRuntimeSource = $env:RUYI_SEMANTIC_RUNTIME_ROOT
+# Ship the CPU Q4 runtime only. Legacy runtime sources have a different layout.
+if (-not $Gemma2Profile) { $Gemma2Profile = $env:RUYI_SEMANTIC_GEMMA2_ROOT }
+if (-not $Gemma2Profile -and $SemanticRuntimeSource -and (Test-Path -LiteralPath (Join-Path $SemanticRuntimeSource 'asset-lock.json'))) {
+  $Gemma2Profile = $SemanticRuntimeSource
 }
-$semanticCode = Join-Path $root "semantic-runtime"
+if (-not $Gemma2Profile) { throw 'Supply -Gemma2Profile with the verified EmbeddingGemma offline profile.' }
 $semanticTarget = Join-Path $stage "semantic-runtime"
-if ($SemanticRuntimeSource) {
-  & node (Join-Path $semanticCode "bundle.cjs") $SemanticRuntimeSource $semanticTarget
-  if ($LASTEXITCODE -ne 0) { throw "Semantic runtime asset bundling failed." }
-  Get-ChildItem -LiteralPath $semanticCode -File | ForEach-Object {
-    Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $semanticTarget $_.Name) -Force
-  }
-  Copy-Item -LiteralPath (Join-Path $semanticCode "licenses") -Destination (Join-Path $semanticTarget "licenses") -Recurse -Force
-  & node (Join-Path $semanticTarget "verify.cjs") $semanticTarget
-  if ($LASTEXITCODE -ne 0) { throw "Packaged semantic runtime verification failed." }
-} else {
-  $semanticVersion = (Get-Content -LiteralPath (Join-Path $root "package.json") -Raw | ConvertFrom-Json).version
-  if ([version]($semanticVersion -replace '-.*$', '') -ge [version]'3.1.0') {
-    throw "3.1 requires a verified semantic runtime. Supply -SemanticRuntimeSource; runtime downloads are not permitted."
-  }
-  Write-Warning "Development package has no semantic runtime; keyword fallback only. This does not pass the 3.1 semantic release gate."
+New-Item -ItemType Directory -Force -Path $semanticTarget | Out-Null
+foreach ($file in @('gemma2-provider.cjs','gemma2-profile-validation.cjs')) {
+  Copy-Item -LiteralPath (Join-Path $root "semantic-runtime/$file") -Destination $semanticTarget
 }
 
 # Optional callback gateway ships as a standalone opt-in tool in every variant. Do not copy developer tools.
@@ -619,10 +607,8 @@ $zip = Join-Path $dist "$archiveBase.zip"
 $explorerDefaultPathBudget = 200
 # Node's Unicode filesystem APIs can enumerate deep Chromium resources even when PS5.1's
 # Get-ChildItem fails before the relative-path budget can be measured. Do not skip unreadable paths.
-if ($Gemma2CandidateProfile) {
-  & $nodeSource (Join-Path $root 'tools/bundle-gemma2-candidate.cjs') $stage $Gemma2CandidateProfile
-  if ($LASTEXITCODE -ne 0) { throw "EmbeddingGemma candidate bundle verification failed." }
-}
+& $nodeSource (Join-Path $root 'tools/bundle-gemma2.cjs') $stage $Gemma2Profile
+if ($LASTEXITCODE -ne 0) { throw "EmbeddingGemma bundle verification failed." }
 
 $measurePaths = @'
 const fs=require('node:fs'),path=require('node:path');let longest=0;function walk(dir,prefix){for(const entry of fs.readdirSync(dir,{withFileTypes:true})){const relative=prefix?prefix+'/'+entry.name:entry.name;if(entry.isDirectory())walk(path.join(dir,entry.name),relative);else longest=Math.max(longest,relative.length);}}walk(process.argv[1],'');process.stdout.write(String(longest));

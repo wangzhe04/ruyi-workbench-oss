@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "defaultModel": "paraphrase-multilingual-MiniLM-L12-v2",
+  "defaultModel": null,
   "models": [
     {
       "id": "bge-small-zh-v1.5",
@@ -102,68 +102,6 @@
       "thresholdCalibration": {
         "fixtureSha256": "51a1d10d87b2adc22cad0e8e2934809b19521436bad0ab8cfedb5ad5a06c8938",
         "method": "ceil((max pilot no-answer top cosine + 0.02) * 100) / 100; explicit search only; automatic unapproved"
-      }
-    },
-    {
-      "id": "paraphrase-multilingual-MiniLM-L12-v2",
-      "upstream": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
-      "repository": "Xenova/paraphrase-multilingual-MiniLM-L12-v2",
-      "revision": "2c4055b12046f11709e9df2c122e59ffbdc2f900",
-      "license": "Apache-2.0",
-      "dimensions": 384,
-      "pooling": "mean",
-      "normalize": true,
-      "maxTokens": 128,
-      "prefix": {
-        "query": "",
-        "document": ""
-      },
-      "files": [
-        {
-          "path": "config.json",
-          "bytes": 673,
-          "sha256": "05b570bff786faa5c4604152aa16f19f77ed6dfc31e47dd0f3dd987078693ac7"
-        },
-        {
-          "path": "tokenizer.json",
-          "bytes": 17082913,
-          "sha256": "b60b6b43406a48bf3638526314f3d232d97058bc93472ff2de930d43686fa441"
-        },
-        {
-          "path": "tokenizer_config.json",
-          "bytes": 496,
-          "sha256": "3f5961b9ac86288cccdb97f32fb848d6187c78e1603958c53f3ea1f296b7d8a2"
-        },
-        {
-          "path": "special_tokens_map.json",
-          "bytes": 280,
-          "sha256": "06e405a36dfe4b9604f484f6a1e619af1a7f7d09e34a8555eb0b77b66318067f"
-        },
-        {
-          "path": "onnx/model_quantized.onnx",
-          "bytes": 118308126,
-          "sha256": "66fc00f5f29afcaff34092e1bdd20008ca3918265a82fb9695a551e510cc4ebc"
-        }
-      ],
-      "retrievalThresholds": {
-        "search": 0.34,
-        "automatic": null
-      },
-      "recommendedChunkChars": 96,
-      "thresholdCalibration": {
-        "fixtureSha256": "ce9cde6ac1ac5d44f838b2cba291398d047cfa0ff725646301eb4468e49f7c25",
-        "vectorsSha256": "8b23459616d4fb045f3e468f0aaeb7f0eaa5c96b0807be26e400b33085eb831a",
-        "method": "Quality-preserving train/calibration Pareto: minimize worst search-negative admission FPR, then calibration FPR; no margin/background statistic; new check used only after selection.",
-        "status": "RED_PARTIAL_IMPROVEMENT",
-        "automaticApproved": false
-      },
-      "retrievalPolicy": {
-        "id": "minilm-search-relevance-v1",
-        "purpose": "search-relevance",
-        "minimumCosine": 0.34,
-        "structuredIdentifiers": true,
-        "answerability": "not-assessed",
-        "automatic": null
       }
     },
     {

@@ -10,7 +10,7 @@ function sealScoreEvidence(result,{query,scopeId,modelFingerprint,docs,identitie
  scoreEvidenceRecords.set(result,Object.freeze({query,scopeId,modelFingerprint,docs:docs.slice(),identities:identities.map(scoreEvidenceIdentity),scores,encodedTexts:encodedTexts.slice(),stillCurrent}));return result;
 }
 function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scoreEvidenceRecords.get(result);if(!p||!p.stillCurrent()||p.query!==query||p.scopeId!==scopeId||p.modelFingerprint!==modelFingerprint||result.modelFingerprint!==p.modelFingerprint||!Array.isArray(result.scores)||result.scores.length!==p.scores.length||p.scores.some((v,n)=>result.scores[n]!==v))throw scoreEvidenceInvalid();return {docs:p.docs.slice(),identities:p.identities.slice(),scores:p.scores.slice(),encodedTexts:p.encodedTexts.slice()};}
-  const searchPolicy=Object.freeze({id:'minilm-search-relevance-v1',modelId:'paraphrase-multilingual-MiniLM-L12-v2',minScore:0.34,structuredIdentifiers:true,purpose:'search-relevance',automatic:null});
+  const searchPolicy=Object.freeze({id:'explicit-scalar-search-v1',modelId:'synthetic-scalar-model',minScore:0.85,structuredIdentifiers:true,purpose:'search-relevance',automatic:null});
   function structuredIdMatches(identifierText) {
     const normalized=String(identifierText).normalize('NFKC').toLowerCase(),matches=[];
     // Validate the complete maximal ASCII identifier token. Searching inside a
@@ -159,7 +159,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       const cached=vectors.filter(Boolean).length,complete=cached===docs.length;
       if(status==='ready'&&!complete)status='partial';
       const effectiveMinimum=typeof minScore==='number'&&Number.isFinite(minScore)?minScore:0.85;
-      const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId?assessAdmission(query,docs,scores,{complete,minScore:Math.max(searchPolicy.minScore,effectiveMinimum)}):null;
+      const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId && Number.isFinite(descriptor.retrievalThresholds?.search)?assessAdmission(query,docs,scores,{complete,minScore:effectiveMinimum}):null;
       const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete},...(admission?{admission}:{})};
       if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
       return scored;
@@ -174,7 +174,7 @@ const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).
 const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
   weakWindow: 'fixed-best-eligible-original96-overlap16-before-cosine-admission; no-result-driven-window-switch', metadataDisplay: 'same-field-complete-projected-context-not-raw-window-quote', coarseThreshold: null, strong: 'same-original-field-only', unknown: 'not-promoted-and-partial', pools:Object.freeze({session:'complete eligible committed-body pool plus same-field lexically related metadata including strong fields; no unrelated metadata discovery',memory:'complete bounded eligible memory-header fields',observation:'complete bounded registered-tool or authorized-projected-message fields'}),geometry:Object.freeze({message:'canonical-message-v3 original96/16',memory:'raw-original-v1 original96/16',metadata:'raw-metadata-v1 original96/16',committedMessage:'privacy-projected-v1 placeholder-safe96/16'}),metadataContext:'identity title/brief.title/cwd are labels; summary/gist need their own admitted field; recent request omitted without a field proof',automatic: null });
 
-function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence }) {
+function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false }) {
   if(typeof readScoreEvidence!=='function')throw TypeError('semantic.scorer_reader_required');
   const issuedDecisions = new WeakMap();
   if ([identify, normalize, terms].some(value => typeof value !== 'function')) throw TypeError('composite.host_invalid');
@@ -191,7 +191,16 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     started=true;
     const evidenceReads=new Map(),scores=scoreEntries.map((entry,n)=>{if(entry===null)return null;if(!entry||!Number.isSafeInteger(entry.index)||entry.index<0)throw Error('semantic.score_evidence_invalid');let proof=evidenceReads.get(entry.result);if(!proof){proof=readScoreEvidence(entry.result,{query,scopeId,modelFingerprint});evidenceReads.set(entry.result,proof);}if(entry.index>=proof.scores.length)throw Error('semantic.score_evidence_invalid');windowContext.assertScore(rows[n],proof.docs[entry.index],proof.identities[entry.index],proof.encodedTexts[entry.index]);return proof.scores[entry.index];});
     const required = identify(query), phrase = normalize(query), effective = [...new Set(terms(query).filter(x => typeof x === 'string' && !x.startsWith('#')).map(normalize))];
+    // When the query labels an uppercase code as a literal, its spelling is
+    // part of the request. Ordinary paraphrases and unlabelled acronyms stay semantic.
+    const literalCodes = [...query.normalize('NFKC').matchAll(/(?:标记|代号|编号|关键字|(?:关键|独有|唯一|检索|搜索)词|\b(?:literal|marker|identifier|keyword|token)(?=\s*:))(?:\s*:\s*|\s+)([A-Z][A-Z0-9_]{1,63})(?![\w:-])/g)].map(match => match[1].toLowerCase());
+    function hasLiteralCodes(text) {
+      if (!literalCodes.length) return true;
+      const words = new Set(text.normalize('NFKC').toLowerCase().match(/[a-z0-9_]+(?:[-:][a-z0-9_]+)*/g));
+      return literalCodes.every(code => words.has(code));
+    }
     const strong = text => {
+      if (!hasLiteralCodes(text)) return {eligible:false, reason:'literal-mismatch'};
       const sourceIds = identify(text);
       if (required.some(id => !sourceIds.includes(id))) return { eligible: false, reason: 'identifier-mismatch' };
       const normalized = normalize(text);
@@ -212,11 +221,11 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     // Body rows retain the producer's full-ID source filter. Metadata has a
     // separate field lifecycle, so prove all remaining field eligibility before
     // cutting global K. A rejected metadata ID may never consume the K slot.
-    if (required.length) for (let index = 0; index < rows.length; index++) {
+    if (required.length || literalCodes.length) for (let index = 0; index < rows.length; index++) {
       let source = fieldSources.get(rows[index].fieldKey);
       if (!source) { source = await resolved(index, true); if (source) fieldSources.set(rows[index].fieldKey, source); }
       if (!source) { eligible[index] = null; sourceUnknown = true; }
-      else { fullSources.set(index, source); eligible[index] = required.every(id => identify(source.fieldText).includes(id)); }
+      else { fullSources.set(index, source); eligible[index] = hasLiteralCodes(source.fieldText) && required.every(id => identify(source.fieldText).includes(id)); }
     }
     // A partially encoded or truncated eligible corpus cannot establish a
     // global winner. Deterministically excluded IDs need no vector or score.
@@ -253,6 +262,19 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     }
     // Select K before strong bypass. Never refill the K budget after bypass.
     for (const index of selected) await evidence(index, false, 'semantic');
+    // Explicit memory lookup can answer with several distinct facts. A strong
+    // top lexical match keeps the existing no-refill behavior.
+    if (explicitMemory && selected.length && !strongEvidence.length && !sourceUnknown) {
+      const seen = new Set([rows[selected[0]].fieldKey]);
+      for (const item of order.slice(1)) {
+        if (seen.size >= 3 || item.score < CONTRACT.threshold) break;
+        const key = rows[item.index].fieldKey;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        selected.push(item.index);
+        await evidence(item.index, false, 'semantic');
+      }
+    }
     for (const item of lexical) {
       if (!Number.isSafeInteger(item.index) || item.index < 0 || item.index >= rows.length) { lexicalDecisions.set(item.key, null); sourceUnknown = true; continue; }
       windowContext.assertWeak(item.key,rows[item.index]);
@@ -288,7 +310,8 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     }
     await verify({ phase: 'finish', index: null, source: null });
     const finished = globalComplete && !sourceUnknown && verified.coverage?.complete === true && Date.now() < deadline;
-    const decision=Object.freeze({policyId:CONTRACT.id,purpose:'search-relevance',answerability:'not-assessed',complete:finished,status:finished?'evaluated':'partial',
+    const policyId=explicitMemory?'embeddinggemma2-memory-distinct-k3-cos070-v1':CONTRACT.id;
+    const decision=Object.freeze({policyId:literalCodes.length?policyId+'-literal-v1':policyId,purpose:'search-relevance',answerability:'not-assessed',complete:finished,status:finished?'evaluated':'partial',
       counts:Object.freeze({candidates:rows.length,eligible:eligible.filter(x=>x===true).length,excludedIdentifiers:eligible.filter(x=>x===false).length,selected:selected.length,weakWindows:lexicalWindowIndices.size,metadataWindows:metadataWindowIndices.size})});
     issuedDecisions.set(decision,{context,validatePool:()=>{windowContext.assertPool(rows);for(const result of evidenceReads.keys())readScoreEvidence(result,{query,scopeId,modelFingerprint});},semanticAccepted:accepted.slice(),weakAccepted:new Map(lexicalDecisions),metadataAccepted:new Map(metadataDecisions),
       weakWindowIndices:new Map(lexicalWindowIndices),metadataWindowIndices:new Map(metadataWindowIndices),globalSelectedIndices:selected.slice(),globalCoarseComplete:globalComplete});
@@ -304,9 +327,9 @@ const SemanticAdmissionRequest = (() => {
 // Trusted in-process adapter for consumers. Fields are original authorized text,
 // never projected DTO slices. Authority remains in verifyField/beforeVerify.
 const W=typeof SemanticOriginalWindows==='undefined'?null:SemanticOriginalWindows,{createSemanticCoarsePolicy,CONTRACT}=SemanticWindowPolicy;
-function create({query,scopeId,identify,normalize,terms,readScoreEvidence,modelFingerprint=CONTRACT.modelFingerprint,maxRows=4096}){
+function create({query,scopeId,identify,normalize,terms,readScoreEvidence,explicitMemory=false,modelFingerprint=CONTRACT.modelFingerprint,maxRows=4096}){
  if(!Number.isSafeInteger(maxRows)||maxRows<1||maxRows>4096)throw Error('semantic.request_limit_invalid');
- const windowContext=W.createRequest({query,scopeId,modelFingerprint}),context=windowContext.context,policy=createSemanticCoarsePolicy({identify,normalize,terms,readScoreEvidence}),fields=new Map(),rowFields=[],rows=[],sources=[],docs=[],identities=[];let disposed=false,decision=null,truncated=false;
+ const windowContext=W.createRequest({query,scopeId,modelFingerprint}),context=windowContext.context,policy=createSemanticCoarsePolicy({identify,normalize,terms,readScoreEvidence,explicitMemory}),fields=new Map(),rowFields=[],rows=[],sources=[],docs=[],identities=[];let disposed=false,decision=null,truncated=false;
  const active=()=>{if(disposed)throw Error('semantic.request_disposed');};
  function addField(source,{kind='raw-original-v1',order,identityForWindow}={}){active();if(decision)throw Error('semantic.request_already_evaluated');if(!source||typeof source.text!=='string'||!Array.isArray(order))throw Error('semantic.field_invalid');const snapshot={identity:{...source.identity},text:source.text},token=windowContext.captureField(snapshot.identity,snapshot.text,kind),key=windowContext.weakKey(token),entry={token,key,snapshot,indices:[]};fields.set(key,entry);
   const push=(window,cacheText)=>{if(rows.length>=Math.min(4096,maxRows)){truncated=true;return false;}const identity=identityForWindow?identityForWindow(window.identity):['original-field',...['sourceId','field','revision','epoch','sourceRevision','start','end'].map(k=>window.identity[k])],row=windowContext.row(window,order,identity);entry.indices.push(rows.length);rows.push(row);sources.push(window);rowFields.push(entry);docs.push(cacheText);identities.push(identity);return true;};
