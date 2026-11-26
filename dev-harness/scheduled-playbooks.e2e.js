@@ -35,11 +35,12 @@ async function request(method, route, body, auth = token) {
     return { status: response.status, body: await response.json() };
   } catch (error) { return { status: 0, error: String(error) }; }
 }
-async function start(extraEnv = {}) {
+async function start({ holdAfterWrite = '', askWaitMs = '' } = {}) {
   port = await getFreePort(); diagnostic = '';
   server = cp.spawn(process.execPath, ['--require', require.resolve('./lib/scheduled-playbook-callback-probe'), 'app/server.js', 'serve', '--port', String(port)], { cwd: wb, windowsHide: true,
     env: { ...fixtureChildEnv(), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home,
-      RUYI_FIXTURE_REPORT_PATHS: JSON.stringify([approvedReport, crashReport, expiredReport]), RUYI_FIXTURE_WRITE_LOG: writeLog, ...extraEnv,
+      RUYI_FIXTURE_REPORT_PATHS: JSON.stringify([approvedReport, crashReport, expiredReport]), RUYI_FIXTURE_WRITE_LOG: writeLog,
+      RUYI_FIXTURE_HOLD_AFTER_WRITE: holdAfterWrite, WCW_SCHEDULER_ASK_WAIT_MS: askWaitMs,
       WCW_SCHEDULER_CLOCK_FILE: clock, WCW_SCHEDULER_TICK_MS: '100', WCW_TEST_NO_NET_ANCHORS: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
   for (const stream of [server.stdout, server.stderr]) stream.on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-12000); });
   await wait('health', async () => (await request('GET', '/health')).status === 200);
@@ -205,7 +206,7 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     'changing template and target preserves the already generated late snapshot');
     const modelCalls = () => fake.requests.filter(row => row.messages.some(message => message.role === 'user' && String(message.content).includes('SCHEDULE_HTTP'))).length;
     const countBeforeRestart = modelCalls();
-    await stop(); await start({ RUYI_FIXTURE_HOLD_AFTER_WRITE: crashReport });
+    await stop(); await start({ holdAfterWrite: crashReport });
     const unknownRun = await wait('unknown recovery', async () => (await runs(task.id)).find(row => row.outcome === 'unknown'));
     const unknownHead = (await request('GET', '/api/sessions/' + session.id)).body?.session;
     t.ok(unknownHead?.stewardLastTurn?.scheduler?.state === 'unknown' && unknownHead.stewardLastTurn.scheduler.runId === unknownRun.runId && unknownHead.stewardLastTurn.seq === unknownRun.turnSeq, 'R4: cold unknown receipt and exact session turn retain the same uncertainty authority');
@@ -243,7 +244,7 @@ const pending = async (sid, excluded = []) => (await request('GET', '/api/interv
     if ((await allowCrash()).status !== 200) throw Error('approval rejected before crash');
     await wait('file published before tool returns', () => writesTo(crashReport).some(row => row.pid === server.pid));
     const callsAtCrash = modelCalls();
-    await stop(); await start({ WCW_SCHEDULER_ASK_WAIT_MS: '2000' });
+    await stop(); await start({ askWaitMs: '2000' });
     const recovered = await wait('recover original interrupted occurrence', async () => (await runs(task.id))
       .find(row => row.runId === original.runId && row.occurrenceKey === crashKey && row.outcome === 'unknown'));
     const stale = await Promise.all([allowCrash(), allowCrash()]);
