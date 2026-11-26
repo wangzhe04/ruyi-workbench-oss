@@ -40,16 +40,17 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       issued.set(token,cap);
       return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.unchecked.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
     }
-    async function authorize(sid,token,access) {
+    async function refreshAuthorizedEpoch(sid,token,access) {
       const cap=current(token);if(access.revision!==cap.access.revision||access.scopeId!==cap.access.scopeId)throw fail('scope_changed');
-      if(cap.exactSid&&sid!==cap.exactSid)return false;
+      if(cap.exactSid&&sid!==cap.exactSid)return null;
       await cap.grant.revalidate();cap.assert();const selected=await source.inspect(sid);cap.assert();
-      if(!selected||selected.head.kind==='steward'||selected.head.rawKind==='steward')return false;
+      if(!selected||selected.head.kind==='steward'||selected.head.rawKind==='steward')return null;
       const metadata=host.metadata(selected.head),project=host.projectKey(metadata.cwd);
-      if(cap.filter&&project!==cap.filter)return false;
+      if(cap.filter&&project!==cap.filter)return null;
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
-      cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return true;
+      cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return selected.epoch;
     }
+    async function authorize(sid,token,access){return await refreshAuthorizedEpoch(sid,token,access)!==null;}
     function authorizedInScope(sid,cap,access) {const row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
     function assertAuthorized(sid,token,access){return authorizedInScope(sid,current(token),access);}
     function assertAuthorizedSet(sids,token,access){
@@ -119,7 +120,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.assert();const disclosed=await disclose(cap,sid,prepared,'session-search:hit');cap.assert();
       disclosed.snippet=host.redact(disclosed.snippet);return disclosed;
     }
-    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,assertAuthorizedSet,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
+    const index=host.bindIndex({scope:async token=>current(token).access,authorize,refreshAuthorizedEpoch,assertAuthorized,assertAuthorizedSet,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
     function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
     async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();if(cap.threadSearch&&cap.metadataView)return clone(cap.metadataView);const ids=cap.exactSid?[cap.exactSid]:cap.searchCatalog??await host.catalog();

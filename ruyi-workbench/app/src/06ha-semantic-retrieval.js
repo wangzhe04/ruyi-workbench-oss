@@ -61,7 +61,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
@@ -144,7 +144,18 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         const dimension=validated.vectors[0].length;if(descriptor.modelId==='embeddinggemma-2-text-q4'&&dimension!==768)throw Error('semantic.invalid_vectors');if(validated.vectors.some(v=>v.length!==dimension)||q&&q.length!==dimension)throw Error('semantic.invalid_vectors');
         return {ok:true,modelFingerprint:validated.modelFingerprint,vectors:validated.vectors.map(v=>v.slice()),...(validated.truncated?{truncated:validated.truncated.slice()}:{}),encodedCount};
       }
-      if(!q){const result=await encode([query],'query');if(!result.ok)return {...empty(result.reason),modelFingerprint:model};if(result.truncated?.[0])return {...empty('truncated'),modelFingerprint:model};q=result.vectors[0];put(queries,qkey,q,queryLimit);}
+      if(!q){
+        const encoding=encode([query],'query');
+        let result;
+        if(requestCodecToken&&!needsDocuments&&prepareCachedSources){
+          const [encoded,sources]=await Promise.allSettled([encoding,Promise.resolve().then(prepareCachedSources)]);
+          if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+          if(sources.status==='rejected')throw sources.reason;
+          if(encoded.status==='rejected')throw encoded.reason;
+          if(generation!==cacheGeneration)return empty('unavailable');
+          result=encoded.value;
+        }else result=await encoding;
+        if(!result.ok)return {...empty(result.reason),modelFingerprint:model};if(result.truncated?.[0])return {...empty('truncated'),modelFingerprint:model};q=result.vectors[0];put(queries,qkey,q,queryLimit);}
       // 维度与查询不符的持久向量(同指纹却换了维度只可能是坏件)当作没有,不进打分。
       for(let n=0;n<vectors.length;n++)if(vectors[n]&&!cachedDocuments[n]&&vectors[n].length!==q.length)vectors[n]=null;
       const missing=[];for(let n=0;n<vectors.length;n++)if(!vectors[n])missing.push(n);

@@ -46399,6 +46399,20 @@ function* cachedSlices(text,generation){
   }
 function slices(text,generation=SLICE_CACHE.generation){return cachedSlices(text,generation);}
 function* sliceWindows(text){
+    // Short printable ASCII and NFKC-stable basic Han characters each occupy
+    // one UTF-16 unit and form separate graphemes. Only space runs collapse.
+    if(text.length>0&&text.length<=CHARS&&!/[^\x20-\x7e\u4e00-\u9fff]/.test(text)&&text.normalize('NFKC')===text){
+      const ranges=[];let origin=0,at=0,space;
+      const spaces=/ +/g;
+      while((space=spaces.exec(text))){
+        const width=space.index-origin;
+        if(width){ranges.push([at,width,origin]);at+=width;}
+        ranges.push([at++,1,space.index,spaces.lastIndex]);origin=spaces.lastIndex;
+      }
+      if(origin<text.length)ranges.push([at,text.length-origin,origin]);
+      yield {canonicalStart:0,start:0,end:text.length,text:text.toUpperCase().replace(/ +/g,' '),ranges};
+      return;
+    }
     let buffer='',ranges=[],absolute=0,lastYield=0;
     const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
       if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
@@ -46439,7 +46453,7 @@ function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='stri
  function weakKey(token){field(token);const value=Object.freeze({});weakKeys.set(value,token);return value;}
  function assertWeak(key,row){const r=rows.get(row);if(!r||weakKeys.get(key)!==r.field)throw fail('weak_source_changed');}
  const assertPool=pool=>{if(!used||pool!==poolReference||poolSnapshot!==null&&(pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n])))throw fail('pool_changed');};
- const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
+ const api=Object.freeze({context,captureField,wholeSource,canonicalTextSlices:text=>canonicalSlices(text,sliceGeneration),canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
   begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();
     // Frozen arrays can still have getters or holes. Skip repeated full-pool
     // scans only when every position is an immutable own data property.
@@ -46634,7 +46648,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
@@ -46717,7 +46731,18 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         const dimension=validated.vectors[0].length;if(descriptor.modelId==='embeddinggemma-2-text-q4'&&dimension!==768)throw Error('semantic.invalid_vectors');if(validated.vectors.some(v=>v.length!==dimension)||q&&q.length!==dimension)throw Error('semantic.invalid_vectors');
         return {ok:true,modelFingerprint:validated.modelFingerprint,vectors:validated.vectors.map(v=>v.slice()),...(validated.truncated?{truncated:validated.truncated.slice()}:{}),encodedCount};
       }
-      if(!q){const result=await encode([query],'query');if(!result.ok)return {...empty(result.reason),modelFingerprint:model};if(result.truncated?.[0])return {...empty('truncated'),modelFingerprint:model};q=result.vectors[0];put(queries,qkey,q,queryLimit);}
+      if(!q){
+        const encoding=encode([query],'query');
+        let result;
+        if(requestCodecToken&&!needsDocuments&&prepareCachedSources){
+          const [encoded,sources]=await Promise.allSettled([encoding,Promise.resolve().then(prepareCachedSources)]);
+          if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
+          if(sources.status==='rejected')throw sources.reason;
+          if(encoded.status==='rejected')throw encoded.reason;
+          if(generation!==cacheGeneration)return empty('unavailable');
+          result=encoded.value;
+        }else result=await encoding;
+        if(!result.ok)return {...empty(result.reason),modelFingerprint:model};if(result.truncated?.[0])return {...empty('truncated'),modelFingerprint:model};q=result.vectors[0];put(queries,qkey,q,queryLimit);}
       // 维度与查询不符的持久向量(同指纹却换了维度只可能是坏件)当作没有,不进打分。
       for(let n=0;n<vectors.length;n++)if(vectors[n]&&!cachedDocuments[n]&&vectors[n].length!==q.length)vectors[n]=null;
       const missing=[];for(let n=0;n<vectors.length;n++)if(!vectors[n])missing.push(n);
@@ -119270,6 +119295,20 @@ const SessionFullTextIndex = ((io,p,c) => {
     }
   }
   function* sliceWindows(text){
+    // Short printable ASCII and NFKC-stable basic Han characters each occupy
+    // one UTF-16 unit and form separate graphemes. Only space runs collapse.
+    if(text.length>0&&text.length<=CHARS&&!/[^\x20-\x7e\u4e00-\u9fff]/.test(text)&&text.normalize('NFKC')===text){
+      const ranges=[];let origin=0,at=0,space;
+      const spaces=/ +/g;
+      while((space=spaces.exec(text))){
+        const width=space.index-origin;
+        if(width){ranges.push([at,width,origin]);at+=width;}
+        ranges.push([at++,1,space.index,spaces.lastIndex]);origin=spaces.lastIndex;
+      }
+      if(origin<text.length)ranges.push([at,text.length-origin,origin]);
+      yield {canonicalStart:0,start:0,end:text.length,text:text.toUpperCase().replace(/ +/g,' '),ranges};
+      return;
+    }
     let buffer='',ranges=[],absolute=0,lastYield=0;
     const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
       if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
@@ -119784,17 +119823,24 @@ const SessionFullTextIndex = ((io,p,c) => {
           check();
           if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
           const sids=[...new Set([...loadedSources,...[...verifiedMetadata].map(item=>item.sid)])];
-          const {settled}=await orderedPool(sids,async sid=>{check();if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
-            if(await host.epoch(sid)!==sourceEpochs.get(sid)||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
+          const {settled}=await orderedPool(sids,async sid=>{
+            check();
+            let epoch;
+            if(host.refreshAuthorizedEpoch){
+              epoch=await host.refreshAuthorizedEpoch(sid,context,access);
+              if(epoch===null)throw fail('source_denied');
+            }else{
+              if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
+              epoch=await host.epoch(sid);
+            }
+            if(epoch!==sourceEpochs.get(sid)||host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
             for(const guard of sourceGuards.get(sid)||[])if(!await guard())throw fail('source_changed');for(const item of verifiedMetadata)if(item.sid===sid&&!await options.verifyMetadata(item))throw fail('source_changed');
           });
           if(settled.some(row=>row.status==='rejected'))throw poolFailure(settled,options.timeout);
           if(host.assertScope(context,access)!==true||sids.some(sid=>host.assertAuthorized(sid,context,access)!==true||host.sourceSequence(sid)!==sourceSequences.get(sid)))throw fail('disclosure_changed');
         };
-        const resolveTexts=async indices=>{
-          activeSids=[...new Set(indices.map(n=>semanticRows[n].hit.row.sessionId))];activeMetadata=new Set(indices.map(n=>semanticRows[n].metadata).filter(Boolean));
-          for(const meta of activeMetadata){sourceCheck();if(typeof options.verifyMetadata!=='function'||!await options.verifyMetadata(meta))throw fail('source_changed');sourceSequences.set(meta.sid,host.sourceSequence(meta.sid));verifiedMetadata.add(meta);}
-          const missing=[...new Set(indices.filter(n=>!semanticRows[n].metadata).map(n=>semanticRows[n].hit.row.sessionId))].filter(sid=>!loadedSources.has(sid));
+        const canonicalWindows=new WeakMap(),prefetchedBodies=new Map();
+        const readBodies=async(missing,remember)=>{
           const {settled}=await orderedPool(missing,async sid=>{
             sourceCheck();
             if(await host.authorize(sid,context,access)!==true)throw fail('source_denied');
@@ -119802,7 +119848,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             const policy=attachmentSource&&rows.some(item=>attachmentField.test(item.entry.hit.row.source))?await host.enabled():null,budget=attachmentBudget();
             let sourceTurn=0,sourceTurnBasis='legacy-inferred';const checks=new Set(),fragments=new Map(),fields=new Map();
             const reuseBody=gemmaMethod&&!requiredIds.length&&manifests.get(sid)?.attachments===0;
-            const verifiedWindows=new Map(),byOrdinal=new Map();
+            const verifiedWindows=new Map(),policyWindows=new Map(),byOrdinal=new Map();
             for(const item of rows){
               const ordinal=item.entry.hit.row.messageOrdinal;
               if(!byOrdinal.has(ordinal))byOrdinal.set(ordinal,[]);
@@ -119820,26 +119866,53 @@ const SessionFullTextIndex = ((io,p,c) => {
               const revision=digest(row),parts=inspected?.parts??sources(row);
               if(policy!==null&&chosen.some(item=>attachmentField.test(item.entry.hit.row.source)))parts.push(...await extractedSources(row,policy,await selectedAttachments(attachments,policy)));
               const intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal,windows=new Map(),neededWindows=new Set(chosen.map(item=>item.entry.hit.row.source+'\0'+item.entry.hit.canonicalStart));let chunkOrdinal=0;
-              for(const part of parts){for(const window of slices(part.text,sliceGeneration)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal});chunkOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
+              for(const part of parts){
+                const policyWindow=gemmaMethod&&policyContext&&part.text.length<=CHARS&&chosen.some(item=>item.entry.hit.row.source===part.field);
+                const iterator=policyWindow?policyContext.canonicalTextSlices(part.text):slices(part.text,sliceGeneration);
+                for(const window of iterator){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal,policyWindow});chunkOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
               for(const {entry,index}of chosen){const hit=entry.hit,source=parts.find(part=>part.field===hit.row.source);
                 if(!source||hit.end>source.text.length||hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
                 const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;
                 if(!window||found.chunkOrdinal!==hit.row.chunkOrdinal||window.start!==hit.row.start||window.end!==hit.row.end||hit.row.messageId!==messageId||hit.row.messageIdBasis!==(intrinsic?'intrinsic':'physical-ordinal')||hit.row.turnSeq!==sourceTurn||hit.row.turnSeqBasis!==sourceTurnBasis||digest({text:window.text,ranges:window.ranges})!==hit.windowHash||rangeAt(window.ranges,hit.at).from!==hit.start||rangeAt(window.ranges,hit.at+hit.width-1).to!==hit.end)throw fail('shard_source_mismatch');
                 if(source.revalidate&&!checks.has(source.revalidate)){if(!await source.revalidate())throw fail('source_changed');checks.add(source.revalidate);}
+                if(found.policyWindow)policyWindows.set(hit.row,window);
                 if(reuseBody&&!source.revalidate&&window.ranges.length<=64)
                   verifiedWindows.set(hit.row,{source,ranges:window.ranges});
                 const text=source.text.slice(hit.start,hit.end);if(text.length<=8192)fragments.set(index,text);fields.set(index,source.text);
               }
             },{check:sourceCheck});
             if(!proof||rows.some(item=>item.entry.hit.epoch!==proof.epoch||item.entry.hit.sourceRevision!==proof.revision)||await host.epoch(sid)!==proof.epoch||host.assertScope(context,access)!==true)throw fail('source_changed');
-            return {sid,fragments,fields,checks,sequence:host.sourceSequence(sid),body:verifiedWindows.size?{proof,unverified,verifiedWindows}:null};
-          },{onSettled:({sid,fragments,fields,checks,sequence,body})=>{
-            if(body)verifiedBodySessions.set(sid,{...body,sequence});
-            // 原文片段只在整条来源回读完、epoch 与 revision 都核过之后才并入;按原顺序交付,中途撞截止的来源一字不留。
-            for(const [index,text]of fragments)originalFragments.set(index,text);for(const [index,text]of fields)originalFields.set(index,text);
-            sourceSequences.set(sid,sequence);sourceGuards.set(sid,checks);loadedSources.add(sid);
-          }});
+            return {sid,fragments,fields,checks,windows:policyWindows,sequence:host.sourceSequence(sid),body:verifiedWindows.size?{proof,unverified,verifiedWindows}:null};
+          },{onSettled:remember});
           if(settled.some(row=>row.status==='rejected'))throw poolFailure(settled,sourceExpired);
+        };
+        const acceptBody=({sid,fragments,fields,checks,sequence,body,windows})=>{
+          if(body)verifiedBodySessions.set(sid,{...body,sequence});
+          for(const [row,window]of windows)canonicalWindows.set(row,window);
+          for(const [index,text]of fragments)originalFragments.set(index,text);
+          for(const [index,text]of fields)originalFields.set(index,text);
+          sourceSequences.set(sid,sequence);sourceGuards.set(sid,checks);loadedSources.add(sid);
+        };
+        // Read only into request-local staging while a new query vector is in flight.
+        // The normal source-resolution path adopts each proof under its live guards.
+        const prefetchBodies=async()=>{
+          try{await readBodies([...bodyRows.keys()],part=>prefetchedBodies.set(part.sid,part));}
+          catch(error){if(error!==sourceExpired)throw error;}
+        };
+        const resolveTexts=async indices=>{
+          activeSids=[...new Set(indices.map(n=>semanticRows[n].hit.row.sessionId))];activeMetadata=new Set(indices.map(n=>semanticRows[n].metadata).filter(Boolean));
+          for(const meta of activeMetadata){sourceCheck();if(typeof options.verifyMetadata!=='function'||!await options.verifyMetadata(meta))throw fail('source_changed');sourceSequences.set(meta.sid,host.sourceSequence(meta.sid));verifiedMetadata.add(meta);}
+          const missing=[...new Set(indices.filter(n=>!semanticRows[n].metadata).map(n=>semanticRows[n].hit.row.sessionId))].filter(sid=>!loadedSources.has(sid));
+          const pending=[];
+          for(const sid of missing){
+            const part=prefetchedBodies.get(sid);
+            if(!part){pending.push(sid);continue;}
+            sourceCheck();
+            if(host.sourceSequence(sid)!==part.sequence)throw fail('source_changed');
+            if(host.assertAuthorized(sid,context,access)!==true)throw fail('source_denied');
+            acceptBody(part);prefetchedBodies.delete(sid);
+          }
+          await readBodies(pending,acceptBody);
           await beforeEncode();
           return indices.map(n=>semanticRows[n].metadata?semanticRows[n].text:(originalFragments.get(n)??null));
         };
@@ -119861,7 +119934,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         if(semanticCold){try{host.semanticWarm?.();}catch{}semanticState={status:'loading',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}
         else try{
           const texts=semanticRows.map(row=>row.text);
-          const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
+          const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(gemmaMethod&&bodyRows.size&&!metadataRows.length&&[...bodyRows.keys()].every(sid=>manifests.get(sid)?.attachments===0)?{prepareCachedSources:semanticFailures.guard(prefetchBodies)}:{}),...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
           const continuationDeadline=Math.min(semanticDeadline+2000,(options.deadline??Infinity)-1000);
           const allowProgress=gemmaMethod&&!isPaused()&&Number.isFinite(options.deadline);
           let sliceDeadline=semanticDeadline;
@@ -119887,7 +119960,7 @@ const SessionFullTextIndex = ((io,p,c) => {
           try{
             guard();await resolveTexts(semanticRows.map((_,n)=>n));guard();
             for(let n=0;n<semanticRows.length;n++){guard();const row=semanticRows[n],full=row.metadata?row.metadata.text:originalFields.get(n);if(typeof full!=='string')continue;const identity=row.metadata?{sourceId:row.metadata.sid,field:'metadata.'+row.metadata.field,revision:digest(full),epoch:row.metadata.epoch,sourceRevision:row.metadata.epoch}:{sourceId:JSON.stringify([row.hit.row.sessionId,row.hit.row.messageId]),field:row.hit.row.source,revision:row.hit.row.contentRevision,epoch:row.hit.epoch,sourceRevision:row.hit.sourceRevision},token=policyContext.captureField(identity,full,row.metadata?'raw-metadata-v1':'canonical-message-v3');let source;
-              if(row.metadata)source=policyContext.rawWindow(token,row.identity.at(-2),row.identity.at(-1));else{let windows=canonical.get(token);if(!windows){windows=new Map();for(const window of policyContext.canonicalSlices(token)){guard();windows.set(window.canonicalStart,window);}canonical.set(token,windows);}source=policyContext.canonicalWindow(token,windows.get(row.hit.canonicalStart),row.hit.at,row.hit.width);}
+              if(row.metadata)source=policyContext.rawWindow(token,row.identity.at(-2),row.identity.at(-1));else if(canonicalWindows.has(row.hit.row)){source=policyContext.canonicalWindow(token,canonicalWindows.get(row.hit.row),row.hit.at,row.hit.width);}else{let windows=canonical.get(token);if(!windows){windows=new Map();for(const window of policyContext.canonicalSlices(token)){guard();windows.set(window.canonicalStart,window);}canonical.set(token,windows);}source=policyContext.canonicalWindow(token,windows.get(row.hit.canonicalStart),row.hit.at,row.hit.width);}
               const raw=policyContext.row(source,[row.hit.row.sessionId,row.hit.row.messageOrdinal??-1,row.hit.row.source??row.metadata.field],row.identity),key=row.metadata?row.metadataKey:sourceKeyOf(row.hit.row);if(!tokens.has(key))tokens.set(key,policyContext.weakKey(token));if(!fieldRows.has(key))fieldRows.set(key,rawRows.length);rawRows.push(raw);entries.push(SemanticRetrieval.hasScoreEvidence(semanticState)?{result:semanticState,index:n}:null);rowSources.push({source,token,full,n});sourceIndices.push(n);
             }
             const coverage=await rawCoverage({context,access,seen:new Set(),sequences:new Map()},{check:guard,timeout:expired,manifests:scannedManifests,mutation:searchMutation});guard();
@@ -120372,9 +120445,9 @@ let sessionFullTextOwner = null;
 function bindSessionFullTextIndex(disclosure,sessionResults=false) {
   const names=['scope','authorize','assertAuthorized','project','assertScope'];
   if(sessionFullTextOwner)throw Object.assign(Error('session_fulltext.already_bound'),{code:'session_fulltext.already_bound'});
-  if(!disclosure||Object.keys(disclosure).some(name=>!names.includes(name)&&!['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','restrictedCatalog'].includes(name))||names.some(name=>typeof disclosure[name]!=='function')||['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','restrictedCatalog'].some(name=>disclosure[name]!==undefined&&typeof disclosure[name]!=='function'))
+  if(!disclosure||Object.keys(disclosure).some(name=>!names.includes(name)&&!['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','refreshAuthorizedEpoch','restrictedCatalog'].includes(name))||names.some(name=>typeof disclosure[name]!=='function')||['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','refreshAuthorizedEpoch','restrictedCatalog'].some(name=>disclosure[name]!==undefined&&typeof disclosure[name]!=='function'))
     throw Object.assign(Error('session_fulltext.scope_binding_required'),{code:'session_fulltext.scope_binding_required'});
-  const projection=Object.fromEntries([...names,...['authorizedEpoch','authorizedEmpty','assertAuthorizedSet'].filter(name=>disclosure[name])].map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
+  const projection=Object.fromEntries([...names,...['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','refreshAuthorizedEpoch'].filter(name=>disclosure[name])].map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
   const instance=SessionFullTextIndex.create({...projection,resultUnit:sessionResults===true?'sessions':'references',root:()=>paths.sessions,keys:workDataKeys,writeJson:atomicWriteJson,
     validSessionId:safeSessionId,noise:sessionSearchRowIsNoise,terms:retrievalTerms,
     ...(typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'?{semantic:SemanticRetrieval.create(SemanticRuntimeHooks)}:{}),
@@ -120465,16 +120538,17 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       issued.set(token,cap);
       return local.run(token,async()=>{try{cap.assert();const value=await(kind==='model'||kind==='observation'?privacy.withPolicy(grant.scopeId,work):work());if(!cap.emitted){await final(cap);assertIndexState(cap);}return value;}finally{cap.closed=true;cap.sources.clear();cap.unchecked.clear();cap.disclosed.clear();cap.disclosures.length=0;cap.attachmentChecks.length=0;grant.close?.();}});
     }
-    async function authorize(sid,token,access) {
+    async function refreshAuthorizedEpoch(sid,token,access) {
       const cap=current(token);if(access.revision!==cap.access.revision||access.scopeId!==cap.access.scopeId)throw fail('scope_changed');
-      if(cap.exactSid&&sid!==cap.exactSid)return false;
+      if(cap.exactSid&&sid!==cap.exactSid)return null;
       await cap.grant.revalidate();cap.assert();const selected=await source.inspect(sid);cap.assert();
-      if(!selected||selected.head.kind==='steward'||selected.head.rawKind==='steward')return false;
+      if(!selected||selected.head.kind==='steward'||selected.head.rawKind==='steward')return null;
       const metadata=host.metadata(selected.head),project=host.projectKey(metadata.cwd);
-      if(cap.filter&&project!==cap.filter)return false;
+      if(cap.filter&&project!==cap.filter)return null;
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
-      cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return true;
+      cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return selected.epoch;
     }
+    async function authorize(sid,token,access){return await refreshAuthorizedEpoch(sid,token,access)!==null;}
     function authorizedInScope(sid,cap,access) {const row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
     function assertAuthorized(sid,token,access){return authorizedInScope(sid,current(token),access);}
     function assertAuthorizedSet(sids,token,access){
@@ -120544,7 +120618,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.assert();const disclosed=await disclose(cap,sid,prepared,'session-search:hit');cap.assert();
       disclosed.snippet=host.redact(disclosed.snippet);return disclosed;
     }
-    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,assertAuthorizedSet,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
+    const index=host.bindIndex({scope:async token=>current(token).access,authorize,refreshAuthorizedEpoch,assertAuthorized,assertAuthorizedSet,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
     function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
     async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();if(cap.threadSearch&&cap.metadataView)return clone(cap.metadataView);const ids=cap.exactSid?[cap.exactSid]:cap.searchCatalog??await host.catalog();

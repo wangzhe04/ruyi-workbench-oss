@@ -416,3 +416,11 @@ test('fast path cuts Intl.Segmenter.segment() calls by more than 20x on Chinese 
   a.ok(referenceCalls > 2 * text.length, 'reference calls segment() ~3x per grapheme: ' + referenceCalls);
   a.ok(counter.calls * 20 < referenceCalls, `fast path ${counter.calls} segment() calls vs reference ${referenceCalls}`);
 });
+
+test('short Han and ASCII windows preserve all original ranges at the fast path boundaries',()=>{
+  for(const text of [' ', '   ', ' a  B ', '\u4e00 a  \u9fff', 'A \u4e00 b '.repeat(682),
+    'x'.repeat(4095)+' ', ' '.repeat(4096), 'a'.repeat(4096)+'\u4e00',
+    '\u4e00\u0301', '\uf900 \u4e00', '\u4e00\r\nx', '\u4e00\ufe0f']){
+    same('short linear window',text);
+  }
+});

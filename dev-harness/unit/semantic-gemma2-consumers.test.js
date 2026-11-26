@@ -83,19 +83,19 @@ async function finalAdmissionFixture(t, effect, atFinish=false) {
   const source=f.api.source;
   f.context.createSessionFullTextSource=()=>({
     ...source,
-    async epoch(...args) {
+    async inspect(...args) {
       // Intercept source I/O after the admission guard and before its revalidation returns.
       const stack=String(Error().stack);
       // 151 阶段 2(S8):窗口策略的权威回验从 beforeEncode 挪到同一处的 authoritative(start/finish 两次);两个名字都认。
       if(!crossedThisSearch&&/\b(?:beforeEncode|authoritative)\b/.test(stack)&&/\bbeforeVerify\b/.test(stack)) {
-        if(atFinish && args[0]!=='Weak')return source.epoch(...args);
-        if(atFinish && !startEpochs.has(args[0])){startEpochs.add(args[0]);return source.epoch(...args);}
+        if(atFinish && args[0]!=='Weak')return source.inspect(...args);
+        if(atFinish && !startEpochs.has(args[0])){startEpochs.add(args[0]);return source.inspect(...args);}
         crossedThisSearch=true;
         intercepted=true;
         clock+=1001;
         await effect(f);
       }
-      return source.epoch(...args);
+      return source.inspect(...args);
     },
   });
   const {handleSessionApiRoutes}=f.installEntrypoints();
@@ -307,5 +307,37 @@ test('continuation predicts completion from work done this slice, excluding earl
     a.equal(batches,1,'the remaining corpus requires more than the two available continuation slices');
     a.ok(result.semantic.cachedFragments>prior);
     prior=result.semantic.cachedFragments;
+  }
+});
+
+for(const rewrite of [false,true])test('a hot query joins the authenticated body read before disclosure (rewrite='+rewrite+')',async t=>{
+  const {f}=await setup(t),source=f.api.source,runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode;
+  await f.put('Match',[{id:'m',role:'user',content:'accepted original wording'}]);
+  const read=Promise.withResolvers();
+  let hot=false,reads=0;
+  f.context.createSessionFullTextSource=()=>({...source,async scan(...args){
+    const proof=await source.scan(...args);
+    if(hot){reads++;read.resolve();}
+    return proof;
+  }});
+  runtime.encode=async(texts,options)=>{
+    if(hot&&options.role==='query'){
+      let timer;
+      try{await Promise.race([read.promise,new Promise((_,reject)=>{
+        timer=setTimeout(()=>reject(Error('body scan waited for the query vector')),3000);
+      })]);}finally{clearTimeout(timer);}
+      if(rewrite)await f.put('Match',[{id:'m',role:'user',content:'changed after scan'}]);
+    }
+    return encode(texts,options);
+  };
+  a.equal((await f.ui('cedar violet')).semantic.coverage,'complete');
+  hot=true;
+  const search=f.ui('amber indigo');
+  if(rewrite)await a.rejects(search,error=>/source_changed|disclosure_changed/.test(error.code));
+  else{
+    const result=await search;
+    a.equal(result.semantic.coverage,'complete');
+    a.equal(result.results[0].snippet,'accepted original wording');
+    a.equal(reads,1);
   }
 });

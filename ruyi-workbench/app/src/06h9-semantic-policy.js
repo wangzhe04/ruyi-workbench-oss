@@ -91,6 +91,20 @@ function* cachedSlices(text,generation){
   }
 function slices(text,generation=SLICE_CACHE.generation){return cachedSlices(text,generation);}
 function* sliceWindows(text){
+    // Short printable ASCII and NFKC-stable basic Han characters each occupy
+    // one UTF-16 unit and form separate graphemes. Only space runs collapse.
+    if(text.length>0&&text.length<=CHARS&&!/[^\x20-\x7e\u4e00-\u9fff]/.test(text)&&text.normalize('NFKC')===text){
+      const ranges=[];let origin=0,at=0,space;
+      const spaces=/ +/g;
+      while((space=spaces.exec(text))){
+        const width=space.index-origin;
+        if(width){ranges.push([at,width,origin]);at+=width;}
+        ranges.push([at++,1,space.index,spaces.lastIndex]);origin=spaces.lastIndex;
+      }
+      if(origin<text.length)ranges.push([at,text.length-origin,origin]);
+      yield {canonicalStart:0,start:0,end:text.length,text:text.toUpperCase().replace(/ +/g,' '),ranges};
+      return;
+    }
     let buffer='',ranges=[],absolute=0,lastYield=0;
     const append=(value,from,to,linear)=>{const at=buffer.length,prior=ranges[ranges.length-1];buffer+=value;
       if(prior&&prior[0]+prior[1]===at&&prior.length===(linear?3:4)&&(linear?prior[2]+prior[1]===from:prior[2]===from&&prior[3]===to))prior[1]+=value.length;
@@ -131,7 +145,7 @@ function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='stri
  function weakKey(token){field(token);const value=Object.freeze({});weakKeys.set(value,token);return value;}
  function assertWeak(key,row){const r=rows.get(row);if(!r||weakKeys.get(key)!==r.field)throw fail('weak_source_changed');}
  const assertPool=pool=>{if(!used||pool!==poolReference||poolSnapshot!==null&&(pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n])))throw fail('pool_changed');};
- const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
+ const api=Object.freeze({context,captureField,wholeSource,canonicalTextSlices:text=>canonicalSlices(text,sliceGeneration),canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
   begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();
     // Frozen arrays can still have getters or holes. Skip repeated full-pool
     // scans only when every position is an immutable own data property.
