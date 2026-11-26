@@ -13,6 +13,7 @@ const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-scheduled-playbooks-'))
 const home = path.join(root, 'home'), work = path.join(root, 'work'), clock = path.join(root, 'clock.txt');
 const approvedReport = path.join(work, 'approval-old.md'), writeLog = path.join(root, 'report-writes.log');
 const crashReport = path.join(work, 'interrupted-report.md'), expiredReport = path.join(work, 'expired-report.md');
+const observedReportPaths = JSON.stringify([approvedReport, crashReport, expiredReport]);
 function writesTo(target) {
   if (!fs.existsSync(writeLog)) return [];
   return fs.readFileSync(writeLog, 'utf8').trim().split('\n').filter(Boolean).map(line => JSON.parse(line)).filter(row => row.target === target);
@@ -39,7 +40,7 @@ async function start({ holdAfterWrite = '', askWaitMs = '' } = {}) {
   port = await getFreePort(); diagnostic = '';
   server = cp.spawn(process.execPath, ['--require', require.resolve('./lib/scheduled-playbook-callback-probe'), 'app/server.js', 'serve', '--port', String(port)], { cwd: wb, windowsHide: true,
     env: { ...fixtureChildEnv(), RUYI_HOME: home, WIN_CLAUDE_WORKBENCH_HOME: home,
-      RUYI_FIXTURE_REPORT_PATHS: JSON.stringify([approvedReport, crashReport, expiredReport]), RUYI_FIXTURE_WRITE_LOG: writeLog,
+      RUYI_FIXTURE_REPORT_PATHS: observedReportPaths, RUYI_FIXTURE_WRITE_LOG: writeLog,
       RUYI_FIXTURE_HOLD_AFTER_WRITE: holdAfterWrite, WCW_SCHEDULER_ASK_WAIT_MS: askWaitMs,
       WCW_SCHEDULER_CLOCK_FILE: clock, WCW_SCHEDULER_TICK_MS: '100', WCW_TEST_NO_NET_ANCHORS: '1' }, stdio: ['ignore', 'pipe', 'pipe'] });
   for (const stream of [server.stdout, server.stderr]) stream.on('data', chunk => { diagnostic = (diagnostic + chunk).slice(-12000); });
