@@ -61,16 +61,19 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,waitForCompletion=false,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
-      const deadline=Math.min(Date.now()+Math.max(1,Math.min(1000,deadlineMs)),Number.isFinite(outerDeadline)?outerDeadline:Infinity);
+      // Ready-worker send preflight waits across queue contention and document batches.
+      // Individual encodes still use the resident worker's failure watchdog.
+      const waitForRerank = purpose === 'rerank' && waitForCompletion;
+      const deadline=waitForRerank ? outerDeadline : Math.min(Date.now()+Math.max(1,Math.min(1000,deadlineMs)),Number.isFinite(outerDeadline)?outerDeadline:Infinity);
       // The caller may reserve a bounded window for a slow first fragment or
       // an admitted native batch. New batches still use the ordinary slice.
       let finishDeadline=Number.isFinite(progressDeadline)
         ? Math.max(deadline,Math.min(deadline+2000,progressDeadline)) : deadline;
-      const descriptor=await runtime.prepare({scopeId,signal,deadline});
+      const descriptor=await runtime.prepare({scopeId,signal,deadline,...(waitForRerank ? {budgetMs:250} : {})});
       if(beforeEncode)await beforeEncode();
       if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
       if(generation!==cacheGeneration)return empty('unavailable');
@@ -114,14 +117,15 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         const minimumBudgetMs=minimumBudget(role,texts.length);
         if(finishDeadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
         const encodeOptions={role,scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode};
-        if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
+        if(waitForRerank)encodeOptions.budgetMs=8000;
+        else if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
         let began=Date.now();
         let result=await runtime.encode(texts,encodeOptions);
         // A competing batch can occupy the resident worker beyond the normal
         // 200 ms retry window. Back off within the same absolute reservation.
         const extended=finishDeadline>deadline;
-        for(let tries=0;result?.reason==='overloaded'&&tries<(extended?24:8)&&typeof setTimeout==='function';tries++){
-          const delayMs=extended&&tries>=8?100:25;
+        for(let tries=0;result?.reason==='overloaded'&&(waitForRerank||tries<(extended?24:8))&&typeof setTimeout==='function';tries++){
+          const delayMs=(waitForRerank||extended)&&tries>=8?100:25;
           if(finishDeadline-Date.now()<=minimumBudgetMs+delayMs)break;
           await new Promise(resolve=>setTimeout(resolve,delayMs));
           if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;

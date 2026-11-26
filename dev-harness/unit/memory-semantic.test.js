@@ -144,14 +144,16 @@ test('150 S16: one explicit search call keeps paging while the call budget lasts
   assert.equal(second.semantic.coverage.examinedHeaders,79);assert.deepEqual(Array.from(second.entries,entry=>entry.id),['m75']);
 });
 
-test('150 S12: reranking runs only when the descriptor is ready; otherwise no prepare/score wait, baseline kept and warm kicked',async()=>{
-  for(const [state,expected] of [['cold','loading'],['loading','loading'],['warming','loading'],['failed','unavailable'],['unknown','unavailable'],['disabled','disabled']]){
+test('cold and warming turns try scoring while terminal runtime states keep the baseline',async()=>{
+  for(const [state,expected] of [['cold','reranked'],['loading','reranked'],['warming','reranked'],['failed','unavailable'],['unknown','unavailable'],['disabled','disabled']]){
     const entries=[{id:'a'},{id:'b'}];let scored=0,warmed=0;const phases=[];
     const rank=factory.create({fallback:()=>({entries,fillKeys:new Set()}),enabled:()=>true,lexical:()=>entries.map(entry=>({entry,shared:1})),key:entry=>entry.id,text:entry=>entry.id,
       descriptor:()=>({available:false,state}),warm:()=>{warmed++;},score:async()=>{scored++;return {status:'ready',scores:[0,1],modelFingerprint:'m'};}}).rank;
     const result=await rank(entries,'query',2,{},{check:async phase=>phases.push(phase)});
-    assert.equal(result.entries,entries,state+': baseline kept');assert.equal(result.semantic.status,expected,state);
-    assert.equal(scored,0,state+': no score/prepare');assert.equal(warmed,1,state+': warm kicked');assert.deepEqual(phases,['start','finish'],state+': revalidation kept');
+    assert.equal(result.semantic.status,expected,state);
+    if(expected==='reranked') assert.deepEqual(Array.from(result.entries,x=>x.id),['b','a']);
+    else assert.equal(result.entries,entries);
+    assert.equal(scored,expected==='reranked'?1:0);assert.equal(warmed,expected==='reranked'?0:1);assert.deepEqual(phases,['start','finish'],state+': revalidation kept');
   }
   const entries=[{id:'a'},{id:'b'}],seen=[];
   const rank=factory.create({fallback:()=>({entries,fillKeys:new Set()}),enabled:()=>true,lexical:()=>entries.map(entry=>({entry,shared:1})),key:entry=>entry.id,text:entry=>entry.id,

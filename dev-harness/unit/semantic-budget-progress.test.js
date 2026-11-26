@@ -118,3 +118,30 @@ test('cost hints must be synchronous finite milliseconds in range, and cannot su
   await assert.rejects(semantic.score('query', ['metadata'], { scopeId: 'revoked', beforeEncode: async () => { throw revoked; } }), error => error === revoked);
   assert.equal(hints, 0, 'the source guard retains precedence over cost scheduling');
 });
+
+test('send preflight limits initial preparation but waits through worker contention and all batches', async () => {
+  const clock = virtualClock();
+  const timers = (fn, ms) => clock.delay(ms).then(fn);
+  const retrieval = vm.runInNewContext(source + '\nSemanticRetrieval;', { require, Buffer, Date: clock.Date, setTimeout: timers });
+  let attempts = 0, queryCount = 0, documentCount = 0;
+  const scorer = retrieval.create({
+    prepare: async options => {
+      assert.equal(options.budgetMs, 250);
+      await clock.delay(200);
+      return prepared;
+    },
+    encode: async (texts, options) => {
+      if (++attempts <= 14) return { ok: false, reason: 'overloaded' };
+      if (options.role === 'query') queryCount++;
+      else documentCount += texts.length;
+      await clock.delay(1300);
+      return { ok: true, modelFingerprint: prepared.modelFingerprint, vectors: texts.map(() => vector(0)) };
+    },
+  });
+  const result = await scorer.score('question', Array.from({ length: 9 }, (_, i) => 'memory ' + i),
+    { scopeId: 'send', purpose: 'rerank', waitForCompletion: true });
+  assert.equal(result.status, 'ready');
+  assert.equal(result.coverage.complete, true);
+  assert.equal(queryCount, 1);
+  assert.equal(documentCount, 9);
+});

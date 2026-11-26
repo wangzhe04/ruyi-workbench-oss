@@ -3,7 +3,7 @@
 // 真 06d/06hc 源码(按 manifest 拼接)、真记忆文件、临时 HOME、合成编码器、断网可跑。
 //
 //   [R] 回合内全量读注册表 ≤1 次:语义开且模型 ready(走重排)、语义关、模型加载中三种条件下,一次预检只读一次注册表目录;
-//       descriptor 未 ready 时不进 prepare(不白等 250 ms)、交基线、后台踢一次预热(S12)。
+//       预热窗口内未就绪时交基线。
 //   [V] 廉价令牌比对没有放过任何一种撤回/变化(每条都在编码期间发生):同尺寸且 mtime 还原的进程外改写、进程外删除、
 //       到期时刻越过、用量变动挤动核心席位、取代边确认、同尺寸改写配置文件。被合并掉的回验点由保留点兜住的证据。
 //   [X] 显式检索:最旧的目标在一次调用内找到(S16 连续翻页),这一次调用只读一次注册表;同尺寸 mtime 还原的改写照样拒绝。
@@ -80,9 +80,8 @@ function rewriteSameSize(file, from, to) {
       prepare: async () => { prepareCalls++; await sleep(250); return { available: false, reason: 'unavailable', state: 'loading' }; } });
     const t0 = Date.now(); r = await preflight('alpha'); const loadingMs = Date.now() - t0;
     ok(r.result.status.semantic?.status === 'loading' && r.result.status.semantic?.fallback?.reason === 'loading', `R3a 模型加载中:回执 loading、按基线交付(${r.result.status.semantic?.status})`);
-    ok(prepareCalls === 0 && prewarmCalls === 1, `R3b descriptor 未 ready 时不进 prepare、后台踢一次预热(prepare=${prepareCalls}, prewarm=${prewarmCalls})`);
-    // 「不进 prepare」已由 R3b 证明;这里只钉读次数,耗时只打印(慢机/负载下不拿墙钟判红)。
-    ok(r.reads === 1, `R3c 也只读一次注册表(${r.reads};本次 ${loadingMs} ms,修前至少等满 250 ms)`);
+    ok(prepareCalls === 1 && prewarmCalls === 0, `R3b 加载中等待一次 prepare(prepare=${prepareCalls}, prewarm=${prewarmCalls})`);
+    ok(r.reads === 1, `R3c 也只读一次注册表(${r.reads};本次 ${loadingMs} ms)`);
     normal();
 
     // ── [V] 令牌比对不放过任何变化 ──

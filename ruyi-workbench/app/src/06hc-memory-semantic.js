@@ -139,14 +139,13 @@ const MemorySemanticRecall = (() => {
       if (positions.length < 2) return state('not-needed');
       if (positions.length > 16) return state('budget');
       if (host.budgetSafe && !host.budgetSafe(baseline.entries, config)) return state('budget');
-      // 150 号文 S12:只有 descriptor 已 ready 才尝试重排。冷启动/加载中/失败冷却期不再进 score(修前每回合在
-      // prepare 里白等到 250 ms 期限、再付一次回验),当场按 loading/unavailable 交基线;同时在后台踢一下预热,
-      // 模型好了下一回合自然走重排,失败冷却过后也会照常重试(06hb 的退避不变)。
+      // prepare joins startup for a short window. A ready worker can then finish
+      // the whole rerank; terminal states retain their normal recovery path.
       if (typeof host.descriptor === 'function') {
         let descriptor = null;
         try { descriptor = host.descriptor(); } catch { descriptor = null; }
         // 拿不到 descriptor(宿主没装运行时端口)时不猜,照修前走 score,由 prepare 自己报状态。
-        if (descriptor && typeof descriptor === 'object' && descriptor.available !== true) {
+        if (descriptor && descriptor.available !== true && descriptorStatus(descriptor) !== 'loading') {
           try { host.warm?.(); } catch { /* 预热只是提示,失败不影响本回合 */ }
           return state(descriptorStatus(descriptor));
         }
@@ -158,7 +157,7 @@ const MemorySemanticRecall = (() => {
       let result;
       try {
         result = await host.score(query, texts, {
-          scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
+          scopeId: context.scopeId, signal: context.signal, waitForCompletion: true, maxEncodeDocuments: 16,
           // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
           // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
@@ -252,7 +251,7 @@ const memorySemanticRecall = MemorySemanticRecall.create({
   key: entry => memoryRetrievalKey(entry), text: entry => memoryRetrievalText(entry),
   searchText: entry => memoryExplicitRetrievalText(entry),
   descriptor:()=>typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null,
-  // S12:descriptor 未 ready 时的后台预热(与开机预热同一入口,不 await;06hb 自带「已在起就复用、失败冷却期内直接回」)。
+  // Retry a failed worker through its existing cooldown.
   warm:()=>{ if (typeof SemanticRuntimeHooks.prewarm !== 'function') return; const task = SemanticRuntimeHooks.prewarm(); if (task && typeof task.catch === 'function') task.catch(() => {}); },
   score: (query, texts, options) => {
     if (!memorySemanticRetrieval) {

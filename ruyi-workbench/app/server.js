@@ -46648,16 +46648,19 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,waitForCompletion=false,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
-      const deadline=Math.min(Date.now()+Math.max(1,Math.min(1000,deadlineMs)),Number.isFinite(outerDeadline)?outerDeadline:Infinity);
+      // Ready-worker send preflight waits across queue contention and document batches.
+      // Individual encodes still use the resident worker's failure watchdog.
+      const waitForRerank = purpose === 'rerank' && waitForCompletion;
+      const deadline=waitForRerank ? outerDeadline : Math.min(Date.now()+Math.max(1,Math.min(1000,deadlineMs)),Number.isFinite(outerDeadline)?outerDeadline:Infinity);
       // The caller may reserve a bounded window for a slow first fragment or
       // an admitted native batch. New batches still use the ordinary slice.
       let finishDeadline=Number.isFinite(progressDeadline)
         ? Math.max(deadline,Math.min(deadline+2000,progressDeadline)) : deadline;
-      const descriptor=await runtime.prepare({scopeId,signal,deadline});
+      const descriptor=await runtime.prepare({scopeId,signal,deadline,...(waitForRerank ? {budgetMs:250} : {})});
       if(beforeEncode)await beforeEncode();
       if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
       if(generation!==cacheGeneration)return empty('unavailable');
@@ -46701,14 +46704,15 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         const minimumBudgetMs=minimumBudget(role,texts.length);
         if(finishDeadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
         const encodeOptions={role,scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode};
-        if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
+        if(waitForRerank)encodeOptions.budgetMs=8000;
+        else if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
         let began=Date.now();
         let result=await runtime.encode(texts,encodeOptions);
         // A competing batch can occupy the resident worker beyond the normal
         // 200 ms retry window. Back off within the same absolute reservation.
         const extended=finishDeadline>deadline;
-        for(let tries=0;result?.reason==='overloaded'&&tries<(extended?24:8)&&typeof setTimeout==='function';tries++){
-          const delayMs=extended&&tries>=8?100:25;
+        for(let tries=0;result?.reason==='overloaded'&&(waitForRerank||tries<(extended?24:8))&&typeof setTimeout==='function';tries++){
+          const delayMs=(waitForRerank||extended)&&tries>=8?100:25;
           if(finishDeadline-Date.now()<=minimumBudgetMs+delayMs)break;
           await new Promise(resolve=>setTimeout(resolve,delayMs));
           if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;
@@ -52641,14 +52645,13 @@ const MemorySemanticRecall = (() => {
       if (positions.length < 2) return state('not-needed');
       if (positions.length > 16) return state('budget');
       if (host.budgetSafe && !host.budgetSafe(baseline.entries, config)) return state('budget');
-      // 150 号文 S12:只有 descriptor 已 ready 才尝试重排。冷启动/加载中/失败冷却期不再进 score(修前每回合在
-      // prepare 里白等到 250 ms 期限、再付一次回验),当场按 loading/unavailable 交基线;同时在后台踢一下预热,
-      // 模型好了下一回合自然走重排,失败冷却过后也会照常重试(06hb 的退避不变)。
+      // prepare joins startup for a short window. A ready worker can then finish
+      // the whole rerank; terminal states retain their normal recovery path.
       if (typeof host.descriptor === 'function') {
         let descriptor = null;
         try { descriptor = host.descriptor(); } catch { descriptor = null; }
         // 拿不到 descriptor(宿主没装运行时端口)时不猜,照修前走 score,由 prepare 自己报状态。
-        if (descriptor && typeof descriptor === 'object' && descriptor.available !== true) {
+        if (descriptor && descriptor.available !== true && descriptorStatus(descriptor) !== 'loading') {
           try { host.warm?.(); } catch { /* 预热只是提示,失败不影响本回合 */ }
           return state(descriptorStatus(descriptor));
         }
@@ -52660,7 +52663,7 @@ const MemorySemanticRecall = (() => {
       let result;
       try {
         result = await host.score(query, texts, {
-          scopeId: context.scopeId, signal: context.signal, deadlineMs: 250, maxEncodeDocuments: 16,
+          scopeId: context.scopeId, signal: context.signal, waitForCompletion: true, maxEncodeDocuments: 16,
           // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
           // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
@@ -52754,7 +52757,7 @@ const memorySemanticRecall = MemorySemanticRecall.create({
   key: entry => memoryRetrievalKey(entry), text: entry => memoryRetrievalText(entry),
   searchText: entry => memoryExplicitRetrievalText(entry),
   descriptor:()=>typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null,
-  // S12:descriptor 未 ready 时的后台预热(与开机预热同一入口,不 await;06hb 自带「已在起就复用、失败冷却期内直接回」)。
+  // Retry a failed worker through its existing cooldown.
   warm:()=>{ if (typeof SemanticRuntimeHooks.prewarm !== 'function') return; const task = SemanticRuntimeHooks.prewarm(); if (task && typeof task.catch === 'function') task.catch(() => {}); },
   score: (query, texts, options) => {
     if (!memorySemanticRetrieval) {
