@@ -156,13 +156,15 @@ try {
   ok(typeof token === 'string' && token.length > 0, 'S1 取到工作台 token');
   const auth = { 'x-wcw-token': token };
   const gemma2 = process.env.RUYI_SEMANTIC_BACKEND === 'gemma2' && process.env.RUYI_DISABLE_SEMANTIC !== '1';
+  // 用 --require-semantic 对照默认模型，确保 B4、B5 和 H2b 取得首个完整的语义响应。
+  const requireCompleteSemantic = gemma2 || process.argv.includes('--require-semantic');
   const semanticComplete = response => response.json?.semantic?.status === 'ready' && response.json.semantic.coverage === 'complete';
   async function scoredSearch(query) {
     const route = '/api/sessions/search?q=' + encodeURIComponent(query);
     const deadline = Date.now() + 20000;
     let response = await get(PORT, route, auth);
-    // 候选模型在加载期间只返回强词法证据。召回断言应检查首个完整语义回包。
-    while (gemma2 && response.status === 200 && response.json?.ok === true && !semanticComplete(response) && Date.now() < deadline) {
+    // 模型在加载期间只返回强词法证据。召回断言应检查首个完整语义回包。
+    while (requireCompleteSemantic && response.status === 200 && response.json?.ok === true && !semanticComplete(response) && Date.now() < deadline) {
       await sleep(200);
       response = await get(PORT, route, auth);
     }
@@ -190,11 +192,11 @@ try {
   ok((hereString.json?.results || [])[0]?.id === 'sess-beta', 'B3 ASCII 词命中正文');
 
   const canary = await scoredSearch('流量 观察');
-  ok((!gemma2 || semanticComplete(canary)) && (canary.json?.results || []).some(r => r.id === 'sess-delta'),
+  ok((!requireCompleteSemantic || semanticComplete(canary)) && (canary.json?.results || []).some(r => r.id === 'sess-delta'),
     `B4 多词查询命中(语义 ${canary.json?.semantic?.status}/${canary.json?.semantic?.coverage})`);
 
   const typo = await scoredSearch('powersell here string');
-  ok((!gemma2 || semanticComplete(typo)) && (typo.json?.results || []).some(r => r.id === 'sess-beta'),
+  ok((!requireCompleteSemantic || semanticComplete(typo)) && (typo.json?.results || []).some(r => r.id === 'sess-beta'),
     `B5 拼写漂移(powersell)仍能命中(语义 ${typo.json?.semantic?.status}/${typo.json?.semantic?.coverage}，实得 ${JSON.stringify((typo.json?.results || []).map(r => r.id))})`);
 
   // ── C 脱敏:正文里粘过的密钥不能因为"搜了一下"就漏出去 ─────────────────────────────────
@@ -290,7 +292,7 @@ try {
   ok(noisePreview.status === 200 && noisePreview.json?.lexicalPreview === true && noisePreview.json.coverage?.complete === true && noisePreview.json.results?.length === 0,
     `H2 后台回执 / 系统行不进词法索引(HTTP ${noisePreview.status}，索引完整 ${noisePreview.json?.coverage?.complete})`);
   const noise = await scoredSearch(noiseQuery);
-  ok((!gemma2 || semanticComplete(noise)) && noise.json?.results?.length === 0,
+  ok((!requireCompleteSemantic || semanticComplete(noise)) && noise.json?.results?.length === 0,
     `H2b 无相关来源的查询不应召回(HTTP ${noise.status}，语义 ${noise.json?.semantic?.status}/${noise.json?.semantic?.coverage}，实得 ${JSON.stringify((noise.json?.results || []).map(r => ({ id: r.id, matchMode: r.matchMode, ordinal: r.reference?.messageOrdinal, score: r.semanticScore })))})`);
   // 只沾一个常见词的会话不算命中:「导出」只在 alpha 里出现,但查询另外两个词它都没有
   const weak = await get(PORT, '/api/sessions/search?q=' + encodeURIComponent('导出 季度报表 同比'), auth);
