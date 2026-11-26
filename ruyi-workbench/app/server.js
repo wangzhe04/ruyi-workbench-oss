@@ -23779,8 +23779,10 @@ function createSessionFullTextSource() {
         check();handle=await fsp.open(sessionBodyPaths(id).messages,'r');check();if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');check();
         const buffer=Buffer.alloc(64*1024);let parts=[],bytes=0,done=false;
         while(!done){check();const read=await handle.read(buffer,0,buffer.length,null);check();if(!read.bytesRead)break;let start=0;
-          for(let n=0;n<read.bytesRead;n++)if(buffer[n]===10){parts.push(Buffer.from(buffer.subarray(start,n)));bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
-            const physical=Buffer.concat(parts,bytes),text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
+          for(let n=buffer.indexOf(10,start);n>=0&&n<read.bytesRead;n=buffer.indexOf(10,start)){
+            bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
+            const tail=buffer.subarray(start,n),physical=parts.length?Buffer.concat([...parts,tail],bytes):tail;
+            const text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
             await accept(text);parts=[];bytes=0;start=n+1;if(count===selected.count){done=true;break;}}
           if(!done&&start<read.bytesRead){parts.push(Buffer.from(buffer.subarray(start,read.bytesRead)));bytes+=read.bytesRead-start;if(bytes>physicalMaximum)throw fail('capacity');}
         }
@@ -46436,9 +46438,19 @@ function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='stri
  function assertScore(row,doc,encodedIdentity,encodedText){const expected=rows.get(row);if(!expected||expected.cacheText!==doc||expected.encodingIdentity!==encodedIdentity||encodedText!==null&&expected.encodedText!==encodedText)throw fail('score_source_changed');}
  function weakKey(token){field(token);const value=Object.freeze({});weakKeys.set(value,token);return value;}
  function assertWeak(key,row){const r=rows.get(row);if(!r||weakKeys.get(key)!==r.field)throw fail('weak_source_changed');}
- const assertPool=pool=>{if(!used||pool!==poolReference||pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n]))throw fail('pool_changed');};
+ const assertPool=pool=>{if(!used||pool!==poolReference||poolSnapshot!==null&&(pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n])))throw fail('pool_changed');};
  const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
-  begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();},fieldKey:token=>field(token).key});requests.set(api,context);return api;}
+  begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();
+    // Frozen arrays can still have getters or holes. Skip repeated full-pool
+    // scans only when every position is an immutable own data property.
+    if(Object.isFrozen(pool)){
+      let fixed=true;
+      for(let n=0;n<pool.length;n++){
+        const slot=Object.getOwnPropertyDescriptor(pool,n);
+        if(!slot||!Object.hasOwn(slot,'value')||!rows.has(slot.value)){fixed=false;break;}
+      }
+      if(fixed)poolSnapshot=null;
+    }},fieldKey:token=>field(token).key});requests.set(api,context);return api;}
 return {canonicalSlices,rawSlices,projectedSlices,createRequest,isRequest:(value,context)=>requests.get(value)===context,clearSliceCache};
 
 })();
@@ -46751,7 +46763,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(status==='timeout'&&complete)status='ready';
       const effectiveMinimum=typeof minScore==='number'&&Number.isFinite(minScore)?minScore:0.85;
       const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId && Number.isFinite(descriptor.retrievalThresholds?.search)?assessAdmission(query,docs,scores,{complete,minScore:effectiveMinimum}):null;
-      const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete},...(admission?{admission}:{})};
+      const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete,encoded:cached-(docs.length-missing.length)},...(admission?{admission}:{})};
       if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
       return scored;
     }
@@ -119709,13 +119721,15 @@ const SessionFullTextIndex = ((io,p,c) => {
             const exact=row.text.indexOf(phrase),matched=terms.filter(term=>row.text.includes(term)),windowHash=semantic||exact>=0||matched.length>0||rowIds.length?digest({text:row.text,ranges:row.ranges}):null;
             // 150 S6:check 只在逐行处做一次(上面 for 循环头);逐 96 字窗不再各调一次。窗口循环是同步的纯计算,
             // 一行至多 4096 字 ≈ 43 窗,行间的那次 check 照样能截住撤权、取消与截止。
+            let referenceRow;
+            const reference=()=>referenceRow??=Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined});
             if(semantic){const semanticKey=sourceKeyOf(row);for(const {at,next}of semanticWindows(row.text)){totals.set(semanticKey,(totals.get(semanticKey)||0)+1);
               if(semanticRows.length<semanticRowCap){const width=next-at,start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,next-1).to;
-                semanticRows.push({text:row.text.slice(at,next),identity:[sid,value.epoch,value.sourceRevision,value.generation,row.contentRevision,row.source,row.canonicalStart,at,start,end,windowHash],hit:{row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,start,end}});}fragmentCount++;}}
+                semanticRows.push({text:row.text.slice(at,next),identity:[sid,value.epoch,value.sourceRevision,value.generation,row.contentRevision,row.source,row.canonicalStart,at,start,end,windowHash],hit:{row:reference(),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,start,end}});}fragmentCount++;}}
             if(requiredIds.length&&!rowIds.length||!requiredIds.length&&exact<0&&!matched.length)continue;
             const idTerm=requiredIds.length?rowIds[0].toUpperCase():null,at=requiredIds.length?identifierAt(row.text,rowIds[0]):exact>=0?exact:row.text.indexOf(matched[0]),width=requiredIds.length?idTerm.length:exact>=0?phrase.length:matched[0].length;
             const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,at+width-1).to;if(!integer(start)||!integer(end))throw fail('shard_invalid');
-            const hit={row:Object.freeze({...row,text:undefined,ranges:undefined,canonicalStart:undefined}),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,entity:requiredIds.length>0,edge:at+width===row.text.length,exact:exact>=0||requiredIds.length>0,score:requiredIds.length?(exact>=0?90:60)+matched.length:(exact>=0?30:0)+matched.length,start,end};
+            const hit={row:reference(),canonicalStart:row.canonicalStart,windowHash,at,width,epoch:value.epoch,sourceRevision:value.sourceRevision,entity:requiredIds.length>0,edge:at+width===row.text.length,exact:exact>=0||requiredIds.length>0,score:requiredIds.length?(exact>=0?90:60)+matched.length:(exact>=0?30:0)+matched.length,start,end};
             if(!requiredIds.length&&terms.length){let group=termSources.get(sourceKey);if(!group){if(termSources.size<4096){group={terms:new Set(),hit};termSources.set(sourceKey,group);}else lexicalTruncated=true;}if(group)for(const term of matched)group.terms.add(term);}
             if(!requiredIds.length&&exact<0&&matched.length<needed)continue;
             if(!requiredIds.length){const group=termSources.get(sourceKey);if(group)group.hasCandidate=true;}
@@ -119737,6 +119751,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       if(metadataRows.length){if(semanticRows.length+metadataRows.length>semanticRowCap)metadataTruncated=true;semanticRows.splice(0,0,...metadataRows);if(semanticRows.length>semanticRowCap)semanticRows.length=semanticRowCap;}
       let semanticState={status:options.lexicalOnly===true?'deferred':semanticOff?'disabled':semanticLater?'deferred':semantic?'empty':'unavailable',coverage:{cached:0,total:semanticRows.length,complete:false}};
       let ranked=[],gemmaDecision=typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.isMethod(options.method)?{complete:false,policyId:SemanticWindowPolicy.CONTRACT.id}:null;const gemmaMetadata=new Map(),gemmaWeak=new Map();
+      const verifiedBodySessions=new Map();
       if(semantic&&semanticRows.length){
         // Lexical shard text is uppercased. Resolve original spelling through
         // the authenticated source owner only when a vector is not cached.
@@ -119786,13 +119801,23 @@ const SessionFullTextIndex = ((io,p,c) => {
             const rows=bodyRows.get(sid);
             const policy=attachmentSource&&rows.some(item=>attachmentField.test(item.entry.hit.row.source))?await host.enabled():null,budget=attachmentBudget();
             let sourceTurn=0,sourceTurnBasis='legacy-inferred';const checks=new Set(),fragments=new Map(),fields=new Map();
+            const reuseBody=gemmaMethod&&!requiredIds.length&&manifests.get(sid)?.attachments===0;
+            const verifiedWindows=new Map(),byOrdinal=new Map();
+            for(const item of rows){
+              const ordinal=item.entry.hit.row.messageOrdinal;
+              if(!byOrdinal.has(ordinal))byOrdinal.set(ordinal,[]);
+              byOrdinal.get(ordinal).push(item);
+            }
+            let unverified=0;
             const proof=await host.scan(sid,async(row,ordinal)=>{
               if(row.role==='user'){sourceTurn=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?row.turnSeq:sourceTurn+1;sourceTurnBasis=Number.isSafeInteger(row.turnSeq)&&row.turnSeq>0?'explicit':'legacy-inferred';}
               const explicit=row.turnSeq??row.turnSummary?.turnSeq;if(Number.isSafeInteger(explicit)&&explicit>=0){sourceTurn=explicit;sourceTurnBasis='explicit';}
               if(host.noise(row))return;
               const attachments=policy!==null?attachmentCandidates(row,budget):[];
-              const chosen=rows.filter(item=>item.entry.hit.row.messageOrdinal===ordinal);if(!chosen.length)return;
-              const revision=digest(row),parts=sources(row);
+              const inspected=reuseBody?inspectSources(row):null;
+              if(inspected?.unverified)unverified++;
+              const chosen=byOrdinal.get(ordinal);if(!chosen)return;
+              const revision=digest(row),parts=inspected?.parts??sources(row);
               if(policy!==null&&chosen.some(item=>attachmentField.test(item.entry.hit.row.source)))parts.push(...await extractedSources(row,policy,await selectedAttachments(attachments,policy)));
               const intrinsic=typeof row.id==='string'&&/^[A-Za-z0-9_.:-]{1,256}$/.test(row.id),messageId=intrinsic?row.id:'legacy-ordinal:'+ordinal,windows=new Map(),neededWindows=new Set(chosen.map(item=>item.entry.hit.row.source+'\0'+item.entry.hit.canonicalStart));let chunkOrdinal=0;
               for(const part of parts){for(const window of slices(part.text,sliceGeneration)){const key=part.field+'\0'+window.canonicalStart;if(neededWindows.has(key))windows.set(key,{window,chunkOrdinal});chunkOrdinal++;if(windows.size===neededWindows.size)break;}if(windows.size===neededWindows.size)break;}
@@ -119801,12 +119826,15 @@ const SessionFullTextIndex = ((io,p,c) => {
                 const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;
                 if(!window||found.chunkOrdinal!==hit.row.chunkOrdinal||window.start!==hit.row.start||window.end!==hit.row.end||hit.row.messageId!==messageId||hit.row.messageIdBasis!==(intrinsic?'intrinsic':'physical-ordinal')||hit.row.turnSeq!==sourceTurn||hit.row.turnSeqBasis!==sourceTurnBasis||digest({text:window.text,ranges:window.ranges})!==hit.windowHash||rangeAt(window.ranges,hit.at).from!==hit.start||rangeAt(window.ranges,hit.at+hit.width-1).to!==hit.end)throw fail('shard_source_mismatch');
                 if(source.revalidate&&!checks.has(source.revalidate)){if(!await source.revalidate())throw fail('source_changed');checks.add(source.revalidate);}
+                if(reuseBody&&!source.revalidate&&window.ranges.length<=64)
+                  verifiedWindows.set(hit.row,{source,ranges:window.ranges});
                 const text=source.text.slice(hit.start,hit.end);if(text.length<=8192)fragments.set(index,text);fields.set(index,source.text);
               }
             },{check:sourceCheck});
             if(!proof||rows.some(item=>item.entry.hit.epoch!==proof.epoch||item.entry.hit.sourceRevision!==proof.revision)||await host.epoch(sid)!==proof.epoch||host.assertScope(context,access)!==true)throw fail('source_changed');
-            return {sid,fragments,fields,checks,sequence:host.sourceSequence(sid)};
-          },{onSettled:({sid,fragments,fields,checks,sequence})=>{
+            return {sid,fragments,fields,checks,sequence:host.sourceSequence(sid),body:verifiedWindows.size?{proof,unverified,verifiedWindows}:null};
+          },{onSettled:({sid,fragments,fields,checks,sequence,body})=>{
+            if(body)verifiedBodySessions.set(sid,{...body,sequence});
             // 原文片段只在整条来源回读完、epoch 与 revision 都核过之后才并入;按原顺序交付,中途撞截止的来源一字不留。
             for(const [index,text]of fragments)originalFragments.set(index,text);for(const [index,text]of fields)originalFields.set(index,text);
             sourceSequences.set(sid,sequence);sourceGuards.set(sid,checks);loadedSources.add(sid);
@@ -119834,7 +119862,6 @@ const SessionFullTextIndex = ((io,p,c) => {
         else try{
           const texts=semanticRows.map(row=>row.text);
           const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
-          let previousCached=0;
           const continuationDeadline=Math.min(semanticDeadline+2000,(options.deadline??Infinity)-1000);
           const allowProgress=gemmaMethod&&!isPaused()&&Number.isFinite(options.deadline);
           let sliceDeadline=semanticDeadline;
@@ -119843,13 +119870,12 @@ const SessionFullTextIndex = ((io,p,c) => {
             semanticState=await semantic.score(query,texts,{...scoreOptions,deadline:sliceDeadline,
               ...(allowProgress?{progressDeadline:options.deadline-1000}:{})});
             if(!gemmaMethod||candidates.length||isPaused()||!Number.isFinite(options.deadline))break;
-            const {cached,total,complete}=semanticState.coverage;
-            if(complete||!['timeout','partial'].includes(semanticState.status)||cached<=previousCached||cached>=total)break;
+            const {cached,total,complete,encoded}=semanticState.coverage;
+            if(complete||!['timeout','partial'].includes(semanticState.status)||!Number.isSafeInteger(encoded)||encoded<=0||cached>=total)break;
             // Continue only when measured progress predicts completion before the
             // request deadline, leaving a slice for source verification and disclosure.
-            const remainingMs=(Date.now()-started)*(total-cached)/(cached-previousCached);
+            const remainingMs=(Date.now()-started)*(total-cached)/encoded;
             if(continuationDeadline-Date.now()<Math.max(1,remainingMs))break;
-            previousCached=cached;
             sliceDeadline=Math.min(Date.now()+1000,continuationDeadline);
           }
         }catch(error){if(error!==sourceExpired&&semanticFailures.degradable(error,options.signal)){semanticState={status:'unavailable',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}else{if(error!==sourceExpired)throw error;const descriptor=typeof SemanticRuntimeHooks!=='undefined'?SemanticRuntimeHooks.descriptor():null;semanticState={status:'timeout',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false},...(typeof SemanticWindowPolicy!=='undefined'&&descriptor?.modelId===SemanticWindowPolicy.CONTRACT.modelId?{modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint}:{})};}}
@@ -119866,15 +119892,26 @@ const SessionFullTextIndex = ((io,p,c) => {
             }
             const coverage=await rawCoverage({context,access,seen:new Set(),sequences:new Map()},{check:guard,timeout:expired,manifests:scannedManifests,mutation:searchMutation});guard();
             const verifiedSids=[...new Set(rowSources.map(item=>semanticRows[item.n].hit.row.sessionId))];
-            const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:rawRows,lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:verificationDeadline,signal:options.signal,
+            const decision=await policy.evaluate({query,scopeId:access.scopeId,modelFingerprint:SemanticWindowPolicy.CONTRACT.modelFingerprint,rows:Object.freeze(rawRows),lexical:candidates.filter(hit=>fieldRows.has(sourceKeyOf(hit.row))).map(hit=>({key:tokens.get(sourceKeyOf(hit.row)),index:fieldRows.get(sourceKeyOf(hit.row))})),scoreEntries:entries,poolComplete:coverage.complete===true&&rawRows.length===semanticRows.length&&fragmentCount<=semanticRows.length-metadataRows.length&&!metadataTruncated&&!entityTruncated&&!lexicalTruncated,context:policyContext.context,windowContext:policyContext,deadline:verificationDeadline,signal:options.signal,
               resolve:async(index,whole)=>{check();const item=rowSources[index];if((semanticRows[item.n].metadata?semanticRows[item.n].metadata.text:originalFields.get(item.n))!==item.full)throw fail('source_changed');return whole?policyContext.wholeSource(item.token):item.source;},beforeVerify:async event=>{
                 // The policy stops starting new windows at its soft deadline. Finish
                 // validation of already resolved windows under the outer deadline.
                 check();activeSids=verifiedSids;
-                if(event?.phase==='resolved')await beforeEncode();else await authoritative();
+                if(event?.phase==='resolved'&&typeof host.assertAuthorizedSet==='function'){
+                  if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
+                  for(const sid of verifiedSids)if(host.sourceSequence(sid)!==sourceSequences.get(sid))throw fail('source_changed');
+                  if(host.assertAuthorizedSet(verifiedSids,context,access)!==true)throw fail('source_denied');
+                }else if(event?.phase==='resolved')await beforeEncode();else await authoritative();
                 check();
               }});
-            try{const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(let n=0;n<candidates.length;n++)if(sourceKeyOf(candidates[n].row)===key)candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,status:!decision.complete&&Date.now()>=verificationDeadline?'timeout':semanticState.status,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
+            try{
+              const candidateIndices=new Map();
+              for(let n=0;n<candidates.length;n++){
+                const key=sourceKeyOf(candidates[n].row);
+                if(!candidateIndices.has(key))candidateIndices.set(key,[]);
+                candidateIndices.get(key).push(n);
+              }
+              const d=policy.decisions(decision,policyContext.context),accepted=semanticRows.map(()=>null);d.semanticAccepted.forEach((value,index)=>{accepted[sourceIndices[index]]=value;});for(const [key,token]of tokens){const verdict=d.weakAccepted.get(token);if(verdict!==undefined)gemmaWeak.set(key,verdict);const index=d.weakWindowIndices.get(token);if(index!==undefined){const chosen=sourceIndices[index];for(const n of candidateIndices.get(key)||[])candidates[n]={...semanticRows[chosen].hit,score:candidates[n].score,entity:false,edge:false,exact:false,verifiedWindow:true};}const field=fieldRows.get(key);if(field!==undefined&&rawRows[field].metadata)gemmaMetadata.set(key,d.metadataAccepted.get(rawRows[field].fieldKey)??null);}gemmaDecision={complete:decision.complete,policyId:decision.policyId};semanticState={...semanticState,status:!decision.complete&&Date.now()>=verificationDeadline?'timeout':semanticState.status,admission:{policyId:decision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:decision.status,accepted},coverage:{...semanticState.coverage,complete:decision.complete}};}finally{policy.dispose(decision,policyContext.context);}
           }catch(error){if(error!==expired&&error!==sourceExpired)throw error;gemmaDecision={complete:false,policyId:SemanticWindowPolicy.CONTRACT.id};semanticState={...semanticState,status:'timeout',admission:{policyId:gemmaDecision.policyId,purpose:'search-relevance',answerability:'not-assessed',status:'partial',accepted:semanticRows.map(()=>null)},coverage:{...semanticState.coverage,complete:false}};}
         }
         if(host.assertScope(context,access)!==true)throw fail('disclosure_changed');
@@ -119906,6 +119943,26 @@ const SessionFullTextIndex = ((io,p,c) => {
       const verifySource=async sid=>{check();
         const already=typeof host.authorizedEpoch==='function'&&host.assertAuthorized(sid,context,access)===true;
         if(!already&&await host.authorize(sid,context,access)!==true)return null;const hits=hitsBySid.get(sid),resolved=[];
+        const appendHit=(hit,source,ordinal)=>{
+            if(hit.lexical){const original=normalize(source.text),strong=!!requiredIds.length||original.includes(phrase)||(terms.length>0&&terms.every(term=>original.includes(term)));if(!strong){const key=sourceKeyOf(hit.row);if(gemmaDecision){const decision=gemmaWeak.get(key);if(decision!==true){if(decision!==false)lexicalPartial=true;if(hit.semanticRank!==undefined){delete hit.lexicalRank;hit.lexical=false;}else return;}}else{const evidence=semanticEvidence.get(key),total=semanticTotals.get(key)||0;if(evidence?.accepted){}else if(total>0&&evidence?.scored===total)return;else lexicalPartial=true;}}}
+            const owner=sid+'\0'+ordinal+'\0'+source.field;
+            const snippetStart=Math.max(0,hit.start-60),snippetEnd=Math.min(source.text.length,hit.end+120,snippetStart+600);
+            resolved.push({owner,hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120),revalidate:source.revalidate});
+        };
+        // The lexical and semantic hits share their immutable shard row. Only
+        // reuse windows proven by this request's completed body scan. Look up
+        // the actual hit offsets and recheck the live source before disclosure.
+        const body=verifiedBodySessions.get(sid);
+        if(body&&hits.every(hit=>body.verifiedWindows.has(hit.row))){
+          if(await host.epoch(sid)!==body.proof.epoch||host.sourceSequence(sid)!==body.sequence)throw fail('source_changed');
+          check();if(host.assertAuthorized(sid,context,access)!==true)throw fail('source_denied');
+          for(const hit of hits){
+            const {source,ranges}=body.verifiedWindows.get(hit.row);
+            if(rangeAt(ranges,hit.at).from!==hit.start||rangeAt(ranges,hit.at+hit.width-1).to!==hit.end)throw fail('shard_source_mismatch');
+            appendHit(hit,source,hit.row.messageOrdinal);
+          }
+          return {sid,proof:body.proof,sequence:body.sequence,unverified:body.unverified,resolved};
+        }
         const policy=attachmentSource&&hits.some(hit=>attachmentField.test(hit.row.source))?await host.enabled():null,budget=attachmentBudget();
         let sourceTurn=0,sourceTurnBasis='legacy-inferred',unverified=0;
         const proof=await host.scan(sid,async(row,ordinal)=>{
@@ -119926,10 +119983,7 @@ const SessionFullTextIndex = ((io,p,c) => {
             if(hit.entity){const part=source.text.slice(hit.start,hit.end).normalize('NFKC').toLowerCase();let left=hit.start,right=hit.end;while(left>0&&hit.start-left<512&&idChar(source.text[left-1]))left--;while(right<source.text.length&&right-hit.end<512&&idChar(source.text[right]))right++;if(left>0&&idChar(source.text[left-1])||right<source.text.length&&idChar(source.text[right])||!requiredIds.includes(part)||!identify(source.text.slice(left,right)).includes(part))continue;}
             if(hit.row.contentRevision!==(source.revision?digest([revision,source.revision]):revision))continue;
             const found=windows.get(source.field+'\0'+hit.canonicalStart),window=found?.window;const proven=!!window&&found.chunkOrdinal===hit.row.chunkOrdinal&&window.start===hit.row.start&&window.end===hit.row.end&&hit.row.messageId===messageId&&hit.row.messageIdBasis===(intrinsic?'intrinsic':'physical-ordinal')&&hit.row.turnSeq===sourceTurn&&hit.row.turnSeqBasis===sourceTurnBasis&&digest({text:window.text,ranges:window.ranges})===hit.windowHash&&rangeAt(window.ranges,hit.at).from===hit.start&&rangeAt(window.ranges,hit.at+hit.width-1).to===hit.end;if(!proven)throw fail('shard_source_mismatch');
-            if(hit.lexical){const original=normalize(source.text),strong=!!requiredIds.length||original.includes(phrase)||(terms.length>0&&terms.every(term=>original.includes(term)));if(!strong){const key=sourceKeyOf(hit.row);if(gemmaDecision){const decision=gemmaWeak.get(key);if(decision!==true){if(decision!==false)lexicalPartial=true;if(hit.semanticRank!==undefined){delete hit.lexicalRank;hit.lexical=false;}else continue;}}else{const evidence=semanticEvidence.get(key),total=semanticTotals.get(key)||0;if(evidence?.accepted){}else if(total>0&&evidence?.scored===total)continue;else lexicalPartial=true;}}}
-            const owner=sid+'\0'+ordinal+'\0'+source.field;
-            const snippetStart=Math.max(0,hit.start-60),snippetEnd=Math.min(source.text.length,hit.end+120,snippetStart+600);
-            resolved.push({owner,hit,sourceText:source.text,text:source.text.slice(snippetStart,snippetEnd),snippetEnd,snippetTruncated:snippetEnd<Math.min(source.text.length,hit.end+120),revalidate:source.revalidate});
+            appendHit(hit,source,ordinal);
           }
         },{check});
         if(!proof||proof.epoch!==hits[0].epoch||proof.revision!==hits[0].sourceRevision)return null;
@@ -120318,9 +120372,9 @@ let sessionFullTextOwner = null;
 function bindSessionFullTextIndex(disclosure,sessionResults=false) {
   const names=['scope','authorize','assertAuthorized','project','assertScope'];
   if(sessionFullTextOwner)throw Object.assign(Error('session_fulltext.already_bound'),{code:'session_fulltext.already_bound'});
-  if(!disclosure||Object.keys(disclosure).some(name=>!names.includes(name)&&!['authorizedEpoch','authorizedEmpty','restrictedCatalog'].includes(name))||names.some(name=>typeof disclosure[name]!=='function')||['authorizedEpoch','authorizedEmpty','restrictedCatalog'].some(name=>disclosure[name]!==undefined&&typeof disclosure[name]!=='function'))
+  if(!disclosure||Object.keys(disclosure).some(name=>!names.includes(name)&&!['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','restrictedCatalog'].includes(name))||names.some(name=>typeof disclosure[name]!=='function')||['authorizedEpoch','authorizedEmpty','assertAuthorizedSet','restrictedCatalog'].some(name=>disclosure[name]!==undefined&&typeof disclosure[name]!=='function'))
     throw Object.assign(Error('session_fulltext.scope_binding_required'),{code:'session_fulltext.scope_binding_required'});
-  const projection=Object.fromEntries([...names,...['authorizedEpoch','authorizedEmpty'].filter(name=>disclosure[name])].map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
+  const projection=Object.fromEntries([...names,...['authorizedEpoch','authorizedEmpty','assertAuthorizedSet'].filter(name=>disclosure[name])].map(name=>[name,disclosure[name]])),source=createSessionFullTextSource();
   const instance=SessionFullTextIndex.create({...projection,resultUnit:sessionResults===true?'sessions':'references',root:()=>paths.sessions,keys:workDataKeys,writeJson:atomicWriteJson,
     validSessionId:safeSessionId,noise:sessionSearchRowIsNoise,terms:retrievalTerms,
     ...(typeof SemanticRetrieval!=='undefined'&&typeof SemanticRuntimeHooks!=='undefined'?{semantic:SemanticRetrieval.create(SemanticRuntimeHooks)}:{}),
@@ -120421,7 +120475,12 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
       cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return true;
     }
-    function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    function authorizedInScope(sid,cap,access) {const row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    function assertAuthorized(sid,token,access){return authorizedInScope(sid,current(token),access);}
+    function assertAuthorizedSet(sids,token,access){
+      const cap=current(token);
+      return sids.every(sid=>authorizedInScope(sid,cap,access));
+    }
     function authorizedEpoch(sid,token,access) {if(!assertAuthorized(sid,token,access))return null;return current(token).sources.get(sid).epoch;}
     function authorizedEmpty(sid,token,access) {return assertAuthorized(sid,token,access)&&current(token).sources.get(sid).head.messageCount===0;}
     async function final(cap,completeAttachmentCheck=true) {
@@ -120485,7 +120544,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.assert();const disclosed=await disclose(cap,sid,prepared,'session-search:hit');cap.assert();
       disclosed.snippet=host.redact(disclosed.snippet);return disclosed;
     }
-    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
+    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,assertAuthorizedSet,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
     function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
     async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();if(cap.threadSearch&&cap.metadataView)return clone(cap.metadataView);const ids=cap.exactSid?[cap.exactSid]:cap.searchCatalog??await host.catalog();

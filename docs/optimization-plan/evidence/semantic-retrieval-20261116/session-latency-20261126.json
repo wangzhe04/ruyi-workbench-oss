@@ -1,0 +1,599 @@
+{
+  "scope": "Development benchmark on 25 synthetic encrypted sessions and 1000 fragments, enhanced privacy, real CPU Q4. Same 20 fresh queries and process affinity mask 0x3. Wall times depend on machine load. No independent quality fixture used.",
+  "referenceCommit": "cff3f24e",
+  "hotMethod": "First fill the document cache, then measure 20 distinct queries. Both runs include diagnostic phase timing. Ordered result digests cover session ID, message ID, snippet and match mode.",
+  "coldMethod": "Two sequential standard performance runs after a 30 s prewarm, first the reference checkout and archive, then the final checkout and archive. Cold and hot numbers are measured separately.",
+  "hotBefore": {
+    "medianQueryEncodeMs": 93,
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "serverSha256": "86fca078bcbe8d62c104ad7f895ab13f533cd7f78fb103a3d4ef168ecaa0cffb",
+    "medianMs": 1133,
+    "p95Ms": 1205,
+    "under500": 0,
+    "complete": 20,
+    "nonempty": 20,
+    "prewarmMs": 600328,
+    "cachedAfterPrewarm": 1000,
+    "runtime": {
+      "starts": 1,
+      "stops": 0,
+      "faultRetries": 0,
+      "queryTexts": 21,
+      "documentTexts": 1000
+    },
+    "samples": [
+      {
+        "ms": 1133,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "92d07e986b13a9058632cb27e1cccfa83dbf788390e91870dbccace3e19928ec"
+      },
+      {
+        "ms": 1151,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "fe6358f150ceea38ecee4b2dcf87c4516be3fd9edb1d90f5ccb2ddd08a862528"
+      },
+      {
+        "ms": 1137,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "c8f169fd735d1259f5d0828848c241418cf85bde3468df2d59c2b51ec553a7a3"
+      },
+      {
+        "ms": 1143,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "cd21c1afb5924d9df2ebc176d2e56594e6eb01c5398e204c9a37d660625e0fe9"
+      },
+      {
+        "ms": 1154,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "55d02c07a829cbd7e8a549390528b54d3c0f237671c647d834d2e7675f479da3"
+      },
+      {
+        "ms": 1140,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "612b489de4fc72821ce780e427230001db345ff87f3b3020d939bfec7efe6506"
+      },
+      {
+        "ms": 1134,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "4b5c1a6e2de2bf29d8438fa7df637e50312ca3c04d01937b8426aaa237597696"
+      },
+      {
+        "ms": 1190,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "889a2357b22ace112dc13c58637c4c0b62f01a69be6b1fffc27a57d83c67a26f"
+      },
+      {
+        "ms": 1149,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "b90fa323a17ea5f558fa41e296792b84b9bcffcab267fc89d463a201d5a4056f"
+      },
+      {
+        "ms": 1474,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "fdd8393eaba707aabd5686c94c3cbf0e1dbd344f4f59eb6430aad71f08bbcd56"
+      },
+      {
+        "ms": 757,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "6d586551632157938157cc052d4b51b2996352c44de208ae6a5e2f9cd6240c7f"
+      },
+      {
+        "ms": 782,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "58a2563397ed14c6b0de422920037240ca62ada7c3a8d0035648fa711392f67a"
+      },
+      {
+        "ms": 750,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "3b840b214ba2d92920d9603cafb68b810ff84227a810153a250ab93355d6b1a7"
+      },
+      {
+        "ms": 741,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "bf8bc1d883e3848fbf138ac93939d1dde1bd7872aa1daeac2459ec768e876e3e"
+      },
+      {
+        "ms": 738,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "25c8d77afd098986277db83063ed4e27b0bf34e47e65260a3724a4f364d2faab"
+      },
+      {
+        "ms": 1005,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "39e958d9ccefcbcf10a1d40a9f3e8cd588547e2167d5928ed8796db53e6fe2df"
+      },
+      {
+        "ms": 1205,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "0323ed966c47a3f1458367dc779d12fbc8cda248b539ddcd07dc64280de0ad0b"
+      },
+      {
+        "ms": 720,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "d91313c4f7b612323bc86fe0bce009a6274069b8af103f163fa183938b0ec5fb"
+      },
+      {
+        "ms": 730,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "8fc7ca7614a233e16208623c0cca1f2e2a2a60e63e23fc630ffb0172080ce81a"
+      },
+      {
+        "ms": 732,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "3e7dc0f4a468c08c9e361bdf970746da42ad29c397754517aebd6f7c8e235db0"
+      }
+    ],
+    "phaseMedianMs": {
+      "indexStart": 0,
+      "shards": 113,
+      "score": 116,
+      "beforeSources": 0,
+      "sources": 293,
+      "geometry": 73,
+      "coverage": 5,
+      "policy": 88,
+      "fusion": 3,
+      "hits": 26,
+      "closing": 5
+    }
+  },
+  "hotAfter": {
+    "medianQueryEncodeMs": 95,
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "serverSha256": "cf9c34771e3ec04ceb217401b0affa6b6113c8905c5f0a422ad99b179a0cef9c",
+    "medianMs": 841,
+    "p95Ms": 931,
+    "under500": 0,
+    "complete": 20,
+    "nonempty": 20,
+    "prewarmMs": 329901,
+    "cachedAfterPrewarm": 1000,
+    "runtime": {
+      "starts": 1,
+      "stops": 0,
+      "faultRetries": 0,
+      "queryTexts": 21,
+      "documentTexts": 1000
+    },
+    "samples": [
+      {
+        "ms": 843,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "92d07e986b13a9058632cb27e1cccfa83dbf788390e91870dbccace3e19928ec"
+      },
+      {
+        "ms": 841,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "fe6358f150ceea38ecee4b2dcf87c4516be3fd9edb1d90f5ccb2ddd08a862528"
+      },
+      {
+        "ms": 871,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "c8f169fd735d1259f5d0828848c241418cf85bde3468df2d59c2b51ec553a7a3"
+      },
+      {
+        "ms": 844,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "cd21c1afb5924d9df2ebc176d2e56594e6eb01c5398e204c9a37d660625e0fe9"
+      },
+      {
+        "ms": 856,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "55d02c07a829cbd7e8a549390528b54d3c0f237671c647d834d2e7675f479da3"
+      },
+      {
+        "ms": 842,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "612b489de4fc72821ce780e427230001db345ff87f3b3020d939bfec7efe6506"
+      },
+      {
+        "ms": 863,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "4b5c1a6e2de2bf29d8438fa7df637e50312ca3c04d01937b8426aaa237597696"
+      },
+      {
+        "ms": 874,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "889a2357b22ace112dc13c58637c4c0b62f01a69be6b1fffc27a57d83c67a26f"
+      },
+      {
+        "ms": 978,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "b90fa323a17ea5f558fa41e296792b84b9bcffcab267fc89d463a201d5a4056f"
+      },
+      {
+        "ms": 931,
+        "cached": 1000,
+        "hits": 5,
+        "resultDigest": "fdd8393eaba707aabd5686c94c3cbf0e1dbd344f4f59eb6430aad71f08bbcd56"
+      },
+      {
+        "ms": 814,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "6d586551632157938157cc052d4b51b2996352c44de208ae6a5e2f9cd6240c7f"
+      },
+      {
+        "ms": 768,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "58a2563397ed14c6b0de422920037240ca62ada7c3a8d0035648fa711392f67a"
+      },
+      {
+        "ms": 851,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "3b840b214ba2d92920d9603cafb68b810ff84227a810153a250ab93355d6b1a7"
+      },
+      {
+        "ms": 809,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "bf8bc1d883e3848fbf138ac93939d1dde1bd7872aa1daeac2459ec768e876e3e"
+      },
+      {
+        "ms": 782,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "25c8d77afd098986277db83063ed4e27b0bf34e47e65260a3724a4f364d2faab"
+      },
+      {
+        "ms": 781,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "39e958d9ccefcbcf10a1d40a9f3e8cd588547e2167d5928ed8796db53e6fe2df"
+      },
+      {
+        "ms": 769,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "0323ed966c47a3f1458367dc779d12fbc8cda248b539ddcd07dc64280de0ad0b"
+      },
+      {
+        "ms": 802,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "d91313c4f7b612323bc86fe0bce009a6274069b8af103f163fa183938b0ec5fb"
+      },
+      {
+        "ms": 794,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "8fc7ca7614a233e16208623c0cca1f2e2a2a60e63e23fc630ffb0172080ce81a"
+      },
+      {
+        "ms": 754,
+        "cached": 1000,
+        "hits": 1,
+        "resultDigest": "3e7dc0f4a468c08c9e361bdf970746da42ad29c397754517aebd6f7c8e235db0"
+      }
+    ],
+    "phaseMedianMs": {
+      "indexStart": 0,
+      "shards": 122,
+      "score": 118,
+      "beforeSources": 0,
+      "sources": 302,
+      "geometry": 75,
+      "coverage": 12,
+      "policy": 91,
+      "fusion": 2,
+      "hits": 9,
+      "closing": 5
+    }
+  },
+  "matchingHotResults": 20,
+  "coldBefore": {
+    "medianQueryEncodeMs": 102,
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "serverSha256": "86fca078bcbe8d62c104ad7f895ab13f533cd7f78fb103a3d4ef168ecaa0cffb",
+    "medianMs": 2019,
+    "p95Ms": 2929,
+    "under500": 0,
+    "complete": 0,
+    "nonempty": 8,
+    "prewarmMs": 32196,
+    "cachedAfterPrewarm": 78,
+    "runtime": {
+      "starts": 1,
+      "stops": 0,
+      "faultRetries": 0,
+      "queryTexts": 21,
+      "documentTexts": 189
+    },
+    "samples": [
+      {
+        "ms": 2929,
+        "cached": 80,
+        "hits": 0
+      },
+      {
+        "ms": 2518,
+        "cached": 81,
+        "hits": 2
+      },
+      {
+        "ms": 2425,
+        "cached": 86,
+        "hits": 0
+      },
+      {
+        "ms": 2052,
+        "cached": 93,
+        "hits": 3
+      },
+      {
+        "ms": 2057,
+        "cached": 98,
+        "hits": 3
+      },
+      {
+        "ms": 2019,
+        "cached": 104,
+        "hits": 3
+      },
+      {
+        "ms": 1929,
+        "cached": 111,
+        "hits": 3
+      },
+      {
+        "ms": 2019,
+        "cached": 118,
+        "hits": 3
+      },
+      {
+        "ms": 1916,
+        "cached": 125,
+        "hits": 3
+      },
+      {
+        "ms": 1977,
+        "cached": 133,
+        "hits": 4
+      },
+      {
+        "ms": 2191,
+        "cached": 139,
+        "hits": 0
+      },
+      {
+        "ms": 1685,
+        "cached": 144,
+        "hits": 0
+      },
+      {
+        "ms": 1537,
+        "cached": 151,
+        "hits": 0
+      },
+      {
+        "ms": 1531,
+        "cached": 158,
+        "hits": 0
+      },
+      {
+        "ms": 1725,
+        "cached": 165,
+        "hits": 0
+      },
+      {
+        "ms": 2978,
+        "cached": 169,
+        "hits": 0
+      },
+      {
+        "ms": 2589,
+        "cached": 172,
+        "hits": 0
+      },
+      {
+        "ms": 2414,
+        "cached": 175,
+        "hits": 0
+      },
+      {
+        "ms": 1735,
+        "cached": 182,
+        "hits": 0
+      },
+      {
+        "ms": 1711,
+        "cached": 189,
+        "hits": 0
+      }
+    ],
+    "phaseMedianMs": {}
+  },
+  "coldAfter": {
+    "medianQueryEncodeMs": 103,
+    "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+    "serverSha256": "cf9c34771e3ec04ceb217401b0affa6b6113c8905c5f0a422ad99b179a0cef9c",
+    "medianMs": 1816,
+    "p95Ms": 2794,
+    "under500": 0,
+    "complete": 0,
+    "nonempty": 8,
+    "prewarmMs": 31959,
+    "cachedAfterPrewarm": 87,
+    "runtime": {
+      "starts": 1,
+      "stops": 0,
+      "faultRetries": 0,
+      "queryTexts": 21,
+      "documentTexts": 208
+    },
+    "samples": [
+      {
+        "ms": 2794,
+        "cached": 91,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 2467,
+        "cached": 92,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 2431,
+        "cached": 97,
+        "hits": 3,
+        "resultDigest": "4f08633f853cce5c36ca805abd6e0ce627641807183b1be3797a799b02b21dac"
+      },
+      {
+        "ms": 1791,
+        "cached": 103,
+        "hits": 3,
+        "resultDigest": "6465cd8ffa4acc68e855bff6095e576196fc13e41a448cb87d1b9a86c7f9f19c"
+      },
+      {
+        "ms": 1979,
+        "cached": 109,
+        "hits": 3,
+        "resultDigest": "c238c00bd3892a095529d2e90edf6bc87e9ee8963a8df3afddbe0365946f2ab1"
+      },
+      {
+        "ms": 2599,
+        "cached": 113,
+        "hits": 3,
+        "resultDigest": "df01eab8c4804101712618ae14d95858726560e0064e14903cd4e61bf8152d02"
+      },
+      {
+        "ms": 1894,
+        "cached": 119,
+        "hits": 3,
+        "resultDigest": "5cead562c4b046a2ec489791984ff336b55f2c3847d7b2ef2a3873a92a66bd86"
+      },
+      {
+        "ms": 1864,
+        "cached": 126,
+        "hits": 4,
+        "resultDigest": "683f27303ad6fea6dd6eec861153a7eaa516ab2f7cd527c311dc77d491abb4a0"
+      },
+      {
+        "ms": 2060,
+        "cached": 132,
+        "hits": 4,
+        "resultDigest": "8508a9cd31771b5b583f9feb9a85573621cc71886057d78ae9bb8caaa76d0c83"
+      },
+      {
+        "ms": 1816,
+        "cached": 139,
+        "hits": 4,
+        "resultDigest": "4e1c838abfaba97f58927e8ff48be0412daba3cff90884666577868b0a3bc7c1"
+      },
+      {
+        "ms": 1927,
+        "cached": 145,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1698,
+        "cached": 150,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1486,
+        "cached": 157,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1537,
+        "cached": 164,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1598,
+        "cached": 172,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1569,
+        "cached": 180,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1607,
+        "cached": 187,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1584,
+        "cached": 195,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 1577,
+        "cached": 202,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      },
+      {
+        "ms": 2804,
+        "cached": 208,
+        "hits": 0,
+        "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    ],
+    "phaseMedianMs": {}
+  },
+  "tests": {
+    "unitPassed": 525,
+    "skippedLegacy": 2,
+    "packagedNodeRoutePassed": 42,
+    "packagedExeRoutePassed": 42,
+    "delayedDocumentBatches": [
+      4,
+      2
+    ]
+  },
+  "package": {
+    "sha256": "0525bfd9c4b515cd1d20b7e2f25411e96ea79e6e1a546cea6c7f782ade778a41",
+    "bytes": 1171788518,
+    "baseSha256": "e1e4eb34d6bd44b264f9b7c378660e77f9d497777479b7584dfb0fd4705a9f1f",
+    "entries": 21305,
+    "updatedEntries": 8
+  },
+  "intermediateHotP95Ms": 830,
+  "intermediateColdP95Ms": 2102,
+  "earlierBaselineColdP95Ms": 1871
+}

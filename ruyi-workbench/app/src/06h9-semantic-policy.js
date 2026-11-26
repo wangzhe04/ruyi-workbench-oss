@@ -130,9 +130,19 @@ function createRequest({query,scopeId,modelFingerprint}){if(typeof query!=='stri
  function assertScore(row,doc,encodedIdentity,encodedText){const expected=rows.get(row);if(!expected||expected.cacheText!==doc||expected.encodingIdentity!==encodedIdentity||encodedText!==null&&expected.encodedText!==encodedText)throw fail('score_source_changed');}
  function weakKey(token){field(token);const value=Object.freeze({});weakKeys.set(value,token);return value;}
  function assertWeak(key,row){const r=rows.get(row);if(!r||weakKeys.get(key)!==r.field)throw fail('weak_source_changed');}
- const assertPool=pool=>{if(!used||pool!==poolReference||pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n]))throw fail('pool_changed');};
+ const assertPool=pool=>{if(!used||pool!==poolReference||poolSnapshot!==null&&(pool.length!==poolSnapshot.length||pool.some((r,n)=>r!==poolSnapshot[n])))throw fail('pool_changed');};
  const api=Object.freeze({context,captureField,wholeSource,canonicalSlices:token=>canonicalSlices(field(token).text,sliceGeneration),canonicalWindow,rawSlices:token=>field(token).kind==='privacy-projected-v1'?projectedSlices(field(token).text):rawSlices(field(token).text),rawWindow,row,weakKey,assertWeak,assertSource,assertScore,assertPool,
-  begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();},fieldKey:token=>field(token).key});requests.set(api,context);return api;}
+  begin:(requestContext,q,scope,fp,pool)=>{if(requestContext!==context||used||q!==query||scope!==scopeId||fp!==modelFingerprint||!Array.isArray(pool)||pool.some(r=>!rows.has(r)))throw fail('request_reused_or_changed');used=true;poolReference=pool;poolSnapshot=pool.slice();
+    // Frozen arrays can still have getters or holes. Skip repeated full-pool
+    // scans only when every position is an immutable own data property.
+    if(Object.isFrozen(pool)){
+      let fixed=true;
+      for(let n=0;n<pool.length;n++){
+        const slot=Object.getOwnPropertyDescriptor(pool,n);
+        if(!slot||!Object.hasOwn(slot,'value')||!rows.has(slot.value)){fixed=false;break;}
+      }
+      if(fixed)poolSnapshot=null;
+    }},fieldKey:token=>field(token).key});requests.set(api,context);return api;}
 return {canonicalSlices,rawSlices,projectedSlices,createRequest,isRequest:(value,context)=>requests.get(value)===context,clearSliceCache};
 
 })();

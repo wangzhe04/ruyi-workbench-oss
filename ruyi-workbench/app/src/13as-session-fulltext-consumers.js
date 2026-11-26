@@ -50,7 +50,12 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       const prior=cap.sources.get(sid);if(prior&&(prior.epoch!==selected.epoch||prior.sequence!==selected.sequence))throw fail('source_changed');
       cap.sources.set(sid,{...selected,metadata});cap.unchecked.add(sid);return true;
     }
-    function assertAuthorized(sid,token,access) {const cap=current(token),row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    function authorizedInScope(sid,cap,access) {const row=cap.sources.get(sid);return (!cap.exactSid||sid===cap.exactSid)&&access.revision===cap.access.revision&&!!row&&(!cap.filter||host.projectKey(row.metadata.cwd)===cap.filter)&&source.sequence(sid)===row.sequence;}
+    function assertAuthorized(sid,token,access){return authorizedInScope(sid,current(token),access);}
+    function assertAuthorizedSet(sids,token,access){
+      const cap=current(token);
+      return sids.every(sid=>authorizedInScope(sid,cap,access));
+    }
     function authorizedEpoch(sid,token,access) {if(!assertAuthorized(sid,token,access))return null;return current(token).sources.get(sid).epoch;}
     function authorizedEmpty(sid,token,access) {return assertAuthorized(sid,token,access)&&current(token).sources.get(sid).head.messageCount===0;}
     async function final(cap,completeAttachmentCheck=true) {
@@ -114,7 +119,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
       cap.assert();const disclosed=await disclose(cap,sid,prepared,'session-search:hit');cap.assert();
       disclosed.snippet=host.redact(disclosed.snippet);return disclosed;
     }
-    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
+    const index=host.bindIndex({scope:async token=>current(token).access,authorize,assertAuthorized,assertAuthorizedSet,authorizedEpoch,authorizedEmpty,project:projection,restrictedCatalog:()=>{const cap=issued.get(local.getStore());return cap&&!cap.closed&&cap.exactSid?[cap.exactSid]:null;},
       assertScope:(token,access)=>{const cap=current(token);return cap.access.revision===access.revision&&cap.access.scopeId===access.scopeId;}});
     function assertIndexState(cap){if(!cap.indexState)return;const current=index.mutationState();if(cap.indexState.active||current.active||current.serial!==cap.indexState.serial)throw fail('index_changed');}
     async function metadata(check=()=>{},timeout=null) {const token=local.getStore(),cap=current(token),out=[];check();if(cap.threadSearch&&cap.metadataView)return clone(cap.metadataView);const ids=cap.exactSid?[cap.exactSid]:cap.searchCatalog??await host.catalog();

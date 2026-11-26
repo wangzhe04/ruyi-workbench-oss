@@ -258,3 +258,54 @@ test('a source that exhausts the first reservation gets enough time on the next 
   a.equal(next.semantic.coverage,'complete');
   a.deepEqual(Array.from(next.results,row=>row.id),['Match']);
 });
+
+test('a verified body window can supply a lexical or semantic snippet after one source scan',async t=>{
+  const {f}=await setup(t);
+  const text='accepted cedar violet with original spelling';
+  await f.put('Match',[{id:'m',role:'user',content:text}]);
+  const source=f.api.source;
+  let scans=0;
+  f.context.createSessionFullTextSource=()=>({...source,async scan(...args){scans++;return source.scan(...args);}});
+  await f.ui('cedar violet');
+  for(const query of ['cedar violet','unrelated query']){
+    scans=0;
+    const value=await f.ui(query);
+    a.equal(value.results[0].snippet,text);
+    a.equal(value.results[0].reference.messageId,'m');
+    a.equal(scans,1);
+  }
+});
+
+test('a rewrite between window admission and snippet reuse blocks disclosure',async t=>{
+  const {f}=await setup(t);
+  await f.put('Match',[{id:'m',role:'user',content:'cedar violet'}]);
+  const source=f.api.source;
+  let rewrite=true;
+  f.context.createSessionFullTextSource=()=>({...source,async epoch(sid){
+    if(rewrite&&sid==='Match'&&String(Error().stack).includes('verifySource')){
+      rewrite=false;
+      await f.put(sid,[{id:'m',role:'user',content:'replacement'}]);
+    }
+    return source.epoch(sid);
+  }});
+  await a.rejects(f.ui('cedar violet'),error=>/source_changed|disclosure_changed/.test(error.code));
+  a.equal(rewrite,false);
+});
+
+test('continuation predicts completion from work done this slice, excluding earlier requests',async t=>{
+  const {f,advance}=await setup(t);
+  await f.put('Many',Array.from({length:40},(_,n)=>({role:'user',id:'m'+n,content:'ordinary subject '+n})));
+  const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode;
+  let batches=0,prior=0;
+  runtime.encode=async(texts,options)=>{
+    if(options.role==='document'){batches++;advance(1001);}
+    return encode(texts,options);
+  };
+  for(let i=0;i<5;i++){
+    batches=0;
+    const result=await f.ui('cedar violet');
+    a.equal(batches,1,'the remaining corpus requires more than the two available continuation slices');
+    a.ok(result.semantic.cachedFragments>prior);
+    prior=result.semantic.cachedFragments;
+  }
+});

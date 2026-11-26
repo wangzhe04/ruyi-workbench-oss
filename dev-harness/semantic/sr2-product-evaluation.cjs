@@ -13,7 +13,8 @@ const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const fixtureHash = '63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3';
 const topics = ['delivery schedule','garden watering','inventory records','camera lenses','building insulation','railway routes','book lending','weather station','office supplies','bicycle repair'];
 async function main() {
-  assert.ok(['smoke','performance','sustained','quality','quality-warm'].includes(mode));
+  assert.ok(['smoke','performance','sustained','hot','quality','quality-warm'].includes(mode));
+  const longWarm=mode==='sustained'||mode==='hot';
   const server = path.resolve(packageRoot,'app/server.js');
   const bytes = fs.readFileSync(server);
   assert.equal(sha(bytes),sha(fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/server.js'))));
@@ -37,10 +38,10 @@ async function main() {
     const cold=performance.now();
     let ready;
     do {
-      ready=await runtime.prepare({deadline:Date.now()+(mode==='sustained'?60000:15000)});
-      if(ready.available || (ready.state!=='loading' && mode!=='sustained'))break;
+      ready=await runtime.prepare({deadline:Date.now()+(longWarm?60000:15000)});
+      if(ready.available || (ready.state!=='loading' && !longWarm))break;
       await new Promise(r=>setTimeout(r,100));
-    } while(performance.now()-cold<(mode==='sustained'?90000:30000));
+    } while(performance.now()-cold<(longWarm?90000:30000));
     assert.equal(ready.available,true,JSON.stringify(ready));
     assert.equal(ready.modelId,'embeddinggemma-2-text-q4');
     report.coldReadyMs=performance.now()-cold; report.model=ready.modelFingerprint;
@@ -72,7 +73,9 @@ async function main() {
     async function search(q) {
       timings=[];const start=performance.now();
       const r=await f.ui(q,null,()=>f.hooks.search(q,5));
-      return {ms:performance.now()-start,encodeMs:timings.slice(),status:r.semantic?.status,coverage:r.semantic?.coverage,fragments:r.semantic?.candidateFragments,cached:r.semantic?.cachedFragments,policy:r.semantic?.admission?.policyId,top:r.results.map(v=>map.get(v.reference?.sessionId??v.id))};
+      const ms=performance.now()-start;
+      const resultDigest=sha(JSON.stringify(r.results.map(v=>[v.id,v.reference?.messageId,v.snippet,v.matchMode])));
+      return {ms,resultDigest,encodeMs:timings.slice(),status:r.semantic?.status,coverage:r.semantic?.coverage,fragments:r.semantic?.candidateFragments,cached:r.semantic?.cachedFragments,policy:r.semantic?.admission?.policyId,top:r.results.map(v=>map.get(v.reference?.sessionId??v.id))};
     }
     const warm=performance.now();
     report.prewarm=[];
@@ -81,14 +84,15 @@ async function main() {
       try { r=await search('inspection notes for maintenance'); }
       catch(error){
         report.prewarm.push({error:error.message});
-        if(mode!=='sustained' && mode!=='quality-warm')break;
+        if(!longWarm && mode!=='quality-warm')break;
         await new Promise(resolve=>setTimeout(resolve,500));
         continue;
       }
-      const {top,...counts}=r; report.prewarm.push(counts); if(mode==='sustained')save();
+      const {top,...counts}=r; report.prewarm.push(counts); if(longWarm)save();
       assert.equal(r.policy,'embeddinggemma2-global-eligible-k1-cos070-window-v1');
-      if(r.coverage==='complete'||(mode==='quality-warm' && r.cached===r.fragments && r.cached>0))break;
-    } while(performance.now()-warm<(mode==='sustained'?300000:mode==='quality-warm'?180000:30000));
+      if(r.coverage==='complete'||((mode==='quality-warm'||mode==='hot') && r.cached===r.fragments && r.cached>0))break;
+    } while(performance.now()-warm<(mode==='hot'?600000:mode==='sustained'?300000:mode==='quality-warm'?180000:30000));
+    if(mode==='hot')assert.equal(report.prewarm.at(-1)?.cached,1000,'complete the document cache before timing fresh queries');
     report.prewarmMs=performance.now()-warm;
     const queries=corpus?corpus.queries:Array.from({length:mode==='smoke'?2:20},(_,i)=>({text:'Which '+topics[i%10]+' tasks need '+(i<10?'inspection':'additional review')+'?',group:'performance'}));
     for(const q of queries){

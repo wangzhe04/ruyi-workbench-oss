@@ -190,7 +190,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(status==='timeout'&&complete)status='ready';
       const effectiveMinimum=typeof minScore==='number'&&Number.isFinite(minScore)?minScore:0.85;
       const admission=purpose==='search'&&descriptor.modelId===searchPolicy.modelId && Number.isFinite(descriptor.retrievalThresholds?.search)?assessAdmission(query,docs,scores,{complete,minScore:effectiveMinimum}):null;
-      const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete},...(admission?{admission}:{})};
+      const scored={status,scores,modelFingerprint:model,minScore:admission?admission.features.minimumCosine:effectiveMinimum,coverage:{cached,total:docs.length,complete,encoded:cached-(docs.length-missing.length)},...(admission?{admission}:{})};
       if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
       return scored;
     }

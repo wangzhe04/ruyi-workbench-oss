@@ -7152,8 +7152,10 @@ function createSessionFullTextSource() {
         check();handle=await fsp.open(sessionBodyPaths(id).messages,'r');check();if(stamp(await handle.stat({bigint:true}))!==selected.bodyStamp)throw fail('source_changed');check();
         const buffer=Buffer.alloc(64*1024);let parts=[],bytes=0,done=false;
         while(!done){check();const read=await handle.read(buffer,0,buffer.length,null);check();if(!read.bytesRead)break;let start=0;
-          for(let n=0;n<read.bytesRead;n++)if(buffer[n]===10){parts.push(Buffer.from(buffer.subarray(start,n)));bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
-            const physical=Buffer.concat(parts,bytes),text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
+          for(let n=buffer.indexOf(10,start);n>=0&&n<read.bytesRead;n=buffer.indexOf(10,start)){
+            bytes+=n-start;if(bytes>physicalMaximum)throw fail('capacity');
+            const tail=buffer.subarray(start,n),physical=parts.length?Buffer.concat([...parts,tail],bytes):tail;
+            const text=physical.toString('utf8');if(!Buffer.from(text).equals(physical))throw fail('source_invalid');
             await accept(text);parts=[];bytes=0;start=n+1;if(count===selected.count){done=true;break;}}
           if(!done&&start<read.bytesRead){parts.push(Buffer.from(buffer.subarray(start,read.bytesRead)));bytes+=read.bytesRead-start;if(bytes>physicalMaximum)throw fail('capacity');}
         }
