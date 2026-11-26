@@ -31,3 +31,5 @@ ruyi-workbench/runtime/node/LICENSE binary
 /dev-harness/archive/semantic-research-* -text whitespace=cr-at-eol
 /ruyi-workbench/semantic-runtime/** -text whitespace=cr-at-eol
 /ruyi-workbench/runtime/node/** -text whitespace=cr-at-eol
+# The OpenH264 validator pins the original raw lock bytes.
+/ruyi-workbench/tools/openh264-supplement.lock.json -text whitespace=cr-at-eol
