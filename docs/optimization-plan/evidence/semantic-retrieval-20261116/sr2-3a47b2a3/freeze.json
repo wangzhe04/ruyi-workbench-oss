@@ -1,0 +1,12 @@
+{
+  "productCommit": "3a47b2a347028798ebe9b23e74184b6d88bc663e",
+  "frozenAt": "2026-11-26T17:45:45.9142440+08:00",
+  "packageSha256": "35efe45ae5fcf5ee0dbca1ff2f6bd5dd74004ed10611e726e484d47890c8a9e8",
+  "server": "2f57c3ee07a7c52f496d9acfd548090c38db00d8b9736b34a8b3ebe28f5b8e1e",
+  "portableLock": "e2b89b2480d493a4858ec2074a18d7e73de17398d27902b176434989ad0d006e",
+  "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "runnerSha256": "6164d1bf11537f213e52a8b447b613c33aaa9ad6b5d4a7edfbd112fa199a4e28",
+  "quality": "One pass in frozen order. First UI search response, 5 results. Positive zh-zh/en-zh/zh-en Recall@5, MRR over all positive queries. False-positive rate for negative-ood (80 natural Chinese/English); mixed OOD reported separately. Missing-field, missing-number and entity mismatch separate. All 268 must have complete semantic coverage.",
+  "performance": "25 synthetic encrypted sessions x 40 messages; 20 distinct searches following bounded 30s prewarm; nearest-rank p95; complete 1000-fragment coverage required. Unobserved query encode is missing, never zero.",
+  "source": "Real WorkDataRecords encrypted with isolated synthetic machine key, actual consumer UI scope, enhanced privacy and production packaged encoder. No desktop or HTTP transport overhead."
+}
