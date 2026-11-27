@@ -81495,7 +81495,7 @@ const MCP_TOOLS = [
         as: { type: 'string', enum: ['auto', 'text', 'image'], description: 'auto detects format; image sends pixels through configured vision; text excludes document images' },
         offset: { type: 'number', description: 'char offset (char mode)' },
         limit: { type: 'number', description: 'chars, default 40000, max 50000' },
-        lineOffset: { type: 'number', description: '1-based start line (line mode)' },
+        lineOffset: { type: 'number', description: '1-based starting line' },
         lineLimit: { type: 'number', description: 'default 2000 lines' },
         encoding: { type: 'string', description: 'utf8|utf-16le|utf-16be|gbk|latin1; default auto' },
         annotate_non_ascii: { type: 'boolean', description: 'show non-ASCII as <U+XXXX>' },

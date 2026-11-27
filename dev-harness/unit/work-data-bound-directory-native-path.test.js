@@ -2,7 +2,7 @@
 // Source and pure construction controls only. No C# method, DLL or Win32 API runs.
 const {test}=require('node:test'),assert=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto');
 const {constBlock,sliceBlock,bracedBlock}=require('../lib/source-slice'),before=require('../fixtures/work-data-bound-directory-native-before.json');
-const {removeCommittedSourceRetirement,removeForwardPlainPublication,removePortableBasicPublication,removePortableMoveParentReceipt,removePortableStageRetirement,removePreservedCloseCertification,restorePreRelativeOpenNative}=require('../lib/preserved-relative-open-inverse');
+const {removeQualifiedFlushAnchors,removeCommittedSourceRetirement,removeForwardPlainPublication,removePortableBasicPublication,removePortableMoveParentReceipt,removePortableStageRetirement,removePreservedCloseCertification,restorePreRelativeOpenNative}=require('../lib/preserved-relative-open-inverse');
 const {edits,guardNew,guardOld}=require('../lib/owned-restore-historical-inverse-fixture');
 const source=fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/src/13u-migration-center.js'),'utf8'),box=vm.createContext({});
 vm.runInContext(constBlock(source,'MIGRATION_SKILL_CAPSULE_NATIVE')+'\nglobalThis.native=MIGRATION_SKILL_CAPSULE_NATIVE;',box);
@@ -52,7 +52,7 @@ test('portable Basic publication inverse refuses weakened deletion sharing',()=>
  assert.throws(()=>removePortableBasicPublication(native.replace(guard,changed)),/reviewed portable Basic guard open/);
 });
 test('P1 inverse recovers pre-P1 native bytes and refuses a changed guard or dispatch',()=>{
- const beforeP1=removeCommittedSourceRetirement(native);
+ const beforeP1=removeCommittedSourceRetirement(removeQualifiedFlushAnchors(native));
  assert.equal(sha(beforeP1),'4d5e5f4cb4be6605caace85b18d1b40ebb9507ce0469eb9d1620ac561dd06f34','complete native payload in 9a9cf068');
  const altered=native.replace('if(committedSource)Verify(false,true);','if(committedSource)Verify(false,false);');
  assert.notEqual(altered,native);

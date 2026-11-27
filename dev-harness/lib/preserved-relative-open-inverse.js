@@ -11,6 +11,20 @@ function pinnedNativeMethod(native, marker, sha256, label) {
   return block;
 }
 
+// e9394327 qualified the two flush root opens and the by-id hint open.
+// The complete parent digest also fixes their locations and all surrounding checks.
+function removeQualifiedFlushAnchors(native) {
+  const qualified = 'CreateFile(NativePath(anchor),0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)';
+  const original = 'CreateFile(anchor,0xC0000000u,3,IntPtr.Zero,3,0x02200000u,IntPtr.Zero)';
+  assert.equal(native.split(qualified).length - 1, 3, 'three qualified flush anchor opens');
+  assert.equal(createHash('sha256').update(native).digest('hex'),
+    '38a67236bd6c8eb4f72bb7c2158bfea24b0ee9eae048ae507d265dc7c77c7945', 'complete native payload in e9394327');
+  const previous = native.replaceAll(qualified, original);
+  assert.equal(createHash('sha256').update(previous).digest('hex'),
+    '6a7362af44012e5df2b0ad2da5d5646b434f0bd8799ce8c879401763e431bb83', 'complete native payload before e9394327');
+  return previous;
+}
+
 function removeForwardPlainPublication(native) {
   const method = pinnedNativeMethod(native, '  static void Publish(',
     '72728574aa4685b2258d5cd1017ac29e678373fe9aa3ba0281df882a964d23bd', 'forward plain publication');
@@ -410,6 +424,7 @@ function removeNativeCensusBudget(native) {
 
 function restorePreRelativeOpenNative(native) {
   for (const undo of [
+    removeQualifiedFlushAnchors,
     removeCommittedSourceRetirement,
     removeNativeHeartbeatAndHashOnly,
     removeNativeCensusBudget,
@@ -423,4 +438,4 @@ function restorePreRelativeOpenNative(native) {
   return native;
 }
 
-module.exports = { removeCommittedSourceRetirement, removeNativeCensusBudget, removeForwardPlainPublication, removePortableBasicPublication, removePortableMoveAncestorReceipt, removePortableMoveParentReceipt, removePortableStageRetirement, removePreservedCloseCertification, removePreservedRelativeOpen, restorePreRelativeOpenNative };
+module.exports = { removeQualifiedFlushAnchors, removeCommittedSourceRetirement, removeNativeCensusBudget, removeForwardPlainPublication, removePortableBasicPublication, removePortableMoveAncestorReceipt, removePortableMoveParentReceipt, removePortableStageRetirement, removePreservedCloseCertification, removePreservedRelativeOpen, restorePreRelativeOpenNative };
