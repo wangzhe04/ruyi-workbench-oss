@@ -1156,7 +1156,10 @@ const SessionFullTextIndex = ((io,p,c) => {
         await revoked();
         let count=Math.min(BACKGROUND_ENCODE_BATCH,todo.length-offset);const estimate=n=>typeof host.encoder.estimateEncodingBudget==='function'?host.encoder.estimateEncodingBudget('document',n):n*40;/* 4A 二审 (e):后台一批至多约 150 ms(运行时同一时刻只编一批,前台的查询/记忆重排不被长批挡成 overloaded) */while(count>1&&estimate(count)>BACKGROUND_ENCODE_BATCH_MS)count--;
         const batch=todo.slice(offset,offset+count),texts=batch.map(row=>originals.get(row.key));
-        const result=await host.encoder.encode(texts,{role:'document',scopeId:BACKGROUND_SCOPE,priority:'background',maxWaitMs:0,deadline:Date.now()+1000,minimumBudgetMs:Math.min(900,Math.max(1,estimate(count))),beforeEncode:async()=>{checkPaused();if(host.sourceSequence(sid)!==sequence)throw fail('source_changed');}});
+        // A single slow document cannot be split further. Leave room for the pre-write source check.
+        const minimumBudgetMs=Math.max(1,estimate(count));
+        const budgetMs=Math.min(8000,Math.max(1000,minimumBudgetMs+Math.max(250,Math.ceil(minimumBudgetMs/4))));
+        const result=await host.encoder.encode(texts,{role:'document',scopeId:BACKGROUND_SCOPE,priority:'background',maxWaitMs:0,budgetMs,deadline:Date.now()+budgetMs,minimumBudgetMs,beforeEncode:async()=>{checkPaused();if(host.sourceSequence(sid)!==sequence)throw fail('source_changed');}});
         if(!result?.ok){st.encode.stall=String(result?.reason||'unavailable');outcome=fresh.size?'partial':'stop';break;}
         if(result.modelFingerprint!==model||!Array.isArray(result.vectors)||result.vectors.length!==texts.length){st.encode.stall='model_changed';return 'stop';}
         batch.forEach((row,n)=>{const vector=result.vectors[n];if(result.truncated?.[n]||!Array.isArray(vector)||!vector.length||vector.length>8192||!vector.every(Number.isFinite)||!vector.some(x=>x!==0))return;if(dims===null)dims=vector.length;if(vector.length===dims){fresh.set(row.key,Float32Array.from(vector));freshTexts.set(row.key,hash(texts[n]));}});
