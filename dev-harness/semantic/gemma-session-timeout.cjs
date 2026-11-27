@@ -55,7 +55,9 @@ async function main(){
           break;
         }
       }
-      console.log(JSON.stringify({checkpoints,submitted,completedDocuments}));
+      const worker=runtime.stats().backend;
+      console.log(JSON.stringify({checkpoints,submitted,completedDocuments,worker}));
+      assert.equal(worker.kills,0);
       assert.ok(checkpoints.every((n,i)=>n>(checkpoints[i-1]??0)));
       assert.equal(checkpoints.at(-1),records.length);
       assert.equal(completedDocuments,records.length);
@@ -63,8 +65,9 @@ async function main(){
     }
     const result=await f.ui('Which receipts are required for business travel reimbursement?');
     const ids=Array.from(result.results,row=>row.id);
-    console.log(JSON.stringify({delayed,ids,status:result.semantic.status,coverage:result.semantic.coverage,cached:result.semantic.cachedFragments,total:result.semantic.candidateFragments}));
-    assert.equal(delayed,true);assert.equal(result.semantic.coverage,'complete');assert.deepEqual(ids,['S2']);
+    const worker=runtime.stats().backend;
+    console.log(JSON.stringify({delayed,ids,worker,status:result.semantic.status,coverage:result.semantic.coverage,cached:result.semantic.cachedFragments,total:result.semantic.candidateFragments}));
+    assert.equal(worker.kills,0);assert.equal(delayed,true);assert.equal(result.semantic.coverage,'complete');assert.deepEqual(ids,['S2']);
   }finally{await runtime.shutdown();await f.close();fs.rmSync(home,{recursive:true,force:true});}
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1;});

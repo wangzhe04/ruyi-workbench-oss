@@ -1,0 +1,59 @@
+{
+  "late": {
+    "delayed": true,
+    "ids": [
+      "S2"
+    ],
+    "worker": {
+      "starts": 1,
+      "requests": 4,
+      "kills": 0,
+      "stops": 0,
+      "cleanupFailures": 0,
+      "queryTexts": 1,
+      "documentTexts": 6,
+      "warmupTexts": 1,
+      "unknownExits": 0,
+      "peakRssBytes": 560607232,
+      "faultRetries": 0,
+      "softTimeouts": 0,
+      "queueWaits": 0,
+      "ownership": "ready",
+      "pending": 0,
+      "resident": true
+    },
+    "status": "ready",
+    "coverage": "complete",
+    "cached": 6,
+    "total": 6
+  },
+  "progress": {
+    "checkpoints": [
+      6
+    ],
+    "submitted": [
+      4,
+      2
+    ],
+    "completedDocuments": 6,
+    "worker": {
+      "starts": 1,
+      "requests": 4,
+      "kills": 0,
+      "stops": 0,
+      "cleanupFailures": 0,
+      "queryTexts": 1,
+      "documentTexts": 6,
+      "warmupTexts": 1,
+      "unknownExits": 0,
+      "peakRssBytes": 561786880,
+      "faultRetries": 0,
+      "softTimeouts": 0,
+      "queueWaits": 0,
+      "ownership": "ready",
+      "pending": 0,
+      "resident": true
+    }
+  },
+  "serverSha256": "247cb41e6cd70e34fdae2c77a2dc7a7730510258cc01c6a43a9eeab3a1d1c1d3"
+}
