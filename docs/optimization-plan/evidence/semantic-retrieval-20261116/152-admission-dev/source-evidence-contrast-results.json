@@ -1,0 +1,89 @@
+{
+  "kind": "source-guard-only",
+  "pairsSha256": "b13010e694f41fc00f97b03e00f65f6828d2770c69db4150d83b927e8f7df130",
+  "rows": [
+    {
+      "category": "zh-count-role",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "en-count-role",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "zh-unit",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "en-unit",
+      "positiveKept": true,
+      "negativeBlocked": true
+    },
+    {
+      "category": "zh-entity",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "en-negated-author",
+      "positiveKept": false,
+      "negativeBlocked": true
+    },
+    {
+      "category": "zh-en-quantity",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "en-zh-brand",
+      "positiveKept": true,
+      "negativeBlocked": true
+    },
+    {
+      "category": "zh-en-author",
+      "positiveKept": true,
+      "negativeBlocked": true
+    },
+    {
+      "category": "en-zh-negation",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "zh-title",
+      "positiveKept": false,
+      "negativeBlocked": true
+    },
+    {
+      "category": "en-attribute-owner",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "zh-ordinal-as-count",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "en-truncated-tail",
+      "positiveKept": true,
+      "negativeBlocked": true
+    },
+    {
+      "category": "zh-truncated-head",
+      "positiveKept": true,
+      "negativeBlocked": false
+    },
+    {
+      "category": "en-zh-quantity-scope",
+      "positiveKept": true,
+      "negativeBlocked": false
+    }
+  ],
+  "positiveKept": 14,
+  "negativeBlocked": 6,
+  "bothCorrect": 4
+}

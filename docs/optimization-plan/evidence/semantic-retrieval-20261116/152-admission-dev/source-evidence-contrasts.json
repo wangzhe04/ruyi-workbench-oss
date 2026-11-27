@@ -1,0 +1,98 @@
+[
+  {
+    "category": "zh-count-role",
+    "query": "青桔仓的寄存柜有多少个大号格口？",
+    "positive": "青桔仓寄存柜有 18 个大号格口，旁边另设 6 个小号格口。",
+    "negative": "青桔仓寄存柜有 18 个小号格口，返件台旁边另设 6 把椅子。"
+  },
+  {
+    "category": "en-count-role",
+    "query": "How many low-temperature runs did the Mallow probe complete?",
+    "positive": "The Mallow probe completed 12 low-temperature runs and 7 pressure runs.",
+    "negative": "The Mallow probe completed 12 pressure runs. The low-temperature runs were postponed."
+  },
+  {
+    "category": "zh-unit",
+    "query": "鹭湾步道的观景台有多高，单位是米？",
+    "positive": "鹭湾步道的观景台高 14 米；施工记要分为三页。",
+    "negative": "鹭湾步道的观景台占地 14 平方米；施工记要分为三页。"
+  },
+  {
+    "category": "en-unit",
+    "query": "How many minutes is the Bracken recorder's audio buffer?",
+    "positive": "Bracken recorder settings: the audio buffer holds 9 minutes. The unit ships with a clip.",
+    "negative": "Bracken recorder settings: the audio buffer uses 9 megabytes. The unit ships with a clip."
+  },
+  {
+    "category": "zh-entity",
+    "query": "南枝号的首航港口叫什么？",
+    "positive": "南枝号从落星港首航，秋屿号此后停靠了礁石港。",
+    "negative": "秋屿号从落星港首航，南枝号此后停靠了礁石港。"
+  },
+  {
+    "category": "en-negated-author",
+    "query": "Who wrote the field guide Amber Lanes?",
+    "positive": "Mira Vale wrote the field guide Amber Lanes. Jo Keel supplied the cover art.",
+    "negative": "Mira Vale did not write the field guide Amber Lanes. Jo Keel supplied the cover art."
+  },
+  {
+    "category": "zh-en-quantity",
+    "query": "棉铃总站（Boll Terminal）的备用电池可供电多少小时？",
+    "positive": "Boll Terminal's backup battery supplies power for 6 hours. The charger is in bay 2.",
+    "negative": "Boll Terminal's backup battery takes 6 hours to recharge. The charger is in bay 2."
+  },
+  {
+    "category": "en-zh-brand",
+    "query": "Which brand makes the Rainleaf desk lamp (雨叶台灯)?",
+    "positive": "雨叶台灯的品牌为白鹭灯具，本批次由岸石仓经销。",
+    "negative": "白鹭灯具只为雨叶台灯供货灯罩，本批次由岸石仓经销。"
+  },
+  {
+    "category": "zh-en-author",
+    "query": "小说《折纸旅馆》（Paper Inn）的作者是谁？",
+    "positive": "Paper Inn is a novel written by Ada Marsh. Its illustrator is Orrin Dell.",
+    "negative": "Paper Inn is dedicated to Ada Marsh. Its illustrator is Orrin Dell."
+  },
+  {
+    "category": "en-zh-negation",
+    "query": "Was the Bayglass exhibition (湾镜展) held in the east hall?",
+    "positive": "湾镜展的确认函写明展览在东厅举办；南厅用于检票。",
+    "negative": "湾镜展的确认函只写明南厅用于检票，未注明展览是否在东厅举办。"
+  },
+  {
+    "category": "zh-title",
+    "query": "雾木电台周五播出的访谈节目叫什么名字？",
+    "positive": "雾木电台周五播出的访谈节目名为《外面的铃声》，由寒桥主持。",
+    "negative": "雾木电台周五播出的访谈节目由寒桥主持，暖场音乐名为《外面的铃声》。"
+  },
+  {
+    "category": "en-attribute-owner",
+    "query": "Who designed the Loden trolley handle?",
+    "positive": "The Loden trolley handle was designed by Pip Arden. Rin Moss tested the trolley wheels.",
+    "negative": "The Loden trolley wheels were designed by Pip Arden. Rin Moss tested the trolley handle."
+  },
+  {
+    "category": "zh-ordinal-as-count",
+    "query": "石篱合唱团这次排练一共有多少名替补？",
+    "positive": "石篱合唱团春季排练共有 4 名替补；签到地点在 14 号门。",
+    "negative": "石篱合唱团春季排练通知第 4 条讲的是替补签到；签到地点在 14 号门。"
+  },
+  {
+    "category": "en-truncated-tail",
+    "query": "How many shelves are in the Drift archive's reference room?",
+    "positive": "The Drift archive's reference room contains 26 shelves for local maps.",
+    "negative": "The Drift archive's reference room contains"
+  },
+  {
+    "category": "zh-truncated-head",
+    "query": "微石社的试刊叫什么？",
+    "positive": "微石社的试刊叫《双面车票》；试刊附赠折页地图。",
+    "negative": "叫《双面车票》；试刊附赠折页地图。"
+  },
+  {
+    "category": "en-zh-quantity-scope",
+    "query": "How many trays fit in each compartment of the Twinfin cart (双鳍推车)?",
+    "positive": "双鳍推车每个隔间能放 3 个托盘，整车有 2 个隔间。",
+    "negative": "双鳍推车共有 3 个托盘，整车有 2 个隔间；隔间容量未标注。"
+  }
+]

@@ -1,0 +1,702 @@
+{
+  "kind": "152-development-source-evidence",
+  "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "matrixSha256": "002b825765a69708234ec680d02d1c8619cfab386feb2c864de68843dbae740b",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "pools": {
+    "v7-r3": {
+      "reference": {
+        "all": {
+          "positive": 136,
+          "negative": 132,
+          "hits1": 91,
+          "hits5": 126,
+          "falsePositives": 39,
+          "reciprocalRanks": 105.81666666666668
+        },
+        "groups": {
+          "zh-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 11,
+            "hits5": 20,
+            "falsePositives": 0,
+            "reciprocalRanks": 14.283333333333333
+          },
+          "en-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 14,
+            "hits5": 21,
+            "falsePositives": 0,
+            "reciprocalRanks": 16.75
+          },
+          "zh-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 24,
+            "falsePositives": 0,
+            "reciprocalRanks": 21.083333333333336
+          },
+          "en-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 23,
+            "falsePositives": 0,
+            "reciprocalRanks": 21
+          },
+          "exact-entity/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 7,
+            "hits5": 10,
+            "falsePositives": 0,
+            "reciprocalRanks": 8.2
+          },
+          "correction/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 10,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 11
+          },
+          "mixed-to-zh/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 6.5
+          },
+          "mixed-to-en/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 6,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 7
+          },
+          "near-topic/missing-field": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 11,
+            "reciprocalRanks": 0
+          },
+          "near-topic/missing-number": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 12,
+            "reciprocalRanks": 0
+          },
+          "negative-entity/entity-mismatch": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 12,
+            "reciprocalRanks": 0
+          },
+          "negative-ood/ood": {
+            "positive": 0,
+            "negative": 80,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 4,
+            "reciprocalRanks": 0
+          },
+          "mixed-ood/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "identifier": {
+        "all": {
+          "positive": 136,
+          "negative": 132,
+          "hits1": 96,
+          "hits5": 128,
+          "falsePositives": 27,
+          "reciprocalRanks": 109.61666666666667
+        },
+        "groups": {
+          "zh-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 11,
+            "hits5": 20,
+            "falsePositives": 0,
+            "reciprocalRanks": 14.283333333333333
+          },
+          "en-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 14,
+            "hits5": 21,
+            "falsePositives": 0,
+            "reciprocalRanks": 16.75
+          },
+          "zh-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 24,
+            "falsePositives": 0,
+            "reciprocalRanks": 21.083333333333336
+          },
+          "en-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 23,
+            "falsePositives": 0,
+            "reciprocalRanks": 21
+          },
+          "exact-entity/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 12,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 12
+          },
+          "correction/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 10,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 11
+          },
+          "mixed-to-zh/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 6.5
+          },
+          "mixed-to-en/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 6,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 7
+          },
+          "near-topic/missing-field": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 11,
+            "reciprocalRanks": 0
+          },
+          "near-topic/missing-number": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 12,
+            "reciprocalRanks": 0
+          },
+          "negative-entity/entity-mismatch": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          },
+          "negative-ood/ood": {
+            "positive": 0,
+            "negative": 80,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 4,
+            "reciprocalRanks": 0
+          },
+          "mixed-ood/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "typed-number": {
+        "all": {
+          "positive": 136,
+          "negative": 132,
+          "hits1": 96,
+          "hits5": 128,
+          "falsePositives": 19,
+          "reciprocalRanks": 109.61666666666667
+        },
+        "groups": {
+          "zh-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 11,
+            "hits5": 20,
+            "falsePositives": 0,
+            "reciprocalRanks": 14.283333333333333
+          },
+          "en-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 14,
+            "hits5": 21,
+            "falsePositives": 0,
+            "reciprocalRanks": 16.75
+          },
+          "zh-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 24,
+            "falsePositives": 0,
+            "reciprocalRanks": 21.083333333333336
+          },
+          "en-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 23,
+            "falsePositives": 0,
+            "reciprocalRanks": 21
+          },
+          "exact-entity/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 12,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 12
+          },
+          "correction/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 10,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 11
+          },
+          "mixed-to-zh/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 6.5
+          },
+          "mixed-to-en/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 6,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 7
+          },
+          "near-topic/missing-field": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 11,
+            "reciprocalRanks": 0
+          },
+          "near-topic/missing-number": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 4,
+            "reciprocalRanks": 0
+          },
+          "negative-entity/entity-mismatch": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          },
+          "negative-ood/ood": {
+            "positive": 0,
+            "negative": 80,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 4,
+            "reciprocalRanks": 0
+          },
+          "mixed-ood/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "typed-attribute": {
+        "all": {
+          "positive": 136,
+          "negative": 132,
+          "hits1": 95,
+          "hits5": 126,
+          "falsePositives": 14,
+          "reciprocalRanks": 108.11666666666667
+        },
+        "groups": {
+          "zh-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 11,
+            "hits5": 20,
+            "falsePositives": 0,
+            "reciprocalRanks": 14.283333333333333
+          },
+          "en-zh/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 14,
+            "hits5": 21,
+            "falsePositives": 0,
+            "reciprocalRanks": 16.75
+          },
+          "zh-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 18,
+            "hits5": 23,
+            "falsePositives": 0,
+            "reciprocalRanks": 20.083333333333336
+          },
+          "en-en/positive": {
+            "positive": 24,
+            "negative": 0,
+            "hits1": 19,
+            "hits5": 23,
+            "falsePositives": 0,
+            "reciprocalRanks": 21
+          },
+          "exact-entity/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 12,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 12
+          },
+          "correction/positive": {
+            "positive": 12,
+            "negative": 0,
+            "hits1": 10,
+            "hits5": 12,
+            "falsePositives": 0,
+            "reciprocalRanks": 11
+          },
+          "mixed-to-zh/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 8,
+            "falsePositives": 0,
+            "reciprocalRanks": 6.5
+          },
+          "mixed-to-en/positive": {
+            "positive": 8,
+            "negative": 0,
+            "hits1": 6,
+            "hits5": 7,
+            "falsePositives": 0,
+            "reciprocalRanks": 6.5
+          },
+          "near-topic/missing-field": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 6,
+            "reciprocalRanks": 0
+          },
+          "near-topic/missing-number": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 4,
+            "reciprocalRanks": 0
+          },
+          "negative-entity/entity-mismatch": {
+            "positive": 0,
+            "negative": 12,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          },
+          "negative-ood/ood": {
+            "positive": 0,
+            "negative": 80,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 4,
+            "reciprocalRanks": 0
+          },
+          "mixed-ood/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      }
+    },
+    "memory-128": {
+      "reference": {
+        "all": {
+          "positive": 40,
+          "negative": 16,
+          "hits1": 39,
+          "hits5": 40,
+          "falsePositives": 0,
+          "reciprocalRanks": 39.33333333333333
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 40,
+            "negative": 0,
+            "hits1": 39,
+            "hits5": 40,
+            "falsePositives": 0,
+            "reciprocalRanks": 39.33333333333333
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "identifier": {
+        "all": {
+          "positive": 40,
+          "negative": 16,
+          "hits1": 39,
+          "hits5": 40,
+          "falsePositives": 0,
+          "reciprocalRanks": 39.33333333333333
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 40,
+            "negative": 0,
+            "hits1": 39,
+            "hits5": 40,
+            "falsePositives": 0,
+            "reciprocalRanks": 39.33333333333333
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "typed-number": {
+        "all": {
+          "positive": 40,
+          "negative": 16,
+          "hits1": 39,
+          "hits5": 40,
+          "falsePositives": 0,
+          "reciprocalRanks": 39.33333333333333
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 40,
+            "negative": 0,
+            "hits1": 39,
+            "hits5": 40,
+            "falsePositives": 0,
+            "reciprocalRanks": 39.33333333333333
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "typed-attribute": {
+        "all": {
+          "positive": 40,
+          "negative": 16,
+          "hits1": 39,
+          "hits5": 40,
+          "falsePositives": 0,
+          "reciprocalRanks": 39.33333333333333
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 40,
+            "negative": 0,
+            "hits1": 39,
+            "hits5": 40,
+            "falsePositives": 0,
+            "reciprocalRanks": 39.33333333333333
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      }
+    },
+    "memory-12": {
+      "reference": {
+        "all": {
+          "positive": 5,
+          "negative": 16,
+          "hits1": 5,
+          "hits5": 5,
+          "falsePositives": 0,
+          "reciprocalRanks": 5
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 5,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 5,
+            "falsePositives": 0,
+            "reciprocalRanks": 5
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "identifier": {
+        "all": {
+          "positive": 5,
+          "negative": 16,
+          "hits1": 5,
+          "hits5": 5,
+          "falsePositives": 0,
+          "reciprocalRanks": 5
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 5,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 5,
+            "falsePositives": 0,
+            "reciprocalRanks": 5
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "typed-number": {
+        "all": {
+          "positive": 5,
+          "negative": 16,
+          "hits1": 5,
+          "hits5": 5,
+          "falsePositives": 0,
+          "reciprocalRanks": 5
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 5,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 5,
+            "falsePositives": 0,
+            "reciprocalRanks": 5
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      },
+      "typed-attribute": {
+        "all": {
+          "positive": 5,
+          "negative": 16,
+          "hits1": 5,
+          "hits5": 5,
+          "falsePositives": 0,
+          "reciprocalRanks": 5
+        },
+        "groups": {
+          "memory-deployment/positive": {
+            "positive": 5,
+            "negative": 0,
+            "hits1": 5,
+            "hits5": 5,
+            "falsePositives": 0,
+            "reciprocalRanks": 5
+          },
+          "memory-small-talk/ood": {
+            "positive": 0,
+            "negative": 16,
+            "hits1": 0,
+            "hits5": 0,
+            "falsePositives": 0,
+            "reciprocalRanks": 0
+          }
+        }
+      }
+    }
+  }
+}
