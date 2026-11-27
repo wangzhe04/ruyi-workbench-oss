@@ -27,8 +27,14 @@ try {
       `${id}: 06d writes it only through ${storeName} (no private atomicWriteJson on that file)`);
   }
   const server = fs.readFileSync(path.join(ROOT, 'ruyi-workbench', 'app', 'server.js'), 'utf8');
-  // The ledger now shares atomicWriteJson; five explicitly owned non-JSON/legacy sites remain.
-  ok((server.match(/\+ '\.tmp'/g) || []).length === 5, 'no undeclared fixed-tmp JSON writer remains');
+  // Compare individual writers: a UUID staging path cannot mask a new fixed name.
+  const stages = server.split(/\r?\n/).filter(line => /\+\s*(['"])\.tmp\1/.test(line))
+    .map(line => line.trim().split(';')[0]).sort();
+  const randomFinal = "const tmpPath = finalPath + '.' + process.pid + '.' + crypto.randomBytes(4).toString('hex') + '.tmp'";
+  const declared = [randomFinal, randomFinal, "const tmpRestore = e.path + '.tmp'", "const gzTmp = gzFile + '.tmp'",
+    "const tmp = nodePath.join(dir, '.' + nodePath.basename(target) + '.' + process.pid + '.' + nodeCrypto.randomBytes(4).toString('hex') + '.tmp')",
+    "const staging = path.join(profile, crypto.randomUUID() + '.tmp')"].sort();
+  ok(JSON.stringify(stages) === JSON.stringify(declared), 'no undeclared fixed-tmp JSON writer remains');
 } catch (error) { console.error(error.stack || error); failures++; }
 
 if (failures) process.exitCode = 1;

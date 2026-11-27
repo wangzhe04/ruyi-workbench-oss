@@ -527,17 +527,16 @@ const ok = (condition, label) => {
       'H4 抽屉的任务名读行里的 missionTitle（显式容器＝用户起的名；派生＝那条线程的显示名）');
 
     // H5 抽屉第一帧不拿内部 id 冒充名字。
-    // H5 **117l 微调重钉**：闸本身一个字没变，只是闸【落下的那一帧】多干一件事 —— 把焦点交给
-    // 「它在问你」的回答框（117l D4，走查①「打开线程回答」按下去该发生的事）。旧断言把 finally
-    // 的函数体逐字钉死，多这一步就红；companion（H5d）钉住「focus 必须在闸之后」——
-    // 闸落之前还没读到待决，那时候抢焦点等于赌它在问你。
+    // 显示占位的 loading 闸由发起打开的代际释放；回答框可以在更新的刷新交付数据时聚焦。
+    const currentOpenReady = 'if (sessionId === id && drawerReadGeneration === openGeneration) { loading = false; renderAll(); }';
     ok(/let loading = false;/.test(drawer) && /loading = true;/.test(drawer)
-      && /if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawerOpenBody),
+      && drawerOpenBody.includes(currentOpenReady),
       'H5 抽屉有「读取中」闸：数据到之前不画占位事实');
     const drawerRefreshAt = drawerOpenBody.indexOf('try { await refreshOnce(); }');
-    const drawerReadyFocusAt = drawerOpenBody.indexOf('loading = false; renderAll(); if (wantFocus) focusAsk();');
-    ok(drawerRefreshAt >= 0 && drawerReadyFocusAt > drawerRefreshAt,
-      'H5d companion：焦点交给问答框发生在 refreshOnce 之后、闸落下的那一帧（不是开抽屉那一帧）');
+    const requestFocusAt = drawerOpenBody.indexOf("pendingAskFocus = wantFocus ? id : '';");
+    ok(requestFocusAt >= 0 && drawerRefreshAt > requestFocusAt && drawerOpenBody.indexOf(currentOpenReady) > drawerRefreshAt
+      && !drawerOpenBody.includes('focusAsk()'),
+      'H5d 打开线程只登记待交付的焦点；首次刷新结束时仅当前代际可以撤下占位');
     ok(/titleNode\.textContent = name \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : sessionId\);/.test(drawer)
       && /quote\.textContent = said \|\| \(loading \? t\('stewardShell\.drawer\.loading'\) : t\('stewardShell\.drawer\.lastSayEmpty'\)\);/.test(drawer),
       'H5b 三处占位都过闸：标题不落回 sess_xxxx、事项行不说「未归事项」、它刚说不说「它还没说过话」');
@@ -586,8 +585,12 @@ const ok = (condition, label) => {
       && html.includes('id="stewardDrawerAskInput"')
       && /\.steward-drawer-ask\[hidden\] \{ display: none; \}/.test(read('css/views/steward-drawer.css')),
       'I3 ① 问答卡排在线程头之后，骨架在 index.html，显隐配了 [hidden] 守卫');
-    ok(/if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawerOpenBody)
-      && drawerOpenBody.includes('const openGeneration = drawerReadGeneration;'),
+    const loadThread = functionBlock(drawer, 'loadThreadSlice');
+    const acceptRead = loadThread.indexOf('if (id !== sessionId || generation !== drawerReadGeneration || seq !== threadReadSeq) return;');
+    ok(drawerOpenBody.includes('const openGeneration = drawerReadGeneration;') && acceptRead >= 0
+      && loadThread.indexOf('if (sessionRes?.ok === true') > acceptRead
+      && functionBlock(drawer, 'renderAll').includes("pendingAskFocus === sessionId && sessionId && drawerReadQuality.session.state === 'ok'")
+      && functionBlock(drawer, 'closeDrawer').includes("pendingAskFocus = '';"),
       'I3b 打开线程、同代际数据到齐才聚焦问答框；旧进程/旧打开请求不得抢当前输入焦点');
 
     // I4 ①⑥ 递话单口：抽屉不再自己在 /api/steer 与 /api/chat/stream 之间猜通道。

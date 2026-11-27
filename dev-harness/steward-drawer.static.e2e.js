@@ -534,12 +534,15 @@ ok(/function askOptionReplies\(\) \{[\s\S]{0,320}return quickRepliesFor\(\{ pend
   'J6b 选项按钮复用 quickRepliesFor（与 ⑦ 同一份判据，不另写一遍「取 label || value」）');
 // 121-K6b **重钉 J7**（§13.7 登记 ⑨）：焦点栏常驻之后，换焦点的触发者多数不是用户（管家递话、
 // 推送来帧、syncNow 的自动挑选），把光标从用户正在打字的地方抢走就是把键位丢掉。
-// 「闸落之后才移焦」这半句一个字没松，只是外面多了一道「用户没在打字」的门。
-ok(/if \(sessionId === id && drawerReadGeneration === openGeneration\) \{ loading = false; renderAll\(\); if \(wantFocus\) focusAsk\(\); \}/.test(drawer)
+// 首次读取被更新的刷新取代时，当前会话和待决都就绪的那次绘制可以交付焦点。
+const openForFocus = functionBlock(drawerCode, 'openThread');
+const paintForFocus = functionBlock(drawerCode, 'renderAll');
+ok(openForFocus.includes("pendingAskFocus = wantFocus ? id : '';")
+  && /renderAsk\(\);\s*if \(pendingAskFocus === sessionId && sessionId && drawerReadQuality\.session\.state === 'ok'\s*&& drawerReadQuality\.pending\.state === 'ok'\) \{\s*const active = doc\(\)\.activeElement;\s*if \(\(active !== byId\('stewardDrawerTitle'\) && active !== doc\(\)\.body\) \|\| focusAsk\(\)\) pendingAskFocus = '';/.test(paintForFocus)
   && /function userIsTyping\(\)/.test(drawer)
   && /return active\.isContentEditable === true;/.test(drawer)
   && /const wantFocus = opts && opts\.focus === true \? true : \(opts && opts\.focus === false \? false : !userIsTyping\(\) && !focusInOtherDialog\(\)\);/.test(drawer),
-  'J7 焦点在【loading 闸落下之后】才给问答框，且只在用户没在输入框里打字时才移焦（§13.7 ⑨）');
+  'J7 会话与待决均就绪后才给问答框焦点；用户正在输入或已自行移焦时保留其焦点');
 // 重钉 J7（收紧，不是放宽）：自动打开时再多一道 —— 焦点在【别的】开着的模态弹层里（设置页的下拉／按钮）也不移。
 // Windows CI 实测：慢机器上抽屉晚开，把左栏直达设置·行动流水的焦点拽到抽屉标题上（rail-pocket B7c 复现）。
 ok(/function focusInOtherDialog\(\) \{[\s\S]{0,260}active\.closest\('\[role="dialog"\]\[aria-modal="true"\]'\)[\s\S]{0,120}!dialog\.closest\('#stewardDrawer'\)/.test(drawer),
