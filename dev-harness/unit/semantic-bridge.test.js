@@ -61,16 +61,17 @@ test('absolute deadline reaps stalled worker; aborted request is an error', asyn
   try {
     await f.client.prepare({ budgetMs: 1500 }); const start = Date.now();
     const response = await f.client.encode(['a'], { role: 'query', deadline: start + 220 });
-    const elapsed = Date.now() - start, reapMs = f.reapStartedAt(start) - start, osMs = f.observationMs(start);
+    const elapsed = Date.now() - start, osMs = f.observationMs(start);
     assert.equal(response.reason, 'timeout'); assert.equal(f.writes(), 1, 'the stalled request reached the worker');
-    // Reaping starts at the caller's 220 ms deadline, not at encode's implicit 1000 ms budget cap.
-    // 墙钟上界豁免:实得 220-233 ms(单跑、4 路并发、CPU 打满都一样),界 900 ms;失败形态是忽略截止、按隐含的 1000 ms 预算才回收(反向实测 1008 ms)。
-    assert.ok(reapMs < 900, `worker reaping began ${reapMs}ms after the request`);
-    // 151 阶段 2(超时回复不等 PowerShell 观测):修前回复扣在停进程后的那次 OS 观测(PowerShell,4 路并发下 0.75-0.9 s)
-    // 之后,这里原先断言「回复时观测已做完」(osMs > 0)并把观测从 1 s 界里扣掉。现在超时先回话:回复不含观测,
-    // 直接受 900 ms 界(实得约 230 ms;反向:修前回复 = 截止 + 观测 ≈ 1.0-1.2 s)。收进程与观测照旧做完,下面等它出现。
+    // 151 阶段 2(超时回复不等 PowerShell 观测):回复只受调用方 220 ms 截止约束,实得约 230 ms,界 900 ms。
     assert.ok(elapsed < 900, `reply ${elapsed}ms after the request (${osMs}ms of OS observation had finished by then)`);
     assert.equal(osMs, 0, 'the reply did not wait for the post-stop OS observation (pre-fix: osMs > 0 at reply time)');
+    // 152 L5b:软期限到点只回话;worker 在截止加宽限(初值 500 ms)内仍不应答才按挂死回收,不再在截止当刻杀进程。
+    // 反向:修前在 220 ms 处回收;回收若退回隐含的 1000 ms 预算上限之后才开始,会越过下面 1500 ms 的界。
+    assert.ok(!f.reapStartedAt(start), 'a soft timeout does not reap the worker at the caller deadline');
+    for (let n = 0; n < 300 && !f.reapStartedAt(start); n++) await new Promise(resolve => setTimeout(resolve, 10));
+    const reapMs = f.reapStartedAt(start) - start;
+    assert.ok(reapMs >= 600 && reapMs < 1500, `silent worker reaped ${reapMs}ms after the request (deadline 220 ms + 500 ms grace)`);
     for (let n = 0; n < 500 && !f.observationMs(start); n++) await new Promise(resolve => setTimeout(resolve, 10));
     assert.ok(f.observationMs(start) > 0, 'the bridge still observed the OS process table after stopping the worker');
   } finally { await f.close(); }
