@@ -23,7 +23,29 @@ async function phase(kind, directory, sessionCount, perSession) {
   const m = new Module(server, module);
   m.filename = server;
   m.paths = Module._nodeModulePaths(path.dirname(server));
-  m._compile(bytes.toString() + '\nmodule.exports.measure={SemanticRuntimeHooks,SemanticRetrieval,SemanticRuntimeTransportProof,SemanticOriginalWindows,SemanticWindowPolicy};', server);
+  // Observe the built server in the benchmark process. Keep only timing and lifecycle metadata.
+  const transportEvents = [], dispatched = new Map(), startedAt = performance.now();
+  m.dispatched = (id, deadline, sentAt) => dispatched.set(id, { deadline, sentAt });
+  m.settled = id => dispatched.delete(id);
+  m.transportEvent = (kind, id, details = {}) => {
+    const timing = dispatched.get(id);
+    transportEvents.push({ kind, atMs: Math.round(performance.now() - startedAt), ...details,
+      ...(timing ? { overdueMs: Date.now() - timing.deadline, roundTripMs: Date.now() - timing.sentAt } : {}) });
+  };
+  let source = bytes.toString();
+  for (const [anchor, replacement] of [
+    ['sentAt=Date.now();r.child.stdin.write', 'sentAt=Date.now();module.dispatched(id,deadline,sentAt);r.child.stdin.write'],
+    ['pending.delete(id);clearTimeout(r.timer)', 'module.settled(id);pending.delete(id);clearTimeout(r.timer)'],
+    ['if(value===SOFT_TIMEOUT){', "if(value===SOFT_TIMEOUT){module.transportEvent('soft-deadline',id);"],
+    ['function checkHungWorker(record,id){', "function checkHungWorker(record,id){module.transportEvent('watchdog-due',id);"],
+    ["const stopping=stop('timeout');", "module.transportEvent('watchdog-stop',id);const stopping=stop('timeout');"],
+    ["if(reason==='idle')throw fault('semantic.idle_unload_disabled');generation++",
+      "module.transportEvent('stop',null,{reason,pending:pending.size});if(reason==='idle')throw fault('semantic.idle_unload_disabled');generation++"],
+  ]) {
+    assert.equal(source.split(anchor).length, 2, 'benchmark instrumentation: ' + anchor);
+    source = source.replace(anchor, replacement);
+  }
+  m._compile(source + '\nmodule.exports.measure={SemanticRuntimeHooks,SemanticRetrieval,SemanticRuntimeTransportProof,SemanticOriginalWindows,SemanticWindowPolicy};', server);
   const ports = m.exports.measure, runtime = ports.SemanticRuntimeHooks;
   const root = path.join(directory, 'dataset');
   const f = await fixture({ directory: root, enabled: true, master: createHash('sha256').update('synthetic L4 fixture key').digest() });
@@ -88,6 +110,7 @@ async function phase(kind, directory, sessionCount, perSession) {
       }
     }
     report.workerStats = runtime.stats().backend;
+    report.transportEvents = transportEvents.slice();
     return report;
   } finally {
     await runtime.shutdown();
