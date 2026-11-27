@@ -15,15 +15,15 @@ const normalize = text => text.normalize('NFKC').toLowerCase();
 function codes(text) {
   return (text.match(/[a-z0-9]+(?:[-_][a-z0-9]+)+/g) || []).filter(token => /[a-z]/.test(token) && /\d/.test(token));
 }
-const value = '(?:\\d+(?:[.,]\\d+)?|[零〇一二两三四五六七八九十百千万]+|\\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|hundred)\\b)';
+const value = '(?<![a-z0-9_-])(?:\\d+(?:[.,]\\d+)?|[零〇一二两三四五六七八九十百千万]+|\\b(?:zero|one|two|three|four|five|six|seven|eight|nine|ten|twelve|twenty|hundred)\\b)';
 const numberTypes = [
   [/小时|hours?\b/, /小时|hours?\b/], [/分钟|minutes?\b/, /分钟|minutes?\b/],
   [/毫秒|milliseconds?\b/, /毫秒|milliseconds?\b/], [/秒钟|几秒|多少秒|\bseconds?\b/, /秒钟?|\bseconds?\b/],
   [/几天|多少天|\bdays?\b/, /天|日|days?\b/], [/多少行|几行|\brows?\b|\blines?\b/, /行|rows?\b|lines?\b/],
-  [/多少钱|价格|费用|how much.*cost|\bprice\b/, /元|美元|英镑|欧元|dollars?|euros?|pounds?/],
+  [/多少钱|价格|费用|how much.*cost|\b(?:price|cost)\b/, /元|美元|英镑|欧元|dollars?|euros?|pounds?/],
   [/字数|字符|长度|\blength\b|\bcharacters?\b/, /字节|字符|个字|bytes?|characters?|cm\b|mm\b|厘米|毫米/],
 ];
-const count = new RegExp(value + '\\s*(?:个|位|张|份|件|人|名|台|条|把|本|组|次|项|种|套|只|[a-z]+\\b)', 'i');
+const count = new RegExp(value + '\\s*(?:个|位|张|份|件|人|名|台|条|把|本|组|次|项|种|套|只|(?!is\\b|are\\b|was\\b|were\\b|of\\b|the\\b|and\\b)[a-z]{2,}\\b)', 'i');
 const attrs = [
   [/品牌|牌子|\bbrand\b/, /(?:品牌|牌子|\bbrand)\s*(?:名|为|是|叫|is|name|[:=])?\s*[^\s:：=。，,;；]{2,}/],
   [/厂家|制造商|生产商|\bmanufactur(?:er|ed)\b/, /(?:制造商|生产商|厂家)\s*(?:是|为|[:=])\s*\S+|由.{2,24}(?:制造|生产)|(?:made|manufactured|produced) by\s+[\w\p{L}]+|manufacturer\s*[:=]\s*\S+/u],
@@ -33,9 +33,13 @@ const attrs = [
 function requirements(query) {
   const q = normalize(query);
   const wantsNumber = /多少|几[个位张名人天小分秒行]|(?:最多|最少).*(?:几|多少)|\bhow (?:many|much|long)\b|\b(?:maximum|minimum) (?:length|number|size)\b/.test(q);
-  const unit = wantsNumber && numberTypes.find(([ask]) => ask.test(q));
-  const number = !wantsNumber ? null : unit ? new RegExp(value + '\\s*(?:' + unit[1].source.replace(/\\b/g, '') + ')(?![a-z])', 'i') : count;
-  return {ids:codes(q), number, attrs:attrs.filter(([ask]) => ask.test(q)).map(([, evidence]) => evidence)};
+  const asksMeasurement = /(?:什么|是多少|几何|\bwhat(?:'s| is| are)\b).*(?:价格|费用|时长|长度|\b(?:price|cost|length|duration)\b)|(?:价格|费用|时长|长度).*(?:多少|几何)/.test(q);
+  const numeric = wantsNumber || asksMeasurement;
+  const unit = numeric && numberTypes.find(([ask]) => ask.test(q));
+  const number = !numeric ? null : unit ? new RegExp(value + '\\s*(?:' + unit[1].source.replace(/\\b/g, '') + ')(?![a-z])', 'i') : count;
+  const currency = /价格|费用|多少钱|\b(?:price|cost)\b/.test(q) && numeric;
+  const numberPattern = currency ? new RegExp('(?:' + number.source + '|[$€£￥¥]\\s*' + value + ')', 'i') : number;
+  return {ids:codes(q), number:numberPattern, attrs:attrs.filter(([ask]) => ask.test(q)).map(([, evidence]) => evidence)};
 }
 function supported(need, clause, level) {
   if (level === 0) return true;
@@ -49,7 +53,18 @@ function windows(doc) {
   const result = [];
   for (let start = 0; start < doc.text.length; start += 80) {
     const end = start + 96;
-    result.push({id:doc.id, clauses:clauses.filter(c => c.start < end && c.end > start).map(c => c.text)});
+    const visible = [];
+    for (const clause of clauses) {
+      let left = Math.max(start, clause.start);
+      let right = Math.min(end, clause.end);
+      if (left >= right) continue;
+      // A clipped Latin identifier or numeral cannot prove a shorter, different one.
+      const token = /[a-z0-9_-]/i;
+      if (left > 0 && token.test(doc.text.charAt(left-1))) while (left < right && token.test(doc.text.charAt(left))) left++;
+      if (right < doc.text.length && token.test(doc.text.charAt(right))) while (right > left && token.test(doc.text.charAt(right-1))) right--;
+      if (left < right) visible.push(doc.text.slice(left,right));
+    }
+    result.push({id:doc.id, clauses:visible});
     if (end >= doc.text.length) break;
   }
   return result;
@@ -69,7 +84,7 @@ function evaluate(pool, corpus) {
   const queries = corpus.queries.filter(q => q.kind !== 'positive' || q.relevant.some(id => ids.has(id)));
   assert.equal(queries.length, pool.queries.length);
   return Object.fromEntries(modes.map((name, level) => {
-    const all = stats(), groups = {};
+    const all = stats(), groups = {}, fixedWinner = stats();
     queries.forEach((q, i) => {
       const recorded = pool.queries[i];
       assert.deepEqual([q.group,q.kind,q.relevant], [recorded.group,recorded.kind,recorded.relevant]);
@@ -80,11 +95,15 @@ function evaluate(pool, corpus) {
         if (score < .70 || score-reference < .070 || !row.clauses.some(clause => supported(need, clause, level))) return;
         best.set(row.id, Math.max(score, best.get(row.id) ?? -Infinity));
       });
+      const winner = recorded.scores.indexOf(Math.max(...recorded.scores));
+      const winnerScore = recorded.scores[winner], first = rows[winner];
+      const keepWinner = winnerScore >= .70 && winnerScore-reference >= .070 && first.clauses.some(clause => supported(need, clause, level));
+      update(fixedWinner, q, keepWinner ? [first.id] : []);
       const top = [...ids].filter(id => best.has(id)).sort((a,b) => best.get(b)-best.get(a)).slice(0,5);
       update(all, q, top);
       update(groups[q.group+'/'+q.kind] ||= stats(), q, top);
     });
-    return [name, {all,groups}];
+    return [name, {all,groups,fixedWinner}];
   }));
 }
 function run(fixture, output) {
