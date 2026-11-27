@@ -1,0 +1,449 @@
+{
+  "serverSha256": "247cb41e6cd70e34fdae2c77a2dc7a7730510258cc01c6a43a9eeab3a1d1c1d3",
+  "availableParallelism": 2,
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "scope": "128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms",
+  "cold": {
+    "query": "西红柿",
+    "status": "partial",
+    "elapsedMs": 183.17489999999998,
+    "checks": 9,
+    "checksMs": 9.214300000001458,
+    "evaluateMs": 0,
+    "queryMs": 102.38310000000092,
+    "checkPhases": {
+      "start": {
+        "calls": 1,
+        "ms": 3.6965000000000146
+      },
+      "finish": {
+        "calls": 7,
+        "ms": 4.666300000000774
+      },
+      "disclosure": {
+        "calls": 1,
+        "ms": 0.8515000000006694
+      }
+    },
+    "otherMs": 71.5774999999976,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0
+  },
+  "prewarmMs": 21638,
+  "warm": [
+    {
+      "query": "heart attack",
+      "status": "partial",
+      "elapsedMs": 416.2665999999954,
+      "checks": 493,
+      "checksMs": 291.7760000000344,
+      "evaluateMs": 14.901099999959115,
+      "queryMs": 79.10880000000907,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.7366000000038184
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.62139999998908
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5967000000018743
+        },
+        "field": {
+          "calls": 241,
+          "ms": 155.85270000003948
+        },
+        "policy-resolved": {
+          "calls": 241,
+          "ms": 126.72690000000148
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.5706999999965774
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.6710000000020955
+        }
+      },
+      "otherMs": 30.480699999992794,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "paid time off",
+      "status": "partial",
+      "elapsedMs": 426.6764000000039,
+      "checks": 459,
+      "checksMs": 295.6505000000543,
+      "evaluateMs": 9.869499999949767,
+      "queryMs": 81.2439000000013,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 14.26079999999638
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.606900000006135
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.8059999999968568
+        },
+        "field": {
+          "calls": 224,
+          "ms": 148.98990000000776
+        },
+        "policy-resolved": {
+          "calls": 224,
+          "ms": 125.63690000004135
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.48570000000472646
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.8643000000010943
+        }
+      },
+      "otherMs": 39.912499999998545,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "骑脚踏车",
+      "status": "partial",
+      "elapsedMs": 431.6915999999983,
+      "checks": 513,
+      "checksMs": 292.62710000015795,
+      "evaluateMs": 10.012899999863293,
+      "queryMs": 88.77180000000226,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 4.969499999999243
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.792400000013004
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 1.319100000000617
+        },
+        "field": {
+          "calls": 251,
+          "ms": 155.26040000007924
+        },
+        "policy-resolved": {
+          "calls": 251,
+          "ms": 124.97930000005726
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.433100000002014
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.8733000000065658
+        }
+      },
+      "otherMs": 40.279799999974784,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "bicycle",
+      "status": "partial",
+      "elapsedMs": 421.51320000000123,
+      "checks": 523,
+      "checksMs": 305.4682999999641,
+      "evaluateMs": 9.907700000047043,
+      "queryMs": 75.82020000000193,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.396099999998114
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.870400000014342
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5288000000000466
+        },
+        "field": {
+          "calls": 256,
+          "ms": 162.59150000001682
+        },
+        "policy-resolved": {
+          "calls": 256,
+          "ms": 133.94429999993736
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.46050000000104774
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.6766999999963446
+        }
+      },
+      "otherMs": 30.316999999988184,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "tomato",
+      "status": "partial",
+      "elapsedMs": 426.50279999999475,
+      "checks": 497,
+      "checksMs": 304.8080000000555,
+      "evaluateMs": 9.857199999947625,
+      "queryMs": 77.73159999999916,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.3998999999967054
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 7.917600000000675
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 8.535600000002887
+        },
+        "field": {
+          "calls": 243,
+          "ms": 157.321400000008
+        },
+        "policy-resolved": {
+          "calls": 243,
+          "ms": 127.06650000004447
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.7655999999988126
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.8014000000039232
+        }
+      },
+      "otherMs": 34.10599999999249,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "心肌梗死",
+      "status": "partial",
+      "elapsedMs": 424.1054000000004,
+      "checks": 515,
+      "checksMs": 297.09230000004027,
+      "evaluateMs": 9.242299999961688,
+      "queryMs": 85.86560000000463,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 4.2502000000022235
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.035700000000361
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5817999999999302
+        },
+        "field": {
+          "calls": 252,
+          "ms": 159.93890000001556
+        },
+        "policy-resolved": {
+          "calls": 252,
+          "ms": 127.00890000002255
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.47630000000208383
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.8004999999975553
+        }
+      },
+      "otherMs": 31.905199999993783,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "annual leave",
+      "status": "reranked",
+      "elapsedMs": 417.5382000000027,
+      "checks": 525,
+      "checksMs": 298.2422000000006,
+      "evaluateMs": 9.208500000007916,
+      "queryMs": 78.98909999999887,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 3.6820000000006985
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.673800000004121
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5014000000010128
+        },
+        "field": {
+          "calls": 257,
+          "ms": 161.85770000000775
+        },
+        "policy-resolved": {
+          "calls": 257,
+          "ms": 127.15909999998257
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.450700000001234
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.9175000000032014
+        }
+      },
+      "otherMs": 31.09839999999531,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "how to bake sourdough bread",
+      "status": "partial",
+      "elapsedMs": 415.34619999999995,
+      "checks": 509,
+      "checksMs": 293.11800000005314,
+      "evaluateMs": 8.6524999999383,
+      "queryMs": 87.59300000000076,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 4.6960999999937485
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.45679999999993
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5210000000006403
+        },
+        "field": {
+          "calls": 249,
+          "ms": 159.54100000003382
+        },
+        "policy-resolved": {
+          "calls": 249,
+          "ms": 123.64630000002944
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.4312999999965541
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.8254999999990105
+        }
+      },
+      "otherMs": 25.982700000007753,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    }
+  ],
+  "secondSession": {
+    "query": "heart attack",
+    "status": "reranked",
+    "elapsedMs": 409.1191999999937,
+    "checks": 525,
+    "checksMs": 291.60570000000735,
+    "evaluateMs": 8.30729999999312,
+    "queryMs": 78.63390000000072,
+    "checkPhases": {
+      "start": {
+        "calls": 1,
+        "ms": 3.3932000000058906
+      },
+      "finish": {
+        "calls": 7,
+        "ms": 3.6128999999928055
+      },
+      "policy-start": {
+        "calls": 1,
+        "ms": 0.46379999999771826
+      },
+      "field": {
+        "calls": 257,
+        "ms": 156.69140000006882
+      },
+      "policy-resolved": {
+        "calls": 257,
+        "ms": 126.4203999999445
+      },
+      "policy-finish": {
+        "calls": 1,
+        "ms": 0.48229999999603024
+      },
+      "disclosure": {
+        "calls": 1,
+        "ms": 0.5417000000015832
+      }
+    },
+    "otherMs": 30.572299999992538,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0
+  },
+  "summary": {
+    "elapsedMs": {
+      "median": 422.8093000000008,
+      "p95": 431.6915999999983
+    },
+    "queryMs": {
+      "median": 80.17635000000519,
+      "p95": 88.77180000000226
+    },
+    "checksMs": {
+      "median": 296.3714000000473,
+      "p95": 305.4682999999641
+    },
+    "checks": {
+      "median": 511,
+      "p95": 525
+    },
+    "evaluateMs": {
+      "median": 9.863349999948696,
+      "p95": 14.901099999959115
+    },
+    "otherMs": {
+      "median": 31.501799999994546,
+      "p95": 40.279799999974784
+    }
+  }
+}
