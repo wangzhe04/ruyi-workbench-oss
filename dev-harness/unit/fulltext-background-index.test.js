@@ -441,6 +441,35 @@ test('[G10] 152 L4: Gemma sessions are background-encoded into schema 2 with the
   a.ok(Object.values(value.texts).includes(require('node:crypto').createHash('sha256').update(text).digest('hex')));
 });
 
+test('a qualified vector space survives restart and a mismatched space forces re-encoding', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  await f.put('SPACE', [{ id:'m', role:'user', content:'大巴前往机场' }]);
+  const api = semanticApi(), model = api.windowPolicy.CONTRACT.modelFingerprint;
+  f.hookContext.SemanticRetrieval = api;
+  const encoder = runtime(), descriptor = { ...DESCRIPTOR, modelId:'embeddinggemma-2-text-q4', modelFingerprint:model };
+  encoder.descriptor = () => descriptor;
+  encoder.prepare = async () => descriptor;
+  let encoded = 0;
+  encoder.encode = async (texts, options) => {
+    await options.beforeEncode?.();
+    encoded += texts.length;
+    return {ok:true, modelFingerprint:model, vectors:texts.map(() => [1,...Array(767).fill(0)])};
+  };
+  const build = async () => { const index = create(f, {encoder}); index.backgroundKick(); await settle(index); };
+  await build();
+  const file = path.join(indexDir(f), 'SPACE', 'vectors.json');
+  const record = JSON.parse(await fsp.readFile(file));
+  a.equal(record.schema, 3);
+  a.match(record.space, /^sha256:[a-f0-9]{64}$/);
+  a.deepEqual(Object.keys(record.texts), Object.keys(record.entries));
+  await build(); a.equal(encoded, 1);
+  await fsp.writeFile(file, JSON.stringify({...record, space:'sha256:' + '0'.repeat(64)}));
+  await build(); a.equal(encoded, 2);
+  const {space, ...legacy} = record;
+  await fsp.writeFile(file, JSON.stringify({...legacy, schema:2, model:'old-worker'}));
+  await build(); a.equal(encoded, 3);
+});
+
 test('a session exceeding the Gemma vector file capacity yields to the next session', async t => {
   const f = await fixture();
   t.after(() => f.close());
