@@ -39,7 +39,22 @@ async function main() {
   mod.filename = server; mod.paths = Module._nodeModulePaths(path.dirname(server)); mod.measure = measure;
   // Instrument only the isolated compiled module; do not change the on-disk artifact.
   const splitChecks = process.argv.includes('--check-phases');
+  const workerTimings = process.argv.includes('--worker-timings');
   let code = source;
+  if (workerTimings) {
+    mod.queryEvent = (kind, details) => frame.getStore()?.totals.queryEvents?.push({ kind, ...details });
+    for (const [anchor, tagged] of [
+      ['const minimumBudgetMs=minimumBudget(role,texts.length);',
+        "const minimumBudgetMs=minimumBudget(role,texts.length);if(role==='query')module.queryEvent('estimate',{minimumBudgetMs,remainingMs:finishDeadline-Date.now()});"],
+      ['sentAt=Date.now();r.child.stdin.write',
+        "sentAt=Date.now();if(options.role==='query')module.queryEvent('sent',{remainingMs:deadline-sentAt});r.child.stdin.write"],
+      ['const repliedAt=Date.now();',
+        "const repliedAt=Date.now();if(options.role==='query')module.queryEvent('reply',{roundTripMs:repliedAt-sentAt,workerMs:value.metrics?.workerEncodeMs,ok:value.ok});"],
+    ]) {
+      assert.equal(code.split(anchor).length, 2);
+      code = code.replace(anchor, tagged);
+    }
+  }
   if (splitChecks) {
     // Tag the original callback without adding an await, another timer, or any I/O.
     const tags = [
@@ -89,11 +104,14 @@ async function main() {
     const sample = async (query, session) => {
       const foregroundBefore = foregroundDocuments;
       const before = runtime.stats().backend, t = { checks:0, checksMs:0, evaluateMs:0, queryMs:0, ...(splitChecks ? {checkPhases:{}} : {}) };
+      if (workerTimings) t.queryEvents = [];
+      const cpuBefore = workerTimings && process.cpuUsage();
       const start = performance.now();
       const result = await frame.run({ totals:t, childMs:0 },()=>api.resolveMemoryPreflight(session,cwd,query,null,config));
       const elapsedMs = performance.now()-start, after = runtime.stats().backend;
       return { query, status:result.status.semantic.status, elapsedMs,...t, otherMs:elapsedMs-t.checksMs-t.evaluateMs-t.queryMs,
-        documentTexts:after.documentTexts-before.documentTexts, foregroundDocumentTexts:foregroundDocuments-foregroundBefore, kills:after.kills-before.kills };
+        documentTexts:after.documentTexts-before.documentTexts, foregroundDocumentTexts:foregroundDocuments-foregroundBefore, kills:after.kills-before.kills,
+        ...(workerTimings ? {parentCpuMicros:process.cpuUsage(cpuBefore),softTimeouts:after.softTimeouts-before.softTimeouts} : {}) };
     };
     const cold = await sample(reference.queries[0],sessions[0]);
     const waitStart = Date.now();
