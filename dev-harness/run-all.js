@@ -60,6 +60,8 @@ const TIMEOUT_MS = 120000; // 单件超时;最硬的 autonomy-durability 实测 
 // 实测撞 120s 硬超时(单跑无争用 ~39s),这些墙钟窗口本身就是在测「收件箱 tick 到达」这件事,
 // 挤在一起量不准,排到并行功能桶之后单独跑。
 const PARALLEL_EXCLUSIVE = new Set([
+  // 152 L1:冷记忆头的发送预检必须在 500 ms 内返回关键词结果。
+  'memory-preflight-snapshot.e2e.js',
   // Real NTFS/owner qualification: serialize both complete representation and
   // focused short-name ABI fixtures. Default/focused stay120s; the complete
   // representation fixture has its user-approved240s whole-file override below.

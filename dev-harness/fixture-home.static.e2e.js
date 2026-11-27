@@ -553,7 +553,8 @@ try {
   // 等满 120 s 的轮询间隔,与调度噪声差两个数量级)→ 30。
   // 2026-10 子代理时限 +1 件:agent-node-limits(env 缝把分钟缩成秒,断言里有 5 处秒级上界:等待窗 / 硬上限 / 宽限 / 空闲 —— 判的就是各层时限在哪一刻动手,
   // 整件进独占桶,不走就地豁免)→ 31。
-  const WALLCLOCK_OWNER_FILES = 33; // +1: session-search-background (151 4A) 三处就地豁免:首发不建、首发不付整片、后台 60 s 验收界。 +1: media HTTP lifecycle checks a fixed product expiry value, not processing speed.   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
+  // 152 L1 adds the send-preflight deadline in memory-preflight-snapshot; the runner measures it exclusively.
+  const WALLCLOCK_OWNER_FILES = 34; // +1: session-search-background (151 4A) 三处就地豁免:首发不建、首发不付整片、后台 60 s 验收界。 +1: media HTTP lifecycle checks a fixed product expiry value, not processing speed.   // 128f-⑪ 新件 steward-deferred-permission(判的就是超时窗口 20 s 对 45 s,两处就地豁免)
   const EXEMPT_MARK = /墙钟上界豁免[：:]\s*(\S.{11,})/;
   const owners = [];
   const unclassified = [];
