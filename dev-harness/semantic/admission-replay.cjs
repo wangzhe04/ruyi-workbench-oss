@@ -70,12 +70,21 @@ function evaluate(queries, rule) {
     recall5: ratio(hits5, positives), mrr5: ratio(reciprocalRank, positives), falsePositiveRate: ratio(falsePositives, negatives) };
 }
 
-function replay(matrix) {
+// Development-only follow-up: keep the existing positive recall and compare abstentions.
+function recallGrid() {
+  const rules = [{name:'absolute', floor:0.70}];
+  for (let floor=60; floor<=75; floor++) {
+    for (let delta=40; delta<=100; delta+=5) rules.push({name:'reference', floor:floor/100, delta:delta/1000});
+  }
+  return rules;
+}
+
+function replay(matrix, rules = candidates()) {
   assert.equal(matrix.schema, 1);
   assert.ok(matrix.pools.length > 0);
   const pools = matrix.pools.map(pool => ({ name: pool.name, fields: new Set(pool.windows).size, windows: pool.windows.length,
     queries: prepare(pool) }));
-  const scores = candidates().map(rule => {
+  const scores = rules.map(rule => {
     const breakdown = pools.map(pool => {
       const groups = [...new Set(pool.queries.map(q => q.group + '/' + q.kind))];
       const byGroup = Object.fromEntries(groups.map(group => [group, evaluate(pool.queries.filter(q => q.group + '/' + q.kind === group), rule)]));
@@ -89,11 +98,13 @@ function replay(matrix) {
     scores };
 }
 if (require.main === module) {
-  const [input, output] = process.argv.slice(2);
+  const [input, output, mode] = process.argv.slice(2);
+  assert.ok(mode === undefined || mode === '--preserve-recall');
   assert.ok(input && output, 'Usage: admission-replay.cjs scores.json[.gz] report.json');
   const bytes = fs.readFileSync(input);
   const matrix = JSON.parse((input.endsWith('.gz') ? zlib.gunzipSync(bytes) : bytes).toString('utf8'));
-  const report = replay(matrix);
+  const report = replay(matrix, mode ? recallGrid() : candidates());
+  if (mode) report.followup = 'development-only reference grid preserving baseline recall';
   report.matrixSha256 = crypto.createHash('sha256').update(bytes).digest('hex');
   const json = JSON.stringify(report, null, 2) + '\n';
   fs.writeFileSync(output, output.endsWith('.gz') ? zlib.gzipSync(json) : json, { flag: 'wx' });
