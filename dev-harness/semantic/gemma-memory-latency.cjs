@@ -49,6 +49,10 @@ async function main() {
        "context.check?.('finish',automaticBaseline && entry ? [entry] : selected, 'field')"],
       ["disclosed => check('finish', disclosed)", "disclosed => check('finish', disclosed, 'disclosure')"]
     ];
+    if (code.includes('verifyBatch: async snapshots => {')) {
+      tags.push(["await context.check('finish', selected);\n                return snapshots.map(readHeader);",
+        "await context.check('finish', selected, 'header-batch');\n                return snapshots.map(readHeader);"]);
+    }
     for (const [from, to] of tags) {
       assert.equal(code.split(from).length, 2);
       code = code.replace(from, to);

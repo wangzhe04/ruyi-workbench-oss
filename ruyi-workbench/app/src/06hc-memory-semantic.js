@@ -318,15 +318,24 @@ const MemorySemanticRecall = (() => {
             throw Error('semantic.score_evidence_invalid');
           // Send-time selection stops at the last whole header that fits. Explicit
           // searches retain their full-registry completeness contract.
+          function readHeader(snapshot) {
+            const entry = owners.get(snapshot.identity.sourceId);
+            return entry ? {identity:snapshot.identity, text:host.searchText ? host.searchText(entry) : host.text(entry)} : null;
+          }
           const decision = await request.evaluate(known ? scored : null, {
             poolComplete:(!!automaticBaseline || coverage.headerComplete) && !input.truncated,
             lexicalFields:lexical.filter(row=>row.shared>0 && fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),
             deadline, signal:context.signal, beforeVerify:checkSources,
+            ...(automaticBaseline && !AUTOMATIC_SEMANTIC_ADDITIONS && typeof context.check === 'function' ? {
+              verifyBatch: async snapshots => {
+                await context.check('finish', selected);
+                return snapshots.map(readHeader);
+              }
+            } : {}),
             verifyField:async snapshot => {
               const entry=owners.get(snapshot.identity.sourceId);
               await context.check?.('finish',automaticBaseline && entry ? [entry] : selected);
-              if (!entry) return null;
-              return {identity:snapshot.identity,text:host.searchText ? host.searchText(entry) : host.text(entry)};
+              return readHeader(snapshot);
             },
           });
           const d = request.read();

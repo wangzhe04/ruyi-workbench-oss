@@ -27,7 +27,19 @@ const fsp = require('node:fs/promises'), realReaddir = fsp.readdir;
 let projectDir = '', projectReads = 0;
 fsp.readdir = function (target, ...rest) { if (projectDir && path.resolve(String(target)) === projectDir) projectReads++; return realReaddir.call(this, target, ...rest); };
 const mod = new Module(path.join(app, 'server.js'), module); mod.filename = path.join(app, 'server.js'); mod.paths = Module._nodeModulePaths(app);
-mod._compile(source + '\nmodule.exports.__test={resolveMemoryPreflight,loadMemoryRegistry,resolveCoreMemoryState,touchMemoryUsage,memoryProjectDir,proposeMemoryRelation,confirmMemoryRelation,activeChildren,setAuthority:fn=>{const old=memoryBodyAuthority;memoryBodyAuthority=fn;return old;},setRuntime:hooks=>Object.assign(SemanticRuntimeHooks,hooks),clearSemantic:()=>MemorySemanticHooks.clear()};', mod.filename);
+// Test-only hooks at the original 06d guards. All source, key, policy and disclosure checks still run.
+let instrumented = source;
+for (const [anchor, replacement] of [
+  ["const codecProof=typeof SemanticRuntimeTransportProof!=='undefined'?SemanticRuntimeTransportProof:null;",
+   "const codecProof=module.snapshotCodec || (typeof SemanticRuntimeTransportProof!=='undefined'?SemanticRuntimeTransportProof:null);"],
+  ['const check = async (phase, watch) => {', 'const check = async (phase, watch) => { module.beforeWatch?.(phase,watch);'],
+  ['return files.every((file, index) => afterVerify', 'module.afterFileReads?.(files); return files.every((file, index) => afterVerify'],
+  ['try { await revalidateMemorySemantic([', 'try { module.beforeDisclosure?.(entries,semanticStatus); await revalidateMemorySemantic(['],
+]) {
+  if (instrumented.split(anchor).length !== 2) throw Error('fixture hook anchor changed: ' + anchor);
+  instrumented = instrumented.replace(anchor, replacement);
+}
+mod._compile(instrumented + '\nmodule.exports.__test={resolveMemoryPreflight,loadMemoryRegistry,resolveCoreMemoryState,touchMemoryUsage,memoryProjectDir,proposeMemoryRelation,confirmMemoryRelation,activeChildren,gemmaContract:SemanticWindowPolicy.CONTRACT,prime:entries=>memorySemanticRecall.prime(entries),resetScorer:()=>{memorySemanticRetrieval=null;},keyHooks:WorkDataStore.Hooks,bodyStore:memoryBodyStore,invalidateConfigReads,setAuthority:fn=>{const old=memoryBodyAuthority;memoryBodyAuthority=fn;return old;},setRuntime:hooks=>Object.assign(SemanticRuntimeHooks,hooks),clearSemantic:()=>MemorySemanticHooks.clear()};', mod.filename);
 const srv = mod.exports, a = srv.__test;
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const ids = entries => entries.map(entry => entry.id).sort().join(',');
@@ -41,6 +53,114 @@ function rewriteSameSize(file, from, to) {
   fs.writeFileSync(file, text.replace(from, to)); fs.utimesSync(file, st.atime, st.mtime);
   const after = fs.statSync(file);
   return after.size === st.size && after.mtimeMs === st.mtimeMs;
+}
+
+async function warmBatchRaces() {
+  const project = path.join(home, 'batch-project');
+  const dir = a.memoryProjectDir(project);
+  fs.mkdirSync(project);
+  fs.mkdirSync(dir, {recursive:true});
+  const session = await srv.createSession({title:'batch boundary fixture', cwd:project});
+  session.turnSeq = 1;
+  const names = { 'batch-match':'amber archive', 'batch-hidden':'cobalt reserve', 'batch-other':'indigo shelf' };
+  for (const [id,name] of Object.entries(names)) {
+    const file = path.join(dir, id + '.md');
+    fs.writeFileSync(file, ['---', 'name: ' + name, 'description: ' + name, 'type: reference', '---', name].join('\n'));
+    pinMtime(file);
+  }
+  const cfg = {...config, memoryRelevanceMaxV1:1};
+  const expected = Object.keys(names).sort().join(',');
+  let batchChecks = 0, onSecondBatch, disclosures = 0;
+  const receipt = () => a.resolveMemoryPreflight(session, project, 'amber', null, cfg);
+  const prime = async () => {
+    a.clearSemantic();
+    const ready = await a.prime(await a.loadMemoryRegistry(project));
+    if (ready.status !== 'ready') throw Error('fixture failed to prime: ' + JSON.stringify(ready));
+  };
+  // Synthetic transport only. The production scorer still binds vectors to their text, field and lifecycle.
+  const epoch = Object.freeze({}), issued = new WeakSet();
+  mod.snapshotCodec = {snapshot:()=>epoch, verify:value=>{
+    if (!issued.has(value)) throw Error('fixture codec received an unknown reply');
+    return value;
+  }};
+  const {modelId,modelFingerprint} = a.gemmaContract;
+  const descriptor = () => ({available:true,state:'ready',policyReady:true,modelId,modelFingerprint,
+    retrievalThresholds:{search:.70,automatic:null}});
+  const originalKeys = a.keyHooks.keys;
+  const keyA = Buffer.alloc(32, 0x21), keyB = Buffer.alloc(32, 0x42);
+  let activeKey = keyA;
+  try {
+    a.resetScorer();
+    a.setRuntime({descriptor,prepare:async()=>descriptor(),encode:async(texts,options)=>{
+      const vectors = texts.map(text=>{
+        const v = Array(768).fill(0);
+        v[options.role === 'query' || text.includes('amber') ? 0 : 1] = 1;
+        return v;
+      });
+      const value = {ok:true,modelFingerprint,vectors,truncated:texts.map(()=>false)};
+      issued.add(value);
+      return value;
+    }});
+    delete process.env.RUYI_DISABLE_SEMANTIC;
+    mod.beforeWatch = (phase,watch) => {
+      if (phase !== 'finish' || !Array.isArray(watch) || ids(watch) !== expected) return;
+      if (++batchChecks === 2) onSecondBatch?.();
+    };
+    mod.beforeDisclosure = () => { disclosures++; };
+    await prime();
+    const control = await receipt();
+    ok(control.status.semantic?.status === 'reranked' && ids(control.entries) === 'batch-match'
+      && batchChecks === 2 && disclosures === 1, `L6a warm D1 checks the full candidate set at both boundaries and returns the keyword match (status=${control.status.semantic?.status}, batches=${batchChecks}, disclosures=${disclosures})`);
+
+    batchChecks = 0;
+    let edited = false;
+    const hiddenFile = path.join(dir, 'batch-hidden.md');
+    onSecondBatch = () => { edited = rewriteSameSize(hiddenFile, 'name: cobalt', 'name: COBALT'); };
+    const changed = await receipt();
+    ok(batchChecks === 2 && edited && changed.status.recovered === 'stale'
+      && ids(changed.entries) === 'batch-match', 'L6b changed unreturned candidate with preserved size and mtime invalidates the entire warm ranking');
+
+    // Seal a real candidate with A; switch the isolated store to B only at the final batch check.
+    a.keyHooks.keys = {snapshot:async()=>({key:Buffer.from(activeKey), instanceId:'batch-test', release:async()=>{}})};
+    fs.writeFileSync(configFile, JSON.stringify({...config, workDataEncryptionV1:true}));
+    a.invalidateConfigReads();
+    const sealed = a.bodyStore(dir, 'batch-hidden');
+    await sealed.write(fs.readFileSync(hiddenFile, 'utf8'));
+    if (!/"workData"\s*:\s*3\b/.test(fs.readFileSync(hiddenFile,'utf8').slice(0,256))) throw Error('fixture source not sealed');
+    await prime();
+    batchChecks = 0;
+    onSecondBatch = () => {
+      // The key is still A when the closing batch starts. Rotate only after every watched file read completes.
+      mod.afterFileReads = files => {
+        if (files.length === Object.keys(names).length && files.includes(hiddenFile)) {
+          activeKey = keyB;
+          delete mod.afterFileReads;
+        }
+      };
+    };
+    let keyError, directError;
+    try { await receipt(); } catch (e) { keyError = e.code; }
+    try { await sealed.read(); } catch (e) { directError = e.code; }
+    ok(batchChecks === 2 && activeKey === keyB && !!directError && /^work_data/.test(directError)
+      && keyError === directError, `L6c rotating the key at the final batch check propagates the authenticated read error (batches=${batchChecks}, rotated=${activeKey===keyB}, direct=${directError}, preflight=${keyError})`);
+
+    activeKey = keyA; onSecondBatch = null; batchChecks = 0;
+    await prime();
+    let excluded = false;
+    mod.beforeDisclosure = (entries,semantic) => {
+      if (semantic?.status === 'reranked' && entries.some(entry=>entry.id==='batch-match')) {
+        excluded = true; session.memoryExclusions = [{scope:'project',id:'batch-match'}];
+      }
+    };
+    const revoked = await receipt();
+    ok(batchChecks === 2 && excluded && revoked.status.mode === 'stale' && !revoked.entries.length && !revoked.coreEntries.length,
+      'L6d excluding a selected memory after ranking and before disclosure invalidates the session result');
+  } finally {
+    delete mod.beforeWatch; delete mod.afterFileReads; delete mod.beforeDisclosure; delete mod.snapshotCodec;
+    a.keyHooks.keys = originalKeys; keyA.fill(0); keyB.fill(0);
+    process.env.RUYI_DISABLE_SEMANTIC = '1'; a.resetScorer();
+    fs.writeFileSync(configFile, JSON.stringify(config)); a.invalidateConfigReads();
+  }
 }
 (async () => {
   try {
@@ -197,6 +317,8 @@ function rewriteSameSize(file, from, to) {
       try { const out = await list('credential approval'); code = out.ok ? 'ok' : 'refused'; } catch (error) { code = error.code; } onEncode = null;
       ok(fired && code === 'work_data_key.absent' && docsAfter(at) === 0, `E2 显式检索:编码期间钥匙失效 → work_data 错误上抛,之后 0 段文档进编码器(${code}, 之后编码 ${docsAfter(at)} 段)`);
     } finally { a.setAuthority(realAuthority); onEncode = null; fs.writeFileSync(configFile, JSON.stringify(config)); }
+    await warmBatchRaces();
+    normal();
     // [L1] Exercise the automatic Gemma selection path with a cold document cache.
     // The synthetic codec handles queries. Any foreground document call records the regression.
     const baseline = await preflight('bulk record', { ...config, semanticRetrievalV1: false });

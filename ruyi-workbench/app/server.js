@@ -46889,6 +46889,9 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     }
     return Object.freeze({score,prime,clear,forget});
   }
+// Only the automatic memory adapter can issue a synchronous resolver, bracketed by
+// two complete owner checks. All other consumers verify each asynchronous read.
+const checkedMemoryResolvers = new WeakSet();
 const SemanticWindowPolicy = (() => {
 // Unregistered research policy. Raw coarse rank is global to one complete
 // producer search, while every scalar verdict remains bound to its own field.
@@ -46901,15 +46904,24 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
   if(typeof readScoreEvidence!=='function')throw TypeError('semantic.scorer_reader_required');
   const issuedDecisions = new WeakMap();
   if ([identify, normalize, terms].some(value => typeof value !== 'function')) throw TypeError('composite.host_invalid');
-  async function evaluate({ query, rows, lexical, scoreEntries, poolComplete, context, windowContext, modelFingerprint, scopeId, signal, deadline, resolve, beforeVerify }) {
+  async function evaluate(options) {
+    const steps = evaluateSteps(options);
+    let step = steps.next();
+    while (!step.done) step = steps.next(await step.value);
+    return step.value;
+  }
+  // A yielded operation is an authorization or source I/O boundary. With a checked
+  // memory batch, field selection runs synchronously between start and finish.
+  function* evaluateSteps({ query, rows, lexical, scoreEntries, poolComplete, context, windowContext, modelFingerprint, scopeId, signal, deadline, resolve, beforeVerify }) {
     if (!Array.isArray(rows) || !Array.isArray(lexical) || !Array.isArray(scoreEntries) || rows.length !== scoreEntries.length
       || typeof poolComplete !== 'boolean' || !Windowing.isRequest(windowContext,context) || modelFingerprint!==CONTRACT.modelFingerprint || rows.length > 4096 || rows.some(row=>typeof row.fieldKey!=='string'||typeof row.order!=='string') || typeof resolve !== 'function' || typeof beforeVerify !== 'function' || !Number.isFinite(deadline)) throw TypeError('composite.request_invalid');
     const accepted = rows.map(() => null), lexicalDecisions = new Map(), metadataDecisions = new Map(), lexicalWindowIndices = new Map(), metadataWindowIndices = new Map();
     if(typeof query!=='string'||!query.trim()||!normalize(query).trim()||typeof scopeId!=='string'||!scopeId)throw TypeError('semantic.policy_query_invalid');
     const abort=()=>{if(signal?.aborted)throw signal.reason===undefined?Object.assign(Error('semantic.policy_aborted'),{code:'ABORT_ERR'}):signal.reason;};
+    const batched = checkedMemoryResolvers.has(resolve);
     let started=false;
     const verify=async event=>{abort();if(started)windowContext.assertPool(rows);await beforeVerify(event);abort();if(started)windowContext.assertPool(rows);};
-    await verify({phase:'start',index:null,source:null});
+    yield verify({phase:'start',index:null,source:null});
     windowContext.begin(context,query,scopeId,modelFingerprint,rows);
     started=true;
     const evidenceReads=new Map(),scores=scoreEntries.map((entry,n)=>{if(entry===null)return null;if(!entry||!Number.isSafeInteger(entry.index)||entry.index<0)throw Error('semantic.score_evidence_invalid');let proof=evidenceReads.get(entry.result);if(!proof){proof=readScoreEvidence(entry.result,{query,scopeId,modelFingerprint});evidenceReads.set(entry.result,proof);}if(entry.index>=proof.scores.length)throw Error('semantic.score_evidence_invalid');windowContext.assertScore(rows[n],proof.docs[entry.index],proof.identities[entry.index],proof.encodedTexts[entry.index]);return proof.scores[entry.index];});
@@ -46932,11 +46944,15 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     };
     const fullSources = new Map(), fieldSources = new Map(), eligible = rows.map(() => true);
     let sourceUnknown = false;
-    async function resolved(index, wholeField) {
+    function* resolved(index, wholeField) {
       abort();
       if (Date.now() >= deadline) { sourceUnknown = true; return null; }
-      const source = wholeField && fullSources.has(index) ? fullSources.get(index) : await resolve(index, wholeField);
-      await verify({ phase: 'resolved', index, source });
+      let source;
+      if (wholeField && fullSources.has(index)) source = fullSources.get(index);
+      else if (batched) source = resolve(index, wholeField);
+      else source = yield resolve(index, wholeField);
+      if (batched) windowContext.assertPool(rows);
+      else yield verify({ phase: 'resolved', index, source });
       if(source)windowContext.assertSource(source,wholeField,context,rows[index]);
       if (wholeField && source) fullSources.set(index, source);
       return source;
@@ -46946,7 +46962,7 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
     // cutting global K. A rejected metadata ID may never consume the K slot.
     if (required.length || literalCodes.length) for (let index = 0; index < rows.length; index++) {
       let source = fieldSources.get(rows[index].fieldKey);
-      if (!source) { source = await resolved(index, true); if (source) fieldSources.set(rows[index].fieldKey, source); }
+      if (!source) { source = yield* resolved(index, true); if (source) fieldSources.set(rows[index].fieldKey, source); }
       if (!source) { eligible[index] = null; sourceUnknown = true; }
       else { fullSources.set(index, source); eligible[index] = hasLiteralCodes(source.fieldText) && required.every(id => identify(source.fieldText).includes(id)); }
     }
@@ -46972,8 +46988,8 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
       if (!bestByField.has(field)) bestByField.set(field, item);
     }
     const selected = globalComplete ? order.slice(0, CONTRACT.topK).map(item => item.index) : [], work = new Map(), requiredWork = [], strongEvidence = [];
-    async function evidence(index, wholeField, role, lexicalKey = null) {
-      let source = await resolved(index, wholeField);
+    function* evidence(index, wholeField, role, lexicalKey = null) {
+      let source = yield* resolved(index, wholeField);
       if (!source) { sourceUnknown = true;if(role==='semantic')accepted[index]=null; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if(rows[index].metadata)metadataDecisions.set(rows[index].fieldKey,null); return; }
       const classification = strong(source.fieldText);
       if (!classification.eligible) { if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, false); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, false); return; }
@@ -46987,7 +47003,7 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
       if (role === 'weak-lexical' || role === 'metadata') {
         const choice = globalComplete || role === 'weak-lexical' ? bestByField.get(rows[index].fieldKey) : null;
         if (!choice) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
-        const previous = source; index = choice.index; source = await resolved(index, false);
+        const previous = source; index = choice.index; source = yield* resolved(index, false);
         if (!source) { sourceUnknown = true; if (lexicalKey !== null) lexicalDecisions.set(lexicalKey, null); if (rows[index].metadata) metadataDecisions.set(rows[index].fieldKey, null); return; }
         if (['sourceId','field','revision','epoch','sourceRevision'].some(key => source.identity[key] !== previous.identity[key])) throw Error('composite.window_source_changed');
       }
@@ -46998,7 +47014,7 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
       work.get(key).uses.push({ index, role, lexicalKey, metadataKey: rows[index].metadata ? rows[index].fieldKey : null });
     }
     // Select K before strong bypass. Never refill the K budget after bypass.
-    for (const index of selected) await evidence(index, false, 'semantic');
+    for (const index of selected) yield* evidence(index, false, 'semantic');
     // Explicit memory lookup can answer with several distinct facts. A strong
     // top lexical match keeps the existing no-refill behavior.
     if (explicitMemory && selected.length && !strongEvidence.length && !sourceUnknown) {
@@ -47009,19 +47025,19 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
         if (seen.has(key)) continue;
         seen.add(key);
         selected.push(item.index);
-        await evidence(item.index, false, 'semantic');
+        yield* evidence(item.index, false, 'semantic');
       }
     }
     for (const item of lexical) {
       if (!Number.isSafeInteger(item.index) || item.index < 0 || item.index >= rows.length) { lexicalDecisions.set(item.key, null); sourceUnknown = true; continue; }
       windowContext.assertWeak(item.key,rows[item.index]);
-      if (!lexicalDecisions.has(item.key)) await evidence(item.index, true, 'weak-lexical', item.key);
+      if (!lexicalDecisions.has(item.key)) yield* evidence(item.index, true, 'weak-lexical', item.key);
     }
     // Metadata supplement is a distinct same-field consumer, never a session
     // exemption. All supplied metadata fields need an explicit verdict.
     const seenMetadata = new Set();
     for (let index = 0; index < rows.length; index++) if (rows[index].metadata && !seenMetadata.has(rows[index].fieldKey)) {
-      seenMetadata.add(rows[index].fieldKey); await evidence(index, true, 'metadata');
+      seenMetadata.add(rows[index].fieldKey); yield* evidence(index, true, 'metadata');
     }
     const items = [...work.values()];
     for (const item of items) for (const use of item.uses) requiredWork.push({ index: use.index, role: use.role, identity: item.source.identity });
@@ -47045,7 +47061,7 @@ function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvide
         if (use.metadataKey !== null) { metadataDecisions.set(use.metadataKey, result.accepted); if (result.accepted === true) metadataWindowIndices.set(use.metadataKey, use.index); }
       }
     }
-    await verify({ phase: 'finish', index: null, source: null });
+    yield verify({ phase: 'finish', index: null, source: null });
     const finished = globalComplete && !sourceUnknown && verified.coverage?.complete === true && Date.now() < deadline;
     const policyId=explicitMemory?'embeddinggemma2-memory-distinct-k3-cos070-v1':CONTRACT.id;
     const decision=Object.freeze({policyId:literalCodes.length?policyId+'-literal-v1':policyId,purpose:'search-relevance',answerability:'not-assessed',complete:finished,status:finished?'evaluated':'partial',
@@ -47074,9 +47090,35 @@ function create({query,scopeId,identify,normalize,terms,readScoreEvidence,explic
   else for(const part of windowContext.rawSlices(token))if(!push(windowContext.rawWindow(token,part.start,part.end),part.text))break;
   return key;
  }
- async function evaluate(scored,{poolComplete,lexicalFields=[],deadline,signal,verifyField,beforeVerify}={}){active();if(decision)throw Error('semantic.request_already_evaluated');if(typeof verifyField!=='function'||typeof beforeVerify!=='function')throw Error('semantic.authority_missing');const lexical=[];for(const key of lexicalFields){const field=fields.get(key);if(!field)throw Error('semantic.weak_field_invalid');if(field.indices.length)lexical.push({key,index:field.indices[0]});else truncated=true;}
-  decision=await policy.evaluate({query,scopeId,modelFingerprint,windowContext,context,rows,lexical,scoreEntries:rows.map((_,index)=>scored?{result:scored,index}:null),poolComplete:poolComplete===true&&!truncated,signal,deadline,
-   resolve:async(index,whole)=>{const field=rowFields[index],current=await verifyField(field.snapshot,whole?'whole':'window');if(current===null)return null;if(!current||current.text!==field.snapshot.text||['sourceId','field','revision','epoch','sourceRevision'].some(k=>current.identity?.[k]!==field.snapshot.identity[k]))throw Error('semantic.source_changed');return whole?windowContext.wholeSource(field.token):sources[index];},beforeVerify});
+ async function evaluate(scored,{poolComplete,lexicalFields=[],deadline,signal,verifyField,beforeVerify,verifyBatch}={}){active();if(decision)throw Error('semantic.request_already_evaluated');if(typeof verifyField!=='function'||typeof beforeVerify!=='function')throw Error('semantic.authority_missing');const lexical=[];for(const key of lexicalFields){const field=fields.get(key);if(!field)throw Error('semantic.weak_field_invalid');if(field.indices.length)lexical.push({key,index:field.indices[0]});else truncated=true;}
+  function validate(field,current) {
+    if(!current || current.text!==field.snapshot.text || ['sourceId','field','revision','epoch','sourceRevision'].some(k=>current.identity?.[k]!==field.snapshot.identity[k])) throw Error('semantic.source_changed');
+  }
+  const captured = (index, whole) => whole ? windowContext.wholeSource(rowFields[index].token) : sources[index];
+  let resolve = async (index,whole) => {
+    const field=rowFields[index],current=await verifyField(field.snapshot,whole?'whole':'window');
+    if(current===null)return null;
+    validate(field,current);
+    return captured(index,whole);
+  };
+  if (verifyBatch !== undefined) {
+    const batch = [...fields.values()];
+    if (!explicitMemory || typeof verifyBatch !== 'function' || batch.some(f=>f.snapshot.identity.field!=='memory.metadata')) throw Error('semantic.invalid_memory_batch');
+    const checkBoundary = beforeVerify;
+    beforeVerify = async event => {
+      await checkBoundary(event);
+      const current = await verifyBatch(batch.map(f=>f.snapshot));
+      if (!Array.isArray(current) || current.length !== batch.length) throw Error('semantic.source_changed');
+      batch.forEach((field,i)=>validate(field,current[i]));
+    };
+    resolve = captured;
+    checkedMemoryResolvers.add(resolve);
+  }
+  try {
+    decision=await policy.evaluate({query,scopeId,modelFingerprint,windowContext,context,rows,lexical,scoreEntries:rows.map((_,index)=>scored?{result:scored,index}:null),poolComplete:poolComplete===true&&!truncated,signal,deadline,resolve,beforeVerify});
+  } finally {
+    checkedMemoryResolvers.delete(resolve);
+  }
   return decision;
  }
  function read(){active();if(!decision)throw Error('semantic.request_not_evaluated');const d=policy.decisions(decision,context),weakAccepted=new Map(),weakWindowIndices=new Map(),metadataAccepted=new Map(),metadataWindowIndices=new Map();for(const [key,f]of fields){if(d.weakAccepted.has(key))weakAccepted.set(key,d.weakAccepted.get(key));if(d.weakWindowIndices.has(key))weakWindowIndices.set(key,d.weakWindowIndices.get(key));const fieldKey=windowContext.fieldKey(f.token);if(d.metadataAccepted.has(fieldKey))metadataAccepted.set(key,d.metadataAccepted.get(fieldKey));if(d.metadataWindowIndices.has(fieldKey))metadataWindowIndices.set(key,d.metadataWindowIndices.get(fieldKey));}return {...d,weakAccepted,weakWindowIndices,metadataAccepted,metadataWindowIndices};}
@@ -52924,15 +52966,24 @@ const MemorySemanticRecall = (() => {
             throw Error('semantic.score_evidence_invalid');
           // Send-time selection stops at the last whole header that fits. Explicit
           // searches retain their full-registry completeness contract.
+          function readHeader(snapshot) {
+            const entry = owners.get(snapshot.identity.sourceId);
+            return entry ? {identity:snapshot.identity, text:host.searchText ? host.searchText(entry) : host.text(entry)} : null;
+          }
           const decision = await request.evaluate(known ? scored : null, {
             poolComplete:(!!automaticBaseline || coverage.headerComplete) && !input.truncated,
             lexicalFields:lexical.filter(row=>row.shared>0 && fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),
             deadline, signal:context.signal, beforeVerify:checkSources,
+            ...(automaticBaseline && !AUTOMATIC_SEMANTIC_ADDITIONS && typeof context.check === 'function' ? {
+              verifyBatch: async snapshots => {
+                await context.check('finish', selected);
+                return snapshots.map(readHeader);
+              }
+            } : {}),
             verifyField:async snapshot => {
               const entry=owners.get(snapshot.identity.sourceId);
               await context.check?.('finish',automaticBaseline && entry ? [entry] : selected);
-              if (!entry) return null;
-              return {identity:snapshot.identity,text:host.searchText ? host.searchText(entry) : host.text(entry)};
+              return readHeader(snapshot);
             },
           });
           const d = request.read();
