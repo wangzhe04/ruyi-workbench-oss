@@ -43,9 +43,14 @@ async function main() {
   let code = source;
   if (workerTimings) {
     mod.queryEvent = (kind, details) => frame.getStore()?.totals.queryEvents?.push({ kind, ...details });
+    const estimate = code.includes('minimumBudget(role,texts.length,warmSendQuery)')
+      ? 'const minimumBudgetMs=minimumBudget(role,texts.length,warmSendQuery);'
+      : 'const minimumBudgetMs=minimumBudget(role,texts.length);';
     for (const [anchor, tagged] of [
-      ['const minimumBudgetMs=minimumBudget(role,texts.length);',
-        "const minimumBudgetMs=minimumBudget(role,texts.length);if(role==='query')module.queryEvent('estimate',{minimumBudgetMs,remainingMs:finishDeadline-Date.now()});"],
+      [estimate, estimate + "if(role==='query')module.queryEvent('estimate',{minimumBudgetMs,remainingMs:finishDeadline-Date.now()});"],
+      ["if(deadline-Date.now()<minimum)return unavailable('timeout');",
+        "if(deadline-Date.now()<minimum){if(options.role==='query')module.queryEvent('refused-before-write',{minimum,remainingMs:deadline-Date.now()});return unavailable('timeout');}"],
+      ["if(value===SOFT_TIMEOUT){", "if(value===SOFT_TIMEOUT){if(options.role==='query')module.queryEvent('soft-timeout',{roundTripMs:Date.now()-sentAt});"],
       ['sentAt=Date.now();r.child.stdin.write',
         "sentAt=Date.now();if(options.role==='query')module.queryEvent('sent',{remainingMs:deadline-sentAt});r.child.stdin.write"],
       ['const repliedAt=Date.now();',

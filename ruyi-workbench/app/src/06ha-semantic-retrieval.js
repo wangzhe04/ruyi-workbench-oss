@@ -50,11 +50,14 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     // Reserve measured call cost before starting another bounded batch. A native
     // deadline still kills its owner; routine tail-budget exhaustion must not.
     const callMsPerText={query:32,document:20};
-    const minimumBudget=(role,count)=>{
+    const minimumBudget=(role,count,warmSendQuery=false)=>{
       const local=Math.max(64,Math.ceil(callMsPerText[role]*Math.max(1,count)*1.25+16));
       if(typeof runtime?.estimateEncodingBudget!=='function')return local;
       const hint=runtime.estimateEncodingBudget(role,count);
       if(typeof hint!=='number'||!Number.isFinite(hint)||hint<0||hint>60000)throw Error('semantic.invalid_budget_hint');
+      // The resident encoder estimates inference from actual replies. A caller timeout
+      // includes waiting and source checks, even when no query reached the worker.
+      if(warmSendQuery && hint>0)return Math.max(64,Math.ceil(hint));
       return Math.max(local,Math.ceil(hint));
     };
     const key=(scope,model,value)=>crypto.createHash('sha256').update(JSON.stringify([scope,model,value])).digest('hex');
@@ -131,7 +134,8 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         let encodedCount=texts.length;
         if(role==='document')while(encodedCount>1&&minimumBudget(role,encodedCount)>deadline-Date.now())encodedCount--;
         texts=texts.slice(0,encodedCount);
-        const minimumBudgetMs=minimumBudget(role,texts.length);
+        const warmSendQuery=role==='query' && waitForSend && maxEncodeDocuments===0 && !needsDocuments && !!requestCodecToken;
+        const minimumBudgetMs=minimumBudget(role,texts.length,warmSendQuery);
         if(finishDeadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
         const encodeOptions={role,scopeId:role==='document'?docScope:scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode,...(role==='query'?{priority:'query'}:{})};
         if(waitForSend)encodeOptions.budgetMs=8000;

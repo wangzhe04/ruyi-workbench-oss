@@ -89,9 +89,18 @@ async function warmBatchRaces() {
   const originalKeys = a.keyHooks.keys;
   const keyA = Buffer.alloc(32, 0x21), keyB = Buffer.alloc(32, 0x42);
   let activeKey = keyA;
+  let prepareDelay = 0, recoveredQueries = 0;
   try {
     a.resetScorer();
-    a.setRuntime({descriptor,prepare:async()=>descriptor(),encode:async(texts,options)=>{
+    a.setRuntime({descriptor,estimateEncodingBudget:()=>125,prepare:async()=>{
+      if (prepareDelay) { const ms = prepareDelay; prepareDelay = 0; await sleep(ms); }
+      return descriptor();
+    },encode:async(texts,options)=>{
+      if (options.role === 'query' && texts[0] === 'amber slow') {
+        await sleep(405);
+        return {ok:false,reason:'timeout'};
+      }
+      if (options.role === 'query' && texts[0] === 'amber recovered') recoveredQueries++;
       const vectors = texts.map(text=>{
         const v = Array(768).fill(0);
         v[options.role === 'query' || text.includes('amber') ? 0 : 1] = 1;
@@ -111,6 +120,14 @@ async function warmBatchRaces() {
     const control = await receipt();
     ok(control.status.semantic?.status === 'reranked' && ids(control.entries) === 'batch-match'
       && batchChecks === 2 && disclosures === 1, `L6a warm D1 checks the full candidate set at both boundaries and returns the keyword match (status=${control.status.semantic?.status}, batches=${batchChecks}, disclosures=${disclosures})`);
+
+    const send = query => a.resolveMemoryPreflight(session, project, query, null, cfg);
+    const slow = await send('amber slow');
+    prepareDelay = 120;
+    const next = await send('amber recovered');
+    ok(slow.status.semantic?.status === 'timeout' && recoveredQueries === 1
+      && next.status.semantic?.status === 'reranked' && ids(next.entries) === 'batch-match',
+      'a warm send recovers after timeout within the next independent send budget');
 
     batchChecks = 0;
     let edited = false;
