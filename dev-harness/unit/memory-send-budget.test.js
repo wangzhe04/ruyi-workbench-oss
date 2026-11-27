@@ -82,6 +82,32 @@ test('L1 without an explicit deadline the automatic path still uses the default 
 const docCalls = f => f.calls.filter(call => call.role === 'document').reduce((n, call) => n + call.texts.length, 0);
 const sendContext = scopeId => ({ scopeId, check: async () => {}, deadline: Date.now() + 10000 });
 
+test('a timed-out warm send does not reserve its entire wait against the next query', async () => {
+  const f = setup({ msPerText: 1 }), entries = headers(4), memory = recall(f, entries);
+  const runtime = f.c.testRuntime, encode = runtime.encode;
+  let now = Date.now(), submitted = 0, estimate = 125;
+  f.c.Date = class extends Date { static now() { return now; } };
+  runtime.estimateEncodingBudget = () => estimate;
+  runtime.encode = async (texts, options) => {
+    if (options.role === 'query' && ++submitted === 1) {
+      now += 405;
+      return { ok: false, reason: 'timeout' };
+    }
+    return encode(texts, options);
+  };
+  await memory.prime(entries);
+  const send = (query, remaining) => memory.rank(entries, query, 8, {}, {
+    scopeId: 'memory:timing', check: async () => {}, deadline: now + remaining,
+  });
+  a.equal((await send('first', 400)).semantic.status, 'timeout');
+  for (const query of ['second', 'third', 'fourth'])
+    a.equal((await send(query, 280)).semantic.status, 'reranked');
+  estimate = 350;
+  a.equal((await send('expensive', 280)).semantic.status, 'timeout');
+  a.equal(submitted, 4, 'a genuine runtime estimate that exceeds the remaining budget still blocks dispatch');
+  a.equal(docCalls(f), entries.length);
+});
+
 test('L2 a second session in the same project reuses the header vectors (no document re-encode)', async () => {
   const f = setup({ msPerText: 1 }), entries = headers(20);
   const memory = recall(f, entries);
