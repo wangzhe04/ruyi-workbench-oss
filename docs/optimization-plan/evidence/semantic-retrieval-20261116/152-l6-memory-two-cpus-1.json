@@ -1,0 +1,413 @@
+{
+  "serverSha256": "5270a4b9c05e6a7a764bd4f44fd941e55e6e9532de705589e3afa04a50b2bb27",
+  "availableParallelism": 2,
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "scope": "128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms",
+  "cold": {
+    "query": "西红柿",
+    "status": "partial",
+    "elapsedMs": 307.8309999999983,
+    "checks": 9,
+    "checksMs": 43.17380000000412,
+    "evaluateMs": 0,
+    "queryMs": 84.7271000000037,
+    "checkPhases": {
+      "start": {
+        "calls": 1,
+        "ms": 5.323599999996077
+      },
+      "finish": {
+        "calls": 7,
+        "ms": 37.02530000000843
+      },
+      "disclosure": {
+        "calls": 1,
+        "ms": 0.8248999999996158
+      }
+    },
+    "otherMs": 179.9300999999905,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0
+  },
+  "prewarmMs": 22942,
+  "warm": [
+    {
+      "query": "heart attack",
+      "status": "reranked",
+      "elapsedMs": 148.721000000005,
+      "checks": 13,
+      "checksMs": 27.38539999999921,
+      "evaluateMs": 8.315300000002026,
+      "queryMs": 83.4831000000122,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.747300000002724
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.7387999999918975
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5691999999980908
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 19.156700000006822
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.6300999999948544
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5433000000048196
+        }
+      },
+      "otherMs": 29.53719999999157,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "paid time off",
+      "status": "reranked",
+      "elapsedMs": 150.73309999999765,
+      "checks": 13,
+      "checksMs": 29.003900000010617,
+      "evaluateMs": 4.9496000000071945,
+      "queryMs": 91.61210000001302,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.8896000000095228
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.278300000005402
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.6212000000086846
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 20.009399999995367
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.6915999999910127
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5138000000006286
+        }
+      },
+      "otherMs": 25.16749999996682,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "骑脚踏车",
+      "status": "reranked",
+      "elapsedMs": 158.66049999999814,
+      "checks": 13,
+      "checksMs": 28.050300000002608,
+      "evaluateMs": 3.779599999979837,
+      "queryMs": 95.14810000002035,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.4985000000015134
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.2035999999789055
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5629000000044471
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 19.484900000010384
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.6122000000032131
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.6882000000041444
+        }
+      },
+      "otherMs": 31.682499999995343,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "bicycle",
+      "status": "reranked",
+      "elapsedMs": 140.17170000000624,
+      "checks": 13,
+      "checksMs": 27.682300000014948,
+      "evaluateMs": 4.149399999994785,
+      "queryMs": 80.22999999999593,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.9711999999999534
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.135700000013458
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.6961000000010245
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.398300000000745
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.8519999999989523
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.6290000000008149
+        }
+      },
+      "otherMs": 28.110000000000582,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "tomato",
+      "status": "reranked",
+      "elapsedMs": 154.3579000000027,
+      "checks": 13,
+      "checksMs": 40.05720000002475,
+      "evaluateMs": 5.70240000000922,
+      "queryMs": 79.78109999999288,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 14.622099999993225
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.981400000033318
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5948999999964144
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.591599999999744
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.6869000000006054
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5803000000014435
+        }
+      },
+      "otherMs": 28.817199999975855,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "心肌梗死",
+      "status": "reranked",
+      "elapsedMs": 151.46289999999863,
+      "checks": 13,
+      "checksMs": 29.669800000017858,
+      "evaluateMs": 4.1238999999914085,
+      "queryMs": 92.04169999998703,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.806700000001001
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 5.775000000008731
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.7733000000007451
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.953200000003562
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.7908000000024913
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5708000000013271
+        }
+      },
+      "otherMs": 25.62750000000233,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "annual leave",
+      "status": "reranked",
+      "elapsedMs": 144.2499000000098,
+      "checks": 13,
+      "checksMs": 29.247899999958463,
+      "evaluateMs": 3.9151000000274507,
+      "queryMs": 84.75250000001688,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.7590999999956694
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.465700000000652
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.566900000005262
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 19.83949999997276
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.8499999999912689
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.7666999999928521
+        }
+      },
+      "otherMs": 26.334400000007008,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "how to bake sourdough bread",
+      "status": "reranked",
+      "elapsedMs": 155.99809999999707,
+      "checks": 13,
+      "checksMs": 32.73119999996561,
+      "evaluateMs": 4.033900000024005,
+      "queryMs": 91.79229999998643,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 8.689299999998184
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.9113999999972293
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5230999999912456
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.398299999986193
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.696299999995972
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5127999999967869
+        }
+      },
+      "otherMs": 27.440700000021025,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    }
+  ],
+  "secondSession": {
+    "query": "heart attack",
+    "status": "reranked",
+    "elapsedMs": 142.38000000000466,
+    "checks": 13,
+    "checksMs": 28.80199999998149,
+    "evaluateMs": 3.987699999997858,
+    "queryMs": 82.29750000001513,
+    "checkPhases": {
+      "start": {
+        "calls": 1,
+        "ms": 3.6103999999904772
+      },
+      "finish": {
+        "calls": 7,
+        "ms": 4.933499999999185
+      },
+      "policy-start": {
+        "calls": 1,
+        "ms": 0.5041999999957625
+      },
+      "header-batch": {
+        "calls": 2,
+        "ms": 18.667300000000978
+      },
+      "policy-finish": {
+        "calls": 1,
+        "ms": 0.5625
+      },
+      "disclosure": {
+        "calls": 1,
+        "ms": 0.5240999999950873
+      }
+    },
+    "otherMs": 27.292800000010175,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0
+  },
+  "summary": {
+    "elapsedMs": {
+      "median": 151.09799999999814,
+      "p95": 158.66049999999814
+    },
+    "queryMs": {
+      "median": 88.18230000001495,
+      "p95": 95.14810000002035
+    },
+    "checksMs": {
+      "median": 29.12589999998454,
+      "p95": 40.05720000002475
+    },
+    "checks": {
+      "median": 13,
+      "p95": 13
+    },
+    "evaluateMs": {
+      "median": 4.136649999993097,
+      "p95": 8.315300000002026
+    },
+    "otherMs": {
+      "median": 27.775350000010803,
+      "p95": 31.682499999995343
+    }
+  }
+}
