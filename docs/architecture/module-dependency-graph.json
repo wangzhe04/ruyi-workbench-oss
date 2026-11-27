@@ -4,7 +4,7 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4460,
+    "providedSymbols": 4461,
     "requiredSymbols": 4402,
     "edges": 972,
     "forwardEdges": 67,
@@ -7904,6 +7904,7 @@
         "memorySearchTerms",
         "memorySelectionSignature",
         "memorySemanticBudgetSafe",
+        "memorySemanticHeaderText",
         "memorySnapshotToken",
         "memoryStatBaseline",
         "memoryStatIsRacy",

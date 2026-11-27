@@ -7754,6 +7754,7 @@
         "memorySearchTerms",
         "memorySelectionSignature",
         "memorySemanticBudgetSafe",
+        "memorySemanticHeaderText",
         "memorySnapshotToken",
         "memoryStatBaseline",
         "memoryStatIsRacy",

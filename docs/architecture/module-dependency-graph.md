@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4460 | 4402 | 972 | 67 | 0 | 1 |
+| 145 | 4461 | 4402 | 972 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -84,7 +84,7 @@
 | 66 | `06hb-semantic-runtime.js` | unclassified | 4 | 0 | 0 |
 | 67 | `06ha-semantic-retrieval.js` | unclassified | 4 | 2 | 2 |
 | 68 | `06i-steward-core.js` | engine | 166 | 1 | 1 |
-| 69 | `06d-memory-domain.js` | engine | 198 | 47 | 12 |
+| 69 | `06d-memory-domain.js` | engine | 199 | 47 | 12 |
 | 70 | `06hc-memory-semantic.js` | unclassified | 3 | 16 | 6 |
 | 71 | `06e-mission-domain.js` | engine | 3 | 13 | 5 |
 | 72 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |

@@ -331,8 +331,7 @@ async function readMemoryDir(dir, scope, shared = null) {
       }
       // Keep explicit header fields separate from the legacy display fallback
       // that derives a description from the first body paragraph.
-      const semanticHeaderText=[id,(fm.name||id).slice(0,120),String(fm.description||'').slice(0,400),
-        String(fm.coresummary||fm.description||'').slice(0,CORE_MEMORY_SUMMARY_CAP),type].filter(Boolean).join(' ');
+      const semanticHeaderText=memorySemanticHeaderText(id,fm,type);
       MEMORY_HEAD_CACHE.set(file, { key: cacheKey, statIdentity, sealed, authority: row.authority, entry, semanticHeaderText, trusted: !racy });
     }
   }
@@ -362,6 +361,12 @@ function memoryRegistryShared() {
 function memoryStatIsRacy(st, nowMs = Date.now()) {
   // 文件时间带亚毫秒,Date.now() 是整毫秒:按整毫秒比,同一毫秒内写下的不算「来自未来」。
   return !(nowMs - Math.floor(Math.max(Number(st.mtimeMs) || 0, Number(st.ctimeMs) || 0)) >= MEMORY_SNAPSHOT_RACY_MS);
+}
+// 显式与自动语义召回共用的记忆头文本:只取 frontmatter 明写的字段(不取正文首段兜底)。
+// 152 L3:没写 coresummary 时修前把 description 拼了两遍,白占 96 字分片名额,也让向量偏向重复内容。
+function memorySemanticHeaderText(id, fm, type) {
+  const description = String(fm.description || '').slice(0, 400), summary = String(fm.coresummary || '').slice(0, CORE_MEMORY_SUMMARY_CAP);
+  return [id, (fm.name || id).slice(0, 120), description, summary && summary !== description ? summary : '', type].filter(Boolean).join(' ');
 }
 async function loadMemoryRegistry(cwd) {
   const out = [];
