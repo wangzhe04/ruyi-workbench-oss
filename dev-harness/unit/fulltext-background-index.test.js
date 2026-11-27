@@ -238,7 +238,7 @@ test('[G10] F2 a rebuild prunes vectors of edited-away text; semantic off remove
   a.equal(entries('E'), before - 1, `the removed message's window is pruned, the rest kept (before ${before})`);
   const raw = fs.readFileSync(file('E'), 'utf8'); a.ok(!/第二条/.test(raw));
   a.ok(entries('K') >= 1, 'other sessions untouched');
-  policy.semantic = false; index.backgroundKick(); await settle(index);
+  policy.semantic = false; policy.index = false; index.backgroundKick(); await settle(index);
   a.equal(fs.existsSync(file('E')), false); a.equal(fs.existsSync(file('K')), false, 'semantic off: vector files removed');
 });
 
@@ -327,17 +327,18 @@ test('[G15] (e) background batches stay small; a foreground encode during a back
   const f = await fixture(); t.after(() => f.close());
   await f.put('L', [{ role: 'user', id: 'l', content: Array.from({ length: 60 }, (_, n) => `第${n}句话讲到大巴的安排。`).join('') }]);
   let inFlight = false, maxBatch = 0, overloaded = 0;
+  const firstDocument = Promise.withResolvers();
   const shared = { descriptor: () => ({ ...DESCRIPTOR }), prepare: async () => ({ ...DESCRIPTOR }), estimateEncodingBudget: (_r, n) => n * 60,
     async encode(texts, options) { if (inFlight) { overloaded++; return { ok: false, reason: 'overloaded' }; } inFlight = true;
-      try { if (options.role === 'document') maxBatch = Math.max(maxBatch, texts.length); await sleep(options.role === 'document' ? 100 : 20); return { ok: true, modelFingerprint: MODEL, vectors: texts.map(embed) }; } finally { inFlight = false; } } };
+      try { if (options.role === 'document') { maxBatch = Math.max(maxBatch, texts.length); firstDocument.resolve(); } await sleep(options.role === 'document' ? 100 : 20); return { ok: true, modelFingerprint: MODEL, vectors: texts.map(embed) }; } finally { inFlight = false; } } };
   // 夹具的 vm 上下文没有计时器;生产里批间 50 ms 的空档靠它。
   f.hookContext.setTimeout = setTimeout;
   const index = create(f, { encoder: shared, extra: { timers: { setTimeout: null } } });
   index.backgroundKick(); await index.backgroundTick();
-  const background = drive(index, 20000);
-  await sleep(30);
   // 前台的 06ha 跑在带计时器的上下文里(生产里就是主上下文)。
   const foreground = vm.runInNewContext(fs.readFileSync(path.join(SRC, '06ha-semantic-retrieval.js'), 'utf8') + '\nSemanticRetrieval;', { require, Date, setTimeout }).create(shared);
+  const background = drive(index, 20000);
+  await Promise.race([firstDocument.promise, background.then(() => { throw Error('background did not submit a document'); })]);
   const t0 = Date.now(), scored = await foreground.score('大巴', ['坐大巴'], { scopeId: 'fg', deadlineMs: 250, identities: ['x'] });
   const spent = Date.now() - t0;
   await background;
@@ -390,4 +391,97 @@ test('[G18] (b) a background build on a busy host is paced with timed gaps; on a
   await f.put('BIG', [{ role: 'user', id: 'b', content: '另一段需要重新建索引的大文本内容。'.repeat(12000) }]);
   busy = false; paced = 0; index.backgroundKick({ force: true }); await drive(index, 20000);
   a.equal(paced, 0, 'idle host: no paced gaps');
+});
+
+test('[G10] 152 L4: Gemma sessions are background-encoded into schema 2 with the sha256 of each original window', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  const text = '明天坐大巴去机场';
+  await f.put('G', [{ role: 'user', id: 'g', content: text }]);
+  const encoder = runtime(), gemma = { ...DESCRIPTOR, modelId: 'embeddinggemma-2-text-q4' };
+  encoder.descriptor = () => ({ ...gemma }); encoder.prepare = async () => ({ ...gemma });
+  const index = create(f, { encoder });
+  index.backgroundKick(); await settle(index);
+  // Pre-fix: encodeUnit returned at once for the Gemma model, so no window was encoded and no file was written.
+  a.ok(encoder.calls.documents > 0, 'the Gemma model is background-encoded');
+  a.ok(encoder.calls.documentTexts.includes(text), 'the original spelling is what gets encoded');
+  const value = JSON.parse(await fsp.readFile(path.join(indexDir(f), 'G', 'vectors.json'), 'utf8'));
+  a.equal(value.schema, 2);
+  a.deepEqual(Object.keys(value.texts).sort(), Object.keys(value.entries).sort());
+  a.ok(Object.values(value.texts).includes(require('node:crypto').createHash('sha256').update(text).digest('hex')));
+});
+
+test('a session exceeding the Gemma vector file capacity yields to the next session', async t => {
+  const f = await fixture();
+  t.after(() => f.close());
+  const clock = virtualClock(f);
+  const large = Array.from({ length: 2000 }, (_, i) => ({ id: 'm' + i, role: 'user', content: 'sample row ' + i }));
+  await f.put('A', large);
+  await f.put('B', [{ id: 'last', role: 'user', content: 'next session' }]);
+  const encoder = runtime();
+  encoder.descriptor = () => ({ ...DESCRIPTOR, modelId: 'embeddinggemma-2-text-q4' });
+  const vector = Array(768).fill(0);
+  vector[0] = 1;
+  let count = 0;
+  encoder.encode = async texts => {
+    count += texts.length;
+    // Make each remaining batch exhaust a slice once the file nears its limit.
+    if (count >= 1940) clock.advance(1000);
+    return { ok: true, modelFingerprint: MODEL, vectors: texts.map(() => vector) };
+  };
+  const index = create(f, { encoder });
+  await settle(index, 12);
+  const stored = sid => JSON.parse(fs.readFileSync(path.join(indexDir(f), sid, 'vectors.json'), 'utf8')).entries;
+  a.ok(Object.keys(stored('A')).length < large.length);
+  a.equal(Object.keys(stored('B')).length, 1);
+});
+
+test('a new query scans each reopened Gemma body as often as an in-memory query', async t => {
+  const f = await fixture();
+  t.after(() => f.close());
+  const token = Object.freeze({});
+  Object.assign(f.hookContext, {
+    SemanticRuntimeTransportProof: {
+      snapshot: () => token, verify: result => result, method: () => token, isMethod: value => value === token,
+      lifecycle: () => token,
+    },
+  });
+  const policy = fs.readFileSync(path.join(SRC, '06h9-semantic-policy.js'), 'utf8');
+  const scorer = fs.readFileSync(path.join(SRC, '06ha-semantic-retrieval.js'), 'utf8');
+  const api = vm.runInContext(policy + '\n' + scorer + '\n({ SemanticRetrieval, SemanticWindowPolicy });', f.hookContext);
+  const model = api.SemanticWindowPolicy.CONTRACT;
+  const descriptor = { ...DESCRIPTOR, policyReady: true, modelFingerprint: model.modelFingerprint, modelId: model.modelId };
+  const encoder = runtime();
+  encoder.prepare = async () => descriptor;
+  encoder.descriptor = () => descriptor;
+  let documents = 0;
+  encoder.encode = async (texts, opts) => {
+    await opts.beforeEncode?.();
+    if (opts.role === 'document') documents += texts.length;
+    const vector = Array(768).fill(0);
+    vector[opts.role === 'query' ? 0 : 1] = 1;
+    return { ok: true, modelFingerprint: model.modelFingerprint, vectors: texts.map(() => vector) };
+  };
+  await f.put('A', [{ role: 'user', id: 'first', content: 'apple tree' }]);
+  await f.put('B', [{ role: 'user', id: 'first', content: 'orange tree' }]);
+  await settle(create(f, { encoder }));
+  a.equal(documents, 2);
+
+  let scans = 0;
+  const fresh = create(f, { extra: {
+    semantic: api.SemanticRetrieval.create(encoder),
+    async scan(...args) { scans++; return f.host.scan(...args); },
+  } });
+  async function measure(query) {
+    scans = 0;
+    const result = await fresh.search(query, null, 5, { method: token, deadline: Date.now() + 15000 });
+    a.equal(result.semantic.coverage, 'complete');
+    a.equal(result.semantic.status, 'ready');
+    a.equal(result.results.length, 0);
+    return scans;
+  }
+  const cold = await measure('unrelated journey');
+  const hot = await measure('different journey');
+  a.ok(hot >= 2, 'each source was verified');
+  a.equal(cold, hot, 'persisted-vector backfill provides the body proofs used by final verification');
+  a.equal(documents, 2, 'both searches used the persisted vectors');
 });

@@ -2,14 +2,16 @@
 // Real encrypted-source/index/UI/PG consumers, synthetic768 encoder only.
 // No model assets, quality fixture, or blind dataset is loaded by this file.
 const {test}=require('node:test'),a=require('node:assert/strict'),vm=require('node:vm'),{fixture,actual}=require('../lib/fulltext-consumer-fixture');
-async function setup(t){
+// 152 L4: Gemma sessions now get background-encoded vectors. Cases that measure request-time encoding budgets
+// pass {background:false}: the background encoder is refused (as a busy worker would) and the request starts cold.
+async function setup(t,options={}){
   const f=await fixture({enabled:true});
   t.after(()=>f.close());
   // These cases test source and DTO correctness. The fixture clock keeps encrypted
   // I/O and machine load from consuming the real consumer and encoder budgets.
   let now=Date.now();
   f.context.Date=class extends Date { static now(){return now;} };
-  const fakeToken=Object.freeze({});let mode='ready';f.context.SemanticRuntimeTransportProof=Object.freeze({snapshot:()=>fakeToken,verify:result=>({...result,vectors:result.vectors.map(v=>v.slice()),truncated:result.truncated?.slice()}),method:()=>mode==='legacy'?null:fakeToken,isMethod:value=>mode!=='legacy'&&value===fakeToken,lifecycle:()=>fakeToken});vm.runInContext(actual('06h9-semantic-policy.js')+'\n'+actual('06ha-semantic-retrieval.js'),f.context);const MODEL=vm.runInContext('SemanticWindowPolicy.CONTRACT.modelFingerprint',f.context);let mutate=null,calls=0;const descriptor={available:true,policyReady:true,state:'ready',modelId:'embeddinggemma-2-text-q4',modelFingerprint:MODEL,retrievalThresholds:{search:.70,automatic:null}};f.context.SemanticRuntimeHooks={descriptor:()=>mode==='loading'?{available:false,state:'loading'}:descriptor,prepare:async()=>['loading','unavailable','missing','timeout'].includes(mode)?{available:false,reason:mode==='timeout'?'timeout':'unavailable',state:mode==='loading'?'loading':'failed'}:mode==='legacy'?{...descriptor,modelId:'legacy-fake',modelFingerprint:'legacy-fake'}:descriptor,encode:async(texts,opts)=>{calls+=texts.length;if(mode==='partial'&&opts.role==='document')return {ok:false,reason:'timeout'};await opts.beforeEncode?.();if(opts.role==='document'&&mutate){const callback=mutate;mutate=null;await callback();}return{ok:true,modelFingerprint:mode==='legacy'?'legacy-fake':MODEL,vectors:texts.map(text=>{const c=opts.role==='query'?1:/cedar violet/i.test(text)?.99:/accepted/i.test(text)?.9:.1;return[c,Math.sqrt(1-c*c),...Array(766).fill(0)];})};}};return{f,advance:ms=>{now+=ms;},setMode:value=>{mode=value;},calls:()=>calls,mutate:fn=>{mutate=fn;}};}
+  const fakeToken=Object.freeze({});let mode='ready';f.context.SemanticRuntimeTransportProof=Object.freeze({snapshot:()=>fakeToken,verify:result=>({...result,vectors:result.vectors.map(v=>v.slice()),truncated:result.truncated?.slice()}),method:()=>mode==='legacy'?null:fakeToken,isMethod:value=>mode!=='legacy'&&value===fakeToken,lifecycle:()=>fakeToken});vm.runInContext(actual('06h9-semantic-policy.js')+'\n'+actual('06ha-semantic-retrieval.js'),f.context);const MODEL=vm.runInContext('SemanticWindowPolicy.CONTRACT.modelFingerprint',f.context);let mutate=null,calls=0;const descriptor={available:true,policyReady:true,state:'ready',modelId:'embeddinggemma-2-text-q4',modelFingerprint:MODEL,retrievalThresholds:{search:.70,automatic:null}};f.context.SemanticRuntimeHooks={descriptor:()=>mode==='loading'?{available:false,state:'loading'}:descriptor,prepare:async()=>['loading','unavailable','missing','timeout'].includes(mode)?{available:false,reason:mode==='timeout'?'timeout':'unavailable',state:mode==='loading'?'loading':'failed'}:mode==='legacy'?{...descriptor,modelId:'legacy-fake',modelFingerprint:'legacy-fake'}:descriptor,encode:async(texts,opts)=>{if(options.background===false&&opts.priority==='background')return {ok:false,reason:'overloaded'};calls+=texts.length;if(mode==='partial'&&opts.role==='document')return {ok:false,reason:'timeout'};await opts.beforeEncode?.();if(opts.role==='document'&&mutate){const callback=mutate;mutate=null;await callback();}return{ok:true,modelFingerprint:mode==='legacy'?'legacy-fake':MODEL,vectors:texts.map(text=>{const c=opts.role==='query'?1:/cedar violet/i.test(text)?.99:/accepted/i.test(text)?.9:.1;return[c,Math.sqrt(1-c*c),...Array(766).fill(0)];})};}};return{f,advance:ms=>{now+=ms;},setMode:value=>{mode=value;},calls:()=>calls,mutate:fn=>{mutate=fn;}};}
 test('actual globalK1 strong body bypass never refills with another semantic field',async t=>{const {f}=await setup(t);await f.put('Strong',[{id:'m1',role:'user',content:'cedar violet'}],{head:{title:'ordinary title'}});await f.put('Other',[{id:'m2',role:'user',content:'accepted different topic'}],{head:{title:'other title'}});const value=await f.ui('cedar violet');a.deepEqual(Array.from(value.results,row=>row.id),['Strong']);a.ok(value.results[0].reference);a.equal(value.results[0].snippet,'cedar violet');a.equal(value.semantic.admission.policyId,'embeddinggemma2-global-eligible-k1-cos070-window-v1');});
 test('actual metadata supplement displays admitted title, never unreviewed summary sibling',async t=>{const {f}=await setup(t);await f.put('A',[{id:'m',role:'user',content:'ordinary material'}],{head:{title:'accepted cedar title',summary:'cedar wrong summary'}});const value=await f.ui('cedar violet'),row=value.results.find(row=>row.id==='A');a.ok(row);a.equal(row.reference,null);a.equal(row.snippet,'accepted cedar title');a.notEqual(row.snippet,'cedar wrong summary');a.equal(row.matchKind,'metadata-context');});
 test('actual weak body uses admitted96 window and preserves authenticated original coordinates',async t=>{const {f}=await setup(t);const body='x'.repeat(150)+' accepted cedar subject '+'y'.repeat(1800);await f.put('A',[{id:'m',role:'user',content:body}],{head:{title:'ordinary'}});const value=await f.ui('cedar violet'),row=value.results.find(row=>row.id==='A');a.ok(row?.reference);a.equal(row.reference.source,'content');a.equal(row.reference.matchEnd-row.reference.matchStart,96);a.ok(body.slice(row.reference.matchStart,row.reference.matchEnd).includes('accepted'));a.ok(row.snippet.includes('accepted'));a.ok(row.reference.snippetStart<=row.reference.matchStart);a.doesNotMatch(JSON.stringify(value),/sourceRevision|windowWitness|fieldWitness|encodedTexts/);});
@@ -159,7 +161,7 @@ test('the outer request deadline still stops disclosure after a late encode',asy
 });
 
 test('a partial scoring slice retains a fully scored lexical field only',async t=>{
-  const {f,mutate,advance}=await setup(t);
+  const {f,mutate,advance}=await setup(t,{background:false});
   await f.put('A',[{role:'user',id:'known',content:'accepted cedar subject'}]);
   await f.put('B',[{role:'user',id:'pure',content:'accepted unrelated topic'}]);
   await f.put('C',[{role:'user',id:'incomplete',content:'accepted cedar '+ 'x'.repeat(400)}]);
@@ -239,7 +241,7 @@ test('a busy resident worker and slow source scan can finish the first authorize
 });
 
 test('a source that exhausts the first reservation gets enough time on the next request',async t=>{
-  const {f,advance}=await setup(t);
+  const {f,advance}=await setup(t,{background:false});
   await f.put('Match',[{id:'m',role:'user',content:'accepted unrelated wording'}]);
   const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode,source=f.api.source;
   let scanPending=false,reads=0;
@@ -293,11 +295,12 @@ test('a rewrite between window admission and snippet reuse blocks disclosure',as
 });
 
 test('continuation predicts completion from work done this slice, excluding earlier requests',async t=>{
-  const {f,advance}=await setup(t);
+  const {f,advance}=await setup(t,{background:false});
   await f.put('Many',Array.from({length:40},(_,n)=>({role:'user',id:'m'+n,content:'ordinary subject '+n})));
   const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode;
   let batches=0,prior=0;
   runtime.encode=async(texts,options)=>{
+    if(options.priority==='background')return encode(texts,options);
     if(options.role==='document'){batches++;advance(1001);}
     return encode(texts,options);
   };
