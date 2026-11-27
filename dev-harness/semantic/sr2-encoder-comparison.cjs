@@ -6,7 +6,7 @@ const crypto=require('node:crypto');
 const cp=require('node:child_process');
 const readline=require('node:readline');
 const assert=require('node:assert/strict');
-const [mode,root,profile,file,output]=process.argv.slice(2);
+const [mode,root,profile,file,output,matrixOutput]=process.argv.slice(2);
 async function main(){
   const digest=b=>crypto.createHash('sha256').update(b).digest('hex');
   const fixtureSha256=digest(fs.readFileSync(file));
@@ -53,7 +53,46 @@ async function main(){
       const top=maxima.map((v,k)=>({v,k})).sort((a,b)=>b.v-a.v||a.k-b.k).slice(0,5);
       return {group:q.group,kind:q.kind,rank:top.findIndex(x=>q.relevant?.includes(corpus.documents[x.k].id))+1};
     });
-    fs.writeFileSync(output,JSON.stringify({model:ready.modelId,fingerprint:ready.modelFingerprint,fixtureSha256,documents:corpus.documents.length,windows:chunks.length,truncated,method:'96 UTF-16 units, stride 80; maximum cosine per document, unconditional top 5; no answerability or product latency inference',samples},null,2)+'\n',{flag:'wx'});
+    const comparisonTruncated = truncated;
+    if (matrixOutput) {
+      const { anchors, memoryCorpus } = require('./admission-dev-corpus.cjs');
+      const references = await encode('document', anchors);
+      function pool(name, corpus, chunks, vectors, queries) {
+        const windows = chunks.map(chunk => corpus.documents[chunk.doc].id);
+        return { name, windows, queries: corpus.queries.map((q, i) => ({
+          group: q.group, kind: q.kind, relevant: q.relevant,
+          scores: vectors.map(v => scores(queries[i], v)),
+          referenceScores: references.map(v => scores(queries[i], v)),
+        })) };
+      }
+      const development = memoryCorpus();
+      const headers = development.documents.flatMap((d, doc) => {
+        const rows = [];
+        for (let at = 0; at < d.text.length; at += 80) {
+          rows.push({ doc, text: d.text.slice(at, at + 96) });
+          if (at + 96 >= d.text.length) break;
+        }
+        return rows;
+      });
+      const headerVectors = await encode('document', headers.map(h => h.text));
+      const memoryQueries = await encode('query', development.queries.map(q => q.text));
+      const pools = [pool('v7-r3', corpus, chunks, vectors, queries),
+        pool('memory-128', development, headers, headerVectors, memoryQueries)];
+      // Use the first service's five topics plus seven ordinary fields. Positives for excluded
+      // fields do not become unanswerable controls. Their wording can still match retained fields.
+      const smallFieldIds = new Set([...development.documents.slice(0, 5), ...development.documents.slice(40, 47)].map(d => d.id));
+      const keep = headers.flatMap((h, i) => smallFieldIds.has(development.documents[h.doc].id) ? [i] : []);
+      const full = pools[1];
+      pools.push({ name: 'memory-12', windows: keep.map(i => full.windows[i]),
+        queries: full.queries.filter(q => q.kind !== 'positive' || q.relevant.some(id => smallFieldIds.has(id)))
+          .map(q => ({ ...q, scores: keep.map(i => q.scores[i]) })) });
+      const matrix = { schema: 1, model: ready.modelId, fingerprint: ready.modelFingerprint, fixtureSha256,
+        developmentCorpusSha256: digest(JSON.stringify(development)),
+        anchorsSha256: digest(JSON.stringify(anchors)), truncatedEncodes: truncated, pools };
+      const zlib = require('node:zlib');
+      fs.writeFileSync(matrixOutput, zlib.gzipSync(JSON.stringify(matrix)), { flag: 'wx' });
+    }
+    fs.writeFileSync(output,JSON.stringify({model:ready.modelId,fingerprint:ready.modelFingerprint,fixtureSha256,documents:corpus.documents.length,windows:chunks.length,truncated:comparisonTruncated,method:'96 UTF-16 units, stride 80; maximum cosine per document, unconditional top 5; no answerability or product latency inference',samples},null,2)+'\n',{flag:'wx'});
   }finally{child.stdin.end();await closed;settings.onObservedExit?.();}
 }
 main().catch(e=>{console.error(e.message);process.exitCode=1;});
