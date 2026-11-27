@@ -1,0 +1,154 @@
+{
+  "serverSha256": "5f231bbdf72fef68641a71e355120235d8086816eba5c93e4b640e9d082632d3",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "scope": "128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms",
+  "cold": {
+    "query": "西红柿",
+    "status": "partial",
+    "elapsedMs": 98.07119999999941,
+    "checks": 9,
+    "checksMs": 5.3343000000022585,
+    "evaluateMs": 0,
+    "queryMs": 51.36289999999917,
+    "otherMs": 41.37399999999798,
+    "documentTexts": 0,
+    "kills": 0
+  },
+  "prewarmMs": 15878,
+  "warm": [
+    {
+      "query": "heart attack",
+      "status": "reranked",
+      "elapsedMs": 227.16600000000108,
+      "checks": 525,
+      "checksMs": 147.38559999999416,
+      "evaluateMs": 11.791000000008353,
+      "queryMs": 49.17829999999958,
+      "otherMs": 18.811099999998987,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "paid time off",
+      "status": "reranked",
+      "elapsedMs": 205.99919999999838,
+      "checks": 525,
+      "checksMs": 136.77099999996062,
+      "evaluateMs": 8.084100000040053,
+      "queryMs": 47.65450000000055,
+      "otherMs": 13.489599999997154,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "骑脚踏车",
+      "status": "reranked",
+      "elapsedMs": 211.89770000000135,
+      "checks": 525,
+      "checksMs": 138.70660000003772,
+      "evaluateMs": 7.473799999963376,
+      "queryMs": 49.81680000000051,
+      "otherMs": 15.900499999999738,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "bicycle",
+      "status": "reranked",
+      "elapsedMs": 201.02479999999923,
+      "checks": 525,
+      "checksMs": 134.38110000002416,
+      "evaluateMs": 7.572299999981624,
+      "queryMs": 43.917499999995925,
+      "otherMs": 15.15389999999752,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "tomato",
+      "status": "reranked",
+      "elapsedMs": 202.97279999999955,
+      "checks": 525,
+      "checksMs": 128.7485000000015,
+      "evaluateMs": 7.074299999985669,
+      "queryMs": 53.44310000000405,
+      "otherMs": 13.706900000008318,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "心肌梗死",
+      "status": "reranked",
+      "elapsedMs": 196.97669999999925,
+      "checks": 525,
+      "checksMs": 127.9182000000219,
+      "evaluateMs": 6.280299999983981,
+      "queryMs": 50.396999999997206,
+      "otherMs": 12.38119999999617,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "annual leave",
+      "status": "reranked",
+      "elapsedMs": 215.04109999999855,
+      "checks": 525,
+      "checksMs": 138.91970000002038,
+      "evaluateMs": 7.057099999976344,
+      "queryMs": 56.73670000000129,
+      "otherMs": 12.32760000000053,
+      "documentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "how to bake sourdough bread",
+      "status": "reranked",
+      "elapsedMs": 228.2680999999975,
+      "checks": 525,
+      "checksMs": 134.5964000000131,
+      "evaluateMs": 8.150999999990745,
+      "queryMs": 70.60089999999764,
+      "otherMs": 14.91979999999603,
+      "documentTexts": 0,
+      "kills": 0
+    }
+  ],
+  "secondSession": {
+    "query": "heart attack",
+    "status": "reranked",
+    "elapsedMs": 203.21409999999742,
+    "checks": 525,
+    "checksMs": 129.98490000006132,
+    "evaluateMs": 7.712399999945774,
+    "queryMs": 49.29079999999885,
+    "otherMs": 16.225999999991473,
+    "documentTexts": 0,
+    "kills": 0
+  },
+  "summary": {
+    "elapsedMs": {
+      "median": 208.94844999999987,
+      "p95": 228.2680999999975
+    },
+    "queryMs": {
+      "median": 50.10689999999886,
+      "p95": 70.60089999999764
+    },
+    "checksMs": {
+      "median": 135.68369999998686,
+      "p95": 147.38559999999416
+    },
+    "checks": {
+      "median": 525,
+      "p95": 525
+    },
+    "evaluateMs": {
+      "median": 7.5230499999725,
+      "p95": 11.791000000008353
+    },
+    "otherMs": {
+      "median": 14.313350000002174,
+      "p95": 18.811099999998987
+    }
+  }
+}

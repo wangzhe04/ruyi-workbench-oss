@@ -1,0 +1,30 @@
+{
+  "sessions": 169,
+  "indexedSessions": 0,
+  "unavailableIndexes": 0,
+  "shardRows": 0,
+  "sessionWindows": {
+    "count": 0,
+    "total": 0,
+    "p50": null,
+    "p95": null,
+    "max": null
+  },
+  "sessionsOver1938": 0,
+  "headerWindows": {
+    "count": 23,
+    "total": 49,
+    "p50": 2,
+    "p95": 3,
+    "max": 3
+  },
+  "unreadableHeaders": 0,
+  "globalAndProjectWindows": {
+    "count": 5,
+    "total": 89,
+    "p50": 14,
+    "p95": 33,
+    "max": 33
+  },
+  "projectsOver512": 0
+}

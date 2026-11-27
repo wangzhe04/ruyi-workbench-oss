@@ -1,0 +1,369 @@
+{
+  "tool": "dev-harness/experience-gates.js",
+  "schema": 1,
+  "mode": "full",
+  "startedAt": "2026-11-27T06:57:34.973Z",
+  "durationS": 32.9,
+  "environment": {
+    "node": "v24.14.0",
+    "platform": "win32 10.0.26200 x64",
+    "cpu": "AMD Ryzen 5 5500                               ",
+    "logicalCpus": 12,
+    "memoryGiB": 31.9,
+    "cpuBusyBeforeStart": {
+      "samples": 5,
+      "avgBusyPct": 11.6,
+      "maxBusyPct": 21.6
+    },
+    "concurrency": "工作进程逐个串行(本量具同一时刻只跑一个);本机其他负载不受控,见各 job 的 cpuBusy",
+    "semanticRuntime": "本检出未安装语义运行时资产(worker.cjs 启动即 RUNTIME_UNAVAILABLE),产品侧表现为 semantic.owner_identity / state=failed",
+    "repo": {
+      "commit": "0f613712",
+      "branch": "codex/3.1-gemma-152",
+      "uncommittedPaths": 42
+    },
+    "isolation": "releaseEnvironment 临时家与数据根 + WCW_TEST_NO_NET_ANCHORS=1 + WCW_NO_BROWSER=1;假 provider 与占位密钥;宿主与工作进程双重核验"
+  },
+  "summary": {
+    "gates": 5,
+    "measured": 3,
+    "passed": 2,
+    "failed": 1,
+    "notImplemented": 2,
+    "skipped": 0,
+    "errors": 0
+  },
+  "gates": [
+    {
+      "id": "G-search-first-screen",
+      "title": "线程搜索关键词首屏(API 层)",
+      "condition": "200 条会话(10 条今天,其余较早);GET /api/sessions/search?limit=30&preview=1;冷 1 发 + 新词 + 重复词;默认配置",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 11,
+      "p50": 209.7,
+      "p95": 670.6,
+      "max": 670.6,
+      "failedSamples": 0,
+      "target": {
+        "stat": "p95",
+        "op": "<=",
+        "value": 500,
+        "alsoRequires": "全部样本都到达 provider"
+      },
+      "pass": false,
+      "details": {
+        "coldMs": 346.3,
+        "perQuery": [
+          {
+            "label": "cold",
+            "ms": 346.3,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 264.5,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 260.1,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 300.6,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 209.7,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 188.5,
+            "results": 0,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 162.5,
+            "results": 0,
+            "lexicalPreview": true
+          },
+          {
+            "label": "new-query",
+            "ms": 163.6,
+            "results": 0,
+            "lexicalPreview": true
+          },
+          {
+            "label": "repeat",
+            "ms": 670.6,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "repeat",
+            "ms": 169.6,
+            "results": 25,
+            "lexicalPreview": true
+          },
+          {
+            "label": "repeat",
+            "ms": 176.7,
+            "results": 25,
+            "lexicalPreview": true
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-search-drawn-ratio",
+      "title": "后端命中 N 条,左栏可画 N 条(U1 机制)",
+      "condition": "命中里能从 /api/missions 主列表页 ∪ ?sessionIds= 补取拿到行的比例;标题词「灰度发布」(多数命中是较早线程)",
+      "status": "measured",
+      "unit": "ratio",
+      "samples": 25,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 1,
+      "target": {
+        "op": ">=",
+        "value": 1
+      },
+      "pass": true,
+      "details": {
+        "preview": {
+          "label": "preview",
+          "hits": 25,
+          "mainPageRows": 30,
+          "missingFromPage": 21,
+          "sessionIdsReturned": 21,
+          "drawn": 25,
+          "ratio": 1,
+          "missionsMs": 16.7,
+          "sessionIdsMs": 30.9
+        },
+        "continue": {
+          "label": "continue",
+          "hits": 25,
+          "mainPageRows": 30,
+          "missingFromPage": 21,
+          "sessionIdsReturned": 21,
+          "drawn": 25,
+          "ratio": 1,
+          "missionsMs": 11.8,
+          "sessionIdsMs": 10.2,
+          "searchMs": 544.9,
+          "searchStatus": 200,
+          "failure": null,
+          "coverage": {
+            "phase": "idle",
+            "complete": false,
+            "indexed": 0,
+            "pending": 200
+          }
+        }
+      }
+    },
+    {
+      "id": "G-search-index",
+      "title": "400 会话后台索引建完",
+      "condition": "400 条会话,语义关;按前端节奏连发非 preview 搜索直到 coverage.complete;上限 90 s(未完成记为上限值)",
+      "status": "measured",
+      "unit": "ms",
+      "samples": 1,
+      "p50": null,
+      "p95": null,
+      "max": null,
+      "value": 15693.4,
+      "target": {
+        "op": "<=",
+        "value": 60000
+      },
+      "pass": true,
+      "details": {
+        "complete": true,
+        "polls": 16,
+        "firstFullMs": 288.3,
+        "requestMsP50": 539.7,
+        "requestMsMax": 642.9,
+        "last": {
+          "atMs": 15693.3,
+          "ms": 642.9,
+          "status": 200,
+          "results": 30,
+          "phase": "building",
+          "complete": true,
+          "indexed": 400,
+          "pending": 0,
+          "failure": null
+        },
+        "trace": [
+          {
+            "atMs": 578.3,
+            "ms": 577.7,
+            "status": 200,
+            "results": 0,
+            "phase": "idle",
+            "complete": false,
+            "indexed": 0,
+            "pending": 400,
+            "failure": null
+          },
+          {
+            "atMs": 5068.4,
+            "ms": 412.8,
+            "status": 200,
+            "results": 20,
+            "phase": "building",
+            "complete": false,
+            "indexed": 77,
+            "pending": 323,
+            "failure": null
+          },
+          {
+            "atMs": 10137.7,
+            "ms": 531.3,
+            "status": 200,
+            "results": 30,
+            "phase": "building",
+            "complete": false,
+            "indexed": 236,
+            "pending": 164,
+            "failure": null
+          },
+          {
+            "atMs": 15693.3,
+            "ms": 642.9,
+            "status": 200,
+            "results": 30,
+            "phase": "building",
+            "complete": true,
+            "indexed": 400,
+            "pending": 0,
+            "failure": null
+          }
+        ]
+      }
+    },
+    {
+      "id": "G-search-ui-timeout-keeps-results",
+      "title": "线程搜索超时不清空已有结果",
+      "condition": "前端左栏",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "这是前端状态机(session-experience.js 把超时的空结果直接覆盖进 sessionSearchState)的行为,API 层量不到。",
+      "plan": "无头 Edge(lib/browser-fixture.js)开工作台,假会话 200 条;用 page 内桩让第一发 preview 正常回结果、第二发「继续搜索」回 coverage.phase=timeout 的空结果;量第二发回来后左栏行数是否仍为第一发的行数(期望不变)。"
+    },
+    {
+      "id": "G-search-ui-drawn",
+      "title": "后端命中 N 条则左栏画 N 条(DOM 层)",
+      "condition": "前端左栏",
+      "status": "not-implemented",
+      "pass": null,
+      "reason": "API 层的同一机制已由 G-search-drawn-ratio 量;DOM 层(renderRail 真画出的行数)需要浏览器。",
+      "plan": "同上夹具,搜标题词,读 #sessionList 下的行数与 /api/sessions/search 返回条数之比。"
+    }
+  ],
+  "jobs": [
+    {
+      "name": "search",
+      "mode": "search",
+      "reason": "done",
+      "wallS": 8.2,
+      "cpuBusy": {
+        "samples": 6,
+        "avgBusyPct": 34.6,
+        "maxBusyPct": 58.3
+      },
+      "processes": [
+        {
+          "pid": 20636,
+          "name": "node.exe"
+        },
+        {
+          "pid": 23588,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 11788,
+          "name": "python3.13.exe"
+        },
+        {
+          "pid": 20176,
+          "name": "node.exe"
+        },
+        {
+          "pid": 8480,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 35964,
+          "name": "conhost.exe"
+        }
+      ],
+      "killed": [
+        20636,
+        11788
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    },
+    {
+      "name": "search-index",
+      "mode": "search",
+      "reason": "done",
+      "wallS": 20.8,
+      "cpuBusy": {
+        "samples": 19,
+        "avgBusyPct": 33.9,
+        "maxBusyPct": 49.5
+      },
+      "processes": [
+        {
+          "pid": 21924,
+          "name": "node.exe"
+        },
+        {
+          "pid": 24288,
+          "name": "conhost.exe"
+        },
+        {
+          "pid": 1228,
+          "name": "python3.13.exe"
+        },
+        {
+          "pid": 4332,
+          "name": "conhost.exe"
+        }
+      ],
+      "killed": [
+        21924
+      ],
+      "killNote": null,
+      "exit": {
+        "code": 1,
+        "signal": null
+      },
+      "refused": null
+    }
+  ],
+  "processCheck": {
+    "checked": true,
+    "tracked": 10,
+    "alive": []
+  }
+}

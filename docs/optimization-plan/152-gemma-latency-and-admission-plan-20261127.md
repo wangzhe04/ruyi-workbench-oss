@@ -1,0 +1,444 @@
+# 152 · EmbeddingGemma 记忆注入与会话检索：速度与识别质量方案（2026-11-27）
+
+本文是给实现者的工作单。目标分支 `codex/3.1-unified-20261126`，**所有行号以提交 `9c0e1d8f` 为准**（worktree 在 `C:/r31-unified-20261126`，另有 agent 在上面持续提交，动手前先 rebase 并重新核对行号）。上游文档：[151](151-3.1-pre-release-master-plan-20261118.md) §8.40–8.47、[147](147-3.1-semantic-retrieval-and-recovery.md)。
+
+每条事实后面标了来源：**〔证〕** 分支里已有的证据文件，**〔测〕** 本次直接加载包内模型量到的，**〔读〕** 从代码读出来、没有单独跑实验。标〔读〕的结论，实现前先写一个会红的测试把它钉住。
+
+## 0. 结论先行
+
+用户感到慢、感到「认不出」，主要不是模型慢或模型差，是三处结构问题：
+
+1. **Gemma 的文档向量只在用户请求里边查边算，不做后台编码，也不落盘。** 重启即清空。
+2. **发送前的记忆预检没有截止时间**，会等全部记忆头编完才发消息；向量缓存又按会话隔离，每个新会话都要重来一遍。
+3. **准入只看绝对余弦 ≥0.70**，而这个模型的分数整体挤在高位，无关文本的最高分也能到 0.65–0.76。
+
+第一批（L0–L5）只动管线，不动冻结的 worker、不改准入策略，预期把「首条消息等 16 秒」降到 0.5 秒以内，把「重启后要预热几分钟才有完整语义覆盖」变成后台一次性付清。第二批改准入判据，第三批重新冻结 worker 换线程数，第四批处理规模上限。
+
+## 1. 现状与证据
+
+### 1.1 分支已有的证据
+
+| 项 | 数值 | 出处 |
+|---|---|---|
+| 记忆预检，128 条短记忆头，向量未缓存 | 16.3–16.7 s（三次） | 〔证〕`evidence/semantic-retrieval-20261116/memory-send-128-full-local-20261127.json` 的 `firstEncodeMs` |
+| 同上，向量已缓存（仍要编码查询） | 中位 288 ms，p95 300 ms | 同上 `cachedMs` |
+| 会话搜索，1000 片段热缓存，两核 | 中位 778 ms，p95 1003 ms；目标 500 ms | 〔证〕151 §8.47 |
+| 热查询构成 | 原文读取与核验 302 ms，扫描索引 122 ms，查询编码 95 ms | 〔证〕151 §8.46 |
+| 1000 片段从冷到全缓存 | 约 300 s（靠反复发查询预热） | 〔证〕151 §8.43、§8.45 |
+| SR2 盲测 | 136 道正例找回 50；漏掉的 86 道里 66 道是语义超时返回空，其中 64 道在纯向量前五 | 〔证〕151 §8.43 |
+| H2b 误召回 | 无关闲聊 0.7275，高于三个正确项 0.7075 / 0.7227 / 0.7232 | 〔证〕151 §8.40–8.41 |
+
+### 1.2 本次直接测模型
+
+方法见附录 A。机器 Ryzen 5 5500（6 核 12 线程），Node 24.14.0，测时整机负载 27–39%，**绝对值偏大，只看相对关系**。
+
+单条推理耗时（中位，物理批量 1）：
+
+| 文本 | token | 1 线程 | 2 线程（现状） | 4 线程 | 6 线程 |
+|---|---|---|---|---|---|
+| 8 字查询 | 16 | 102 ms | 61 ms | 31 ms | 32 ms |
+| 24 字查询 | 28 | 127 ms | 79 ms | 41 ms | 41 ms |
+| 96 字分片 | 54 | 201 ms | 125 ms | 63 ms | 57 ms |
+| 192 字分片 | 84 | 302 ms | 185 ms | 100 ms | 87 ms |
+| 384 字分片 | 160 | 541 ms | 318 ms | 182 ms | 162 ms |
+| 768 字分片 | 336 | 1169 ms | 643 ms | 397 ms | 366 ms |
+
+- 2 线程与 4 线程对同一批文本的输出向量**逐位相同**（5 条文本，`maxAbs = 0`）。〔测〕
+- 批量推理没有收益：4 条一批每条 112 ms，逐条 114 ms；16 条一批反而更慢。批内与单条的向量一致（余弦 1.000000）。〔测〕
+- 16.47 s ÷ 128 ≈ 129 ms/条，与 2 线程 96 字分片的 125 ms 吻合：**首次发送的时间几乎全是推理**，不是回验或 I/O。
+- 耗时近似「固定约 35 ms + 每 token 约 1.8 ms」（2 线程）。按有效新字符算：96 字／重叠 16 是 640 字/秒，384 字／重叠 16 是 1157 字/秒。
+
+分数分布（128 条合成记忆头，17 条查询，直接算余弦，**没有走产品路径**，逐条见附录 B）：
+
+| | 最高分 | 最高分相对全池的 z 值 | 第一名减第二名 |
+|---|---|---|---|
+| 11 条有答案 | 0.755–0.821 | 4.5–7.9 | 0.069–0.177 |
+| 6 条无答案 | 0.564–0.764 | 1.7–2.9 | 0.000–0.013 |
+
+无答案的「继续」最高分 0.764、「你好」0.701，都过了 0.70；真命中「忘记登录口令怎么办」只有 0.755。绝对分数分不开，z 值在这个样本上完全分开。另外两个否定结果：记忆头改用 `title: 名称 | text: 描述` 后分数与 z 值都更低；MRL 截到 256 维排序不变但分数整体上移。
+
+### 1.3 从代码读出的事实
+
+| 编号 | 事实 | 位置 |
+|---|---|---|
+| F1 | 后台编码单元遇到 Gemma 直接标记完成并返回，注释写「Gemma 研究路径不落持久向量」 | `13ap-session-fulltext-index.js:1177` |
+| F2 | 请求内取持久向量的开关对 Gemma 关闭 | `13ap:612`（`vectorsOn=…&&!gemmaMethod`）、`06ha-semantic-retrieval.js:96` |
+| F3 | 发送预检调 `rank` 时上下文不带 `deadline` | `06d-memory-domain.js:3069-3070` |
+| F4 | 自动路径的截止时间取 `Number.MAX_SAFE_INTEGER`，并带 `waitForCompletion:true` | `06hc-memory-semantic.js:247`、`:264` |
+| F5 | 记忆路径的 scopeId 含会话 id，文档缓存键含 scopeId；字段 identity 里的 `sourceId` 与 `epoch` 也含 scopeId | `06d:3070`、`06ha:60`、`:92`、`06hc` 的 `identity={sourceId:JSON.stringify([scopeId,key]),…,epoch:scopeId,…}` |
+| F6 | 客户端同一时刻只允许一发编码，忙时立即回 `overloaded`；调用方每 25 ms（8 次后 100 ms）轮询重试 | `06hb-semantic-runtime.js:58`、`06ha:127-137` |
+| F7 | 客户端编码计时器到点即 `stop('timeout')`，杀 worker 并进冷却（30 s 起倍增） | `06hb:58`、`:40`、`:47`；151 第 57 行已登记为「待做」 |
+| F8 | 准入是「按分数取前 K，逐条判 `score >= 0.70`」，没有相对判据；自动路径以 `explicitMemory:true` 走，最多 3 条，合并时再要求与最高分相差不超过 0.035 | `06ha:219`、`:326-336`、`:355`；`06hc:183-196` |
+| F9 | 记忆头的语义文本是 `[id, name, description(≤400), coresummary‖description(≤520), type]`，没有 coresummary 时 **description 出现两次** | `06d-memory-domain.js:334-335` |
+| F10 | 自动路径只取「前 128 条记忆头里、能整条放进 128 个分片的前缀」 | `06hc:227-240` |
+| F11 | Gemma 的语义候选池上限 4096 个窗口；策略评估对超过 4096 行直接抛 `composite.request_invalid` | `13ap:9`、`:612`、`:639`；`06ha:228`、`:390` |
+| F12 | worker 线程数、最大 token、分片长度都写在 SPEC 里并进了模型指纹；worker 源码不在工作树，在归档包里 | `resources/gemma2/embeddinggemma2-live-contract.cjs` 的 `SPEC`；`dev-harness/archive/semantic-research-d5d3caff.tar.gz` |
+| F13 | 现有会话向量存储按会话落 `vectors.json`（与分片同一 WorkDataStore 载体，加密档同样密封），键含内容修订与窗口坐标，Float32 打包 | `13ap:306-334`、`:229`、`:1124-1167` |
+| F14 | 产品里注册的语义后端只有 gemma2 一个；旧的持久向量路径现在只被测试里的假模型走到 | `06hb:94` |
+
+## 2. 根因归纳
+
+| 现象 | 根因 | 对应工作包 |
+|---|---|---|
+| 首条消息卡十几秒 | F3、F4：预检无上限地等文档编码 | L1 |
+| 每个新会话再卡一次 | F5：向量缓存按会话隔离 | L2 |
+| 重启后语义「部分覆盖」、要预热几分钟 | F1、F2：不做后台编码、不落盘 | L4 |
+| SR2 大面积「超时返回空」 | 同上，叠加 1 秒时间片 | L4 |
+| 负载下「语义检索暂不可用」30 秒 | F6、F7：轮询抢占加超时即杀 | L5 |
+| 无关记忆被注入、H2b 误召回 | F8：绝对阈值 | Q1–Q3 |
+| 记忆多了以后只有前十几条参与语义 | F9、F10 | L3、L2 |
+| 编码慢 | 2 线程；96 字分片的固定开销占比高 | W1、W3 |
+| 库大了永远凑不齐完整候选池 | F11 | S1、S2 |
+
+## 3. 目标与验收口径
+
+参考机为上面那台，两核受限的口径沿用 151 §8.45 的做法。数值是目标，不是已达成的结果。
+
+| 指标 | 现状 | 第一批后 | 第三批后 |
+|---|---|---|---|
+| 发送预检，128 条记忆头，向量未就绪 | 16.5 s | ≤ 软上限 + 100 ms（默认软上限 400 ms），退回关键词基线并如实标记 | 同左 |
+| 发送预检，向量已就绪 | 288 ms | ≤ 250 ms（L0 量完构成后再定是否压到 150 ms） | 再减约 30 ms |
+| 同项目新开会话的首次预检，文档编码次数 | 128 | 0 | 0 |
+| 重启后会话搜索达到完整覆盖 | 约 300 s 预热 | 后台编完之后，重启后前 3 次查询内完整，请求内文档编码 0 次 | 同左 |
+| 1000 片段后台编码总时长（空闲） | 不做 | 约 3 分钟（按单片耗时推算，未实测） | 约 2 分钟 |
+| 因软超时触发的 worker 回收 | 会发生 | 0 | 0 |
+| 会话搜索热查询 p95 | 1003 ms | 本方案不保证达到 500 ms，见 §8 | — |
+
+第二批的验收口径在 Q1 里定，不在这里预先写阈值。
+
+## 4. 不能破坏的约束
+
+1. `CLAUDE.md` 与 `CONTRIBUTING.md` 的硬约束照旧：只改 `app/src/`，改完跑 `build.js`；`server.js` 零 npm 运行时依赖；行为变更带 e2e；功能实现后安排独立 agent 做 code review，记录范围、发现和处理结果。
+2. **披露前的回验一条不能少。** 本方案新增的后台编码只把向量放进进程内缓存或工作台自己的索引目录，不向任何 provider 披露；每个消费方在使用分数前仍走自己现有的 `check` / `beforeVerify` / `verifyField`。
+3. **Gemma 分数证据仍绑定原文。** `sealScoreEvidence` 要求每个有向量的行带 `encodedText` 字符串，`assertScore` 比对它。落盘向量必须在取用时重新拿到原文并校验，不能放宽这两处。
+4. 语义关闭时删除落盘向量（`purgeVectorsUnit` 已有）；删会话只清该会话向量；工作数据加密开启时向量文件同样密封。
+5. 不引入空闲卸载（`06hb` 的 `stop('idle')` 明确禁止）。
+6. V7 R3 题集已消费，只能当开发集。任何准入阈值的验收都要新的冻结题集。
+7. 每个并行测试实例用独立数据根并隔离家目录（`dev-harness/lib/fixture-home.js`）；收尾只杀自己 spawn 的进程（`kill-own-tree.js`）。
+
+## 5. 第一批：管线（不动冻结件，不改准入策略）
+
+### L0 先量后改
+
+**做什么**
+
+1. 用真实模型复现 §1.1 的三组基线，存成证据 JSON，作为之后每个包的对照。真实模型的接法见附录 A.2。
+2. 给已缓存的记忆预检（288 ms）做一次分段计时：查询编码、`check()` 调用次数与累计耗时、`request.evaluate`、其余。按代码数，一次预检里 `check('finish')` 大约被调 12–15 次（06ha 编码前后、06hb 的 `guard` 前后、`beforeVerify` 的 start／resolved／finish、每个入选字段的 `verifyField`），每次都取一遍 `memorySnapshotToken`（5 个 stat）并做两次执行权复核。〔读〕**这是推断，量完才知道是不是大头。**
+
+**验收**：证据文件含每段的中位与 p95；若 `check()` 累计超过 100 ms，另开 L6（合并相邻回验）并先写设计，不在本批里顺手改。
+
+### L1 发送预检有界
+
+**现状**：F3、F4。
+
+**改法**
+
+1. `06d-memory-domain.js:3069` 给 `rank` 的上下文加 `deadline: Date.now() + MEMORY_SEND_SEMANTIC_BUDGET_MS`。常量默认 400，放在 `01c-runtime-flags.js` 的记忆旋钮旁边，是否做成配置键见拍板点 D4。
+2. `06hc-memory-semantic.js:247` 去掉 `Number.MAX_SAFE_INTEGER`：自动路径的截止时间取「调用方给的 deadline」，没给时取 `Date.now()+400`，不允许无限。
+3. L2 落地后，自动路径传 `maxEncodeDocuments: 0`，请求内只编码查询，文档向量全靠后台（与界面线程搜索的 `deferDocumentEncoding` 同一思路，`13ap:613`、`:809`）。L2 落地前先保留请求内编码，但受上面的截止时间约束。
+4. 覆盖不全时沿用现有分支 `if (automaticBaseline && scored.status !== 'ready') return fallback(scored.status)`（`06hc:271`），返回关键词基线并带 `fallback`；同时触发 L2 的后台预编码并把本项目标为优先。
+
+**陷阱**
+
+- `06ha:120` 在 `waitForSend` 时把 `budgetMs` 设为 8000，但传给 06hb 的 `deadline` 是 `finishDeadline`，06hb 取两者较小值做**硬**计时器（`06hb:57`）。截止时间变短以后，一发查询编码越线就会触发 F7 杀 worker。**L1 必须和 L5b 一起合入**，或者在 06ha 里把交给 06hb 的看门狗期限与调用方的软期限分开传。
+- `prepare` 的 250 ms 预算不变：模型还在加载时直接退基线。
+- 尾标与隐藏回执已有「基础结果」文案（151 第 74 行），确认 `partial`／`timeout` 两种状态都走到它。
+
+**测试**
+
+- `dev-harness/unit/memory-semantic.test.js`：假运行时每条文档编码 130 ms（虚拟时钟写法照 `unit/semantic-budget-progress.test.js` 的 `virtualClock`），128 条未缓存记忆头，断言 `rank` 在软上限 +100 ms 内返回、结果等于基线、`semantic.status` 与 `fallback` 如实。**这条先写，改之前应当红。**
+- `dev-harness/memory-preflight-snapshot.e2e.js` 补一条同形断言。
+- 现有 `unit/semantic-budget-progress.test.js` 里「send preflight … waits through worker contention and all batches」这条的预期要改：等的是队列里的查询编码，不再是全部文档批次。
+
+### L2 记忆头向量：跨会话共用，后台预编码
+
+**现状**：F5、F10。每个会话各有一份文档向量；没有任何预编码。
+
+**改法**
+
+1. **文档向量键与会话脱钩。**
+   - `06ha` 的 `score` 增加可选项 `documentScopeId`：只用于文档缓存键（`:92` 的 `keys`）和文档编码时交给运行时与 `codecProof.verify` 的 scope。查询键、`sealScoreEvidence`、策略的 `windowContext` 仍用每会话的 `scopeId`。
+   - `06hc` 给 `request.addField` 传 `identityForWindow`（`06ha:393-394` 已支持），产出与会话无关的编码 identity，例如 `['memory-header-v1', key, memoryVersion, sha256(text), start, end]`。字段 identity（`sourceId`、`epoch`）不动，它们是策略的来源绑定。
+   - 记忆路径的 `documentScopeId` 用进程内常量（例如 `'memory-headers'`）。自动注入与显式检索（`06d:995`）共用。
+   - 安全论证写进代码注释：缓存键含文本本身，拿不出相同文本的调用方不可能命中；记忆评分器是独立实例（`06hc:324`），不会与会话搜索混用。
+2. **抽出共用的分片函数。** 现在 96／16 的切分循环在 `06hc` 里有两份（`:31-38`、`:231-235`），再加后台就是三份。抽成一个 `headerFragments(registry, {maxHeaders, maxFragments})`，自动路径、显式路径、后台预编码共用，保证文本与 identity 逐字一致。
+3. **评分器增加只编码不打分的入口。** `SemanticRetrieval.create()` 返回值加 `prime(docs, {documentScopeId, identities, owners, resolveTexts, beforeEncode, signal, deadline, maxEncodeDocuments})`，与 `score` 共用同一段文档编码循环、同一套 `cacheGeneration` 与 codec token 逻辑，返回 `{cached, encoded, total, status}`。把 `score` 里 `:168-194` 的循环提成内部函数即可。
+4. **后台预编码驱动。** 新模块（建议 `06hd-memory-semantic-prewarm.js`，挂在依赖环外，对外用 `MemorySemanticHooks.prewarm(cwd, {urgent})`，按 `CLAUDE.md` 的 `*Hooks` 延迟绑定）：
+   - 触发点：① `resolveMemoryPreflight` 发现覆盖不全时（urgent）；② 记忆库写入之后（`memoryLibraryWriteGeneration` 递增处，去抖 2 s）；③ 语义运行时预热完成后对 global 范围跑一次（`13-http-router.js:2060` 之后）。
+   - 每个 cwd 单飞，用 `runKeyedChain`。
+   - 每批 1 条，批间让 50 ms；用 L5 的 `background` 优先级。总量上限 512 个分片。
+   - 每批之前复核：语义仍开启（`memoryVectorRecallEnabled(config)` 且 `semanticRetrievalV1 !== false`）、库快照令牌未变（`memorySnapshotToken(cwd,{usage:false}).library`，变了就按新注册表重来）、本批文件 stat 未变（沿用 `memoryStatBaseline` 一类现成工具）。工作数据锁定或隐私准备停止时立即收工，异常走 `SemanticFailurePolicy` 的分类。
+   - 不需要会话执行权：它不披露任何东西。
+5. **放宽分片上限。** 自动路径的分片上限从 128 提到 512（`06hc:233` 与 `maxRows:128`），记忆头上限仍是 128。理由：请求内不再编码文档，512 个向量的打分是毫秒级；真实记忆头经 L3 去重后平均 2–5 个分片，128 个分片只够十几到几十条。覆盖字段 `fragmentLimit` 同步改。
+6. **记忆被删或改写时忘掉旧向量。** `score`／`prime` 传 `owners`（记忆键），删除与改写处调评分器的 `forget(owner)`（`06ha:48` 已有）。
+
+**不做**：记忆头向量不落盘（拍板点 D3）。量小，后台重编一遍 512 个分片在 2 线程下约一分半钟（按单片 125 ms 加批间 50 ms 推算），换来的是不必新增一个持久存储及其加密、清册登记。
+
+**测试**
+
+- 单测：同一评分器、两个不同会话 scope、同一批记忆头，第二个会话的文档编码次数为 0；改一条记忆后只重编那一条的分片；`forget` 后不再命中。
+- 单测：`prime` 与 `score` 对同一输入产生相同的缓存键（先 `prime` 再 `score`，文档编码 0 次）。
+- 单测：库快照令牌在批间变化时，后台驱动丢弃在途结果并重来；语义关闭时停止。
+- `unit/semantic-gemma2-memory-observation.test.js` 与证据里写死的 128 需要跟着改。
+- 真实模型：复现 `memory-send-128` 的口径，新增两列——同进程第二个会话的首次预检、预编码完成后的首次预检。
+
+**生成物**：新模块与新的跨模块引用需要重跑 `module-dependency-graph.js --write`、`facts-generate.js`；若往 `14-main.js` 加导出，先写直调它的测试。
+
+### L3 记忆头文本去重
+
+**现状**：F9。没有 `coresummary` 的记忆，description 被拼进去两次，白占分片名额，也让向量偏向重复内容。
+
+**改法**：`06d-memory-domain.js:334-335`，第四段只在 `fm.coresummary` 存在且与 description 不同的时候才加入。词法用的 `memoryRetrievalText` 不动。
+
+**验收**：单测断言无 coresummary 的记忆头文本里 description 只出现一次；用 20 条真实形态的记忆头（name 20 字、description 150–400 字）统计分片数，去重前后各记一个数。
+
+### L4 会话向量：Gemma 后台编码、落盘、请求内取用
+
+**现状**：F1、F2、F13、F14。存储、键、后台调度都已经有，只是对 Gemma 关着。
+
+**改法**
+
+1. **放开后台编码。** 删掉 `13ap:1177` 的提前返回。`encodeSession`（`:1124-1167`）基本可以原样复用：它按分片行的 `contentRevision` 从正文现读原文、编码、`Float32Array.from(vector)` 落盘。Gemma 的向量本来就是 float32 值，转存无损。
+2. **后台时间片按编码速度自适应。** `BACKGROUND_SLICE_MS` 是 200 ms（`:11`），Gemma 一条分片约 125 ms，一个时间片只够编一条；而每次 `encodeSession` 都要重读清单与全部分片、扫一遍会话正文、再整份重写 `vectors.json`，等于每编一条付一次整会话的代价。编码单元的时间片改成 `clamp(estimateEncodingBudget('document', 8), 200, 2000)`。批间已有的让路条件（`readers>0`、`yieldRequested()`、`priorityReaders>0`，`:1145`）不动，前台最多等一条分片。改完用体验门 `G-search-first-screen` 确认首屏没有退步。
+3. **向量文件带原文摘要。** `VECTOR_SCHEMA` 升到 2，记录增加 `texts: { <窗口键>: sha256(原文片段) }`，与 `entries` 同键。`decodeVectors`（`:314-318`）同时接受 1 和 2；**schema 1 的文件对 Gemma 当作没有向量**。`pruneVectors`（`:330-334`）同步裁 `texts`。
+4. **请求内取用并回填原文。**
+   - `13ap:612` 拆成两个开关：`storedOn = vectorStoreEnabled && !!semantic`（Gemma 也开，用于传 `stored`）；行数上限仍按是否 Gemma 取 4096 或 32768（F11，S2 再议）。`deferEncoding` 是否对 Gemma 生效见下面第 6 点。
+   - `storedVectors`（`:803-804`）的查表函数多返回一个摘要。
+   - `06ha:96` 去掉对 Gemma 的排除，改成「回填」预处理：对「有落盘向量、但进程内缓存没有」的行，分块（每块至多 128 行）调 `resolveTexts` 取原文；`sha256(原文) === 摘要` 的，把 `{vector, encodedText: 原文, owner}` 写进 `documents` 缓存并填 `encodedTexts[n]`；取不到原文或摘要不符的，向量作废，该行回到 `missing` 走正常编码。回填不占 `maxEncodeDocuments` 的名额，但受 `finishDeadline` 约束。
+   - 落盘向量是 `Float32Array`，而 `scoreEvidenceVector`（`06ha:6`）和 `vector()`（`:61`）都要求 `Array.isArray`：回填时转成普通数组。
+   - 回填读的正文就是之后来源核验要读的那一份（`readBodies` → `acceptBody` 会填 `loadedSources`），不会读两遍。〔读〕
+5. **绑定论证**（写进注释与评审记录）：窗口键含会话、消息序号、字段、`contentRevision`、窗口坐标与 `windowHash`（`:229`）；`readBodies` 在同一修订与坐标上取原文，不一致就抛 `shard_source_mismatch`（`:748`）；再加第 3 点的摘要比对。三者任一不符都不会用这条向量。
+6. **界面线程搜索是否请求内不再编文档**：放开 `storedOn` 后，`deferEncoding` 对 Gemma 也可以生效（左栏搜索只编查询，文档靠后台）。建议生效，但保留工具检索等非界面消费方现有的请求内续算（`:810-823`）。这一点改动了 151 §8.44 的行为，评审时单列。
+
+**信任边界变化**（拍板点 D2）：现在 Gemma 向量只在「当前 worker 传输纪元内产生」时才被信任（`06ha:91` 换 token 即清缓存，`06hb:112` 的 `proof.verify`）。落盘以后，信任来源多了一条「工作台自己的索引目录」。论证：向量只影响已授权来源之间的排序，披露仍由 `verifyField` 与授权复核把关；能改 `vectors.json` 的人同样能改同目录下的分片和会话正文；加密开启时该文件由 WorkDataStore 密封。建议接受，不另加 MAC。
+
+**已知上限**（本批不解决，记进文档）：单会话 `vectors.json` 上限 8 MB，768 维下约 2000 个窗口，超出的窗口不落盘、该会话语义覆盖记为部分（`:1160`）；进程内 `documents` 缓存默认 8192 行（`06ha:44`）。
+
+**测试**
+
+- `unit/fulltext-background-index.test.js`：Gemma 模型下后台编码单元确实编码并落盘；语义关闭后文件被清；删会话只清该会话。
+- 新单测：落盘向量加回填后的分数与现场编码的分数逐位相同；摘要不符时该行回退到现场编码；schema 1 文件对 Gemma 无效。
+- `unit/fulltext-runtime-encrypted.test.js`：加密开启时 schema 2 文件密封、缺钥匙时当作没有向量。
+- `unit/semantic-gemma2-consumers.test.js`、`unit/fulltext-semantic-budget.test.js`：既有 Gemma 断言逐条过一遍，凡依赖「请求内一定编码文档」的要改。
+- 真实模型：`dev-harness/semantic/gemma-session-timeout.cjs` 与 `sr2-product-evaluation.cjs` 的口径，新增「后台编完 → 重启 → 发 20 条不同查询」，记录每条的覆盖、请求内文档编码数、端到端耗时。
+- `dev-harness/session-search.e2e.js --require-semantic` 全过；H2b 仍应保持现在的结果（本批不改准入）。
+
+### L5 编码排队，以及「超时不等于故障」
+
+**L5a 客户端优先队列**
+
+- 现状：F6。忙时立即 `overloaded`，调用方轮询；后台批与前台查询谁先抢到看运气。
+- 改法：`06hb` 的 `encode` 在 `busy` 时不再立即返回，而是进一个有界等待队列（建议上限 16，满了照旧回 `overloaded`）。`options.priority` 取 `query`（role 为 query 时默认）、`interactive`、`background` 三档；释放租约时交给最高档里最早的、且期限未过的等待者。期限已过的等待者以 `overloaded` 返回，**不计故障**。拿到租约后照旧重查 `minimum` 预算，不够就软返回 `timeout`。
+- 后台调用方（`13ap:1149`、L2 的驱动）传 `background`，并且**不排队**（`maxWaitMs: 0`），保留它现有的「忙就收工稍后再来」逻辑。
+- `06ha:127-137` 的轮询循环保留作兜底（假运行时没有队列）。
+- 预期：查询编码最多等一条在编的分片（2 线程约 125 ms）。
+
+**L5b 超时与崩溃分开**（151 第 57 行的待做项）
+
+- 现状：F7。worker 自己会在每条文本前后检查 `deadlineMs` 并回 `EG2_DEADLINE`，但客户端计时器同一时刻到点，先一步杀了进程。
+- 改法：客户端看门狗改为 `deadline + grace`，`grace = max(500 ms, 2 × 最近单条文档耗时)`；worker 在宽限内回了超时就是软失败（`unavailable('timeout')`，不 `markFaulted`、不回收）；宽限内仍无应答才按挂死处理，走现有的 `stop('timeout')`。连续 3 次软超时再进冷却。
+- 调用方在软期限到点时不必等看门狗：`06ha` 里对「等待编码」和「软期限」做竞速，软期限先到就按 `timeout` 返回，迟到的回包丢弃（查询向量可照常写入 `queries` 缓存）。
+
+**测试**：`unit/semantic-resident-admission.test.js`、`unit/semantic-runtime.test.js`、`unit/semantic-budget-progress.test.js`。新增：后台批在途时查询先于下一批后台拿到租约；队列满回 `overloaded`；软超时不改变 `descriptor().state`、不增加 `stats().kills`；宽限内无应答才回收。`dev-harness/semantic/gemma-session-timeout.cjs` 的负载场景重跑，记录回收次数。
+
+## 6. 第二批：准入质量
+
+本批改的是冻结策略 `embeddinggemma2-global-eligible-k1-cos070-window-v1`，必须出新的策略 id，并用新的冻结题集验收。
+
+### Q1 离线回放量具与开发集
+
+1. 写 `dev-harness/semantic/admission-replay.cjs`：输入「查询 × 候选窗口」的完整余弦矩阵加标注，输出各候选判据在各阈值下的召回、无答案误报、MRR。只做数学，不起服务。
+2. 余弦矩阵用现有的 `sr2-encoder-comparison.cjs` 导出（它已经对 324 个窗口、268 题算过每文档最高余弦；需要改成导出整行分数而不是前五）。V7 R3 已消费，可以当开发集。
+3. 再补两类现有题集覆盖不足的开发样本：日常短消息（「你好」「好的」「继续」「谢谢」这类）对真实形态的记忆头；同主题聚集的记忆库（例如 128 条里 40 条都讲部署）。
+4. 待比较的判据，至少这四个：
+   - 现状：绝对余弦 ≥ 0.70。
+   - 池内相对：对完整候选池取每字段最高分，用中位数与 MAD 估背景，要求 `z ≥ Z` 且绝对分不低于一个较低的底线。
+   - 参照集相对：随包带一小组固定的中性文本（几十条），启动后编码一次，用查询对它们的平均余弦作为这条查询的基线，要求超出量 ≥ Δ。它不受库的大小和主题构成影响。
+   - 两者同时满足。
+5. 池很小的时候（例如不足 16 个字段）池内统计不可靠，回放里单独报这一档的表现，决定小池时用哪条判据。
+
+**验收**：回放报告进证据目录；选定判据与参数；说明在哪些子集上它不如现状。
+
+### Q2 实现选定判据
+
+- `06ha` 的 `createSemanticCoarsePolicy`：`:329` 的「后续名次」判定与 `:355` 的 `accepted` 判定换成新判据；`CONTRACT` 出新 id；`:363` 的 `policy_mismatch` 自检同步。
+- `06hc` 的 `mergeAutomatic`（`:183-196`）：去掉 0.035 的相对窗口，每条补充都要独立满足新判据。
+- 若选参照集：参照向量在评分器里按模型指纹缓存，参照文本进仓库并有摘要锁；它们是公开的固定文本，不涉及用户数据。
+- 判据需要完整候选池这一点不变。
+
+### Q3 上线顺序
+
+先自动注入路径（它每条消息都跑，误注入的代价最高），再显式记忆检索，最后会话搜索。每一步都要新的冻结题集过门。题集由谁出、是否算暴露，见拍板点 D6。
+
+**过渡期**（拍板点 D1）：151 第 32 行写的是「SR2 未过则自动注入保持 `automatic:null`」，而 `9c0e1d8f` 已让发送时的记忆选择走 Gemma 准入并可补入纯语义命中。在 Q2 过门之前，建议自动路径退回「只对已有关键词候选做重排，不补纯语义命中」。本方案不擅自回退，等拍板。
+
+## 7. 第三批：重新冻结 worker（一次做完）
+
+worker 与契约每改一次，模型指纹就变一次，落盘向量全部作废、SR 相关验收要重跑。所以这一批的改动攒在一起，只冻结一次。需要 Windows、真实模型资产和用户确认（拍板点 D5）。
+
+**流程**：用 `node dev-harness/research-archive.js extract --into <空目录>` 从 `dev-harness/archive/semantic-research-d5d3caff.tar.gz` 取回 `dev-harness/semantic/embeddinggemma2-live-{contract,worker,host,profile-prepare}.cjs`（`dev-harness/archive/README.md` 有说明）→ 修改 → 重新生成 profile 与 `asset-lock.json` → 更新三处钉死的摘要（`semantic-runtime/gemma2-profile-validation.cjs:4`、`06hb:84` 的 `providerPins`、`06ha:3` 与 `:219` 的模型指纹常量）→ `gemma2-provider.cjs:8` 里的 `OMP_NUM_THREADS`、`validateReady`、`validateReply` 同步 → 重新打包 → 重跑 `cli-semantic-lifetime.e2e.js`、`desktop-lifetime.e2e.js --idle --semantic`、`session-search.e2e.js --gemma2-package`。
+
+### W1 线程数
+
+- 2 → 4 线程，单条编码时间减半，输出逐位相同（§1.2，样本只有 5 条）。
+- 先把等价性验证做扎实：1／2／3／4／6 线程 × 至少 200 条长短混合的文本，要求 `maxAbs === 0`。成立，就把线程数从 SPEC 与指纹里拿出来，改成启动参数；不成立，就留在指纹里、固定一个值。
+- 取值建议：逻辑处理器 ≥ 12 用 4，8–11 用 3，其余用 2。两核受限的验收口径保持 2。
+- 4 线程编码时会占满 4 个核。后台编码已经是「每批一条、批间让路」，总 CPU 时间基本不变、单次突发更短；改完用 151 §8.36 的资源口径复测一次空闲与负载下的 CPU。
+
+### W2 向量空间标识
+
+落盘向量与缓存键现在用完整的模型指纹，它包含 Node 摘要、586 个运行时文件清单和实现文件摘要。建议另设一个只含「权重摘要、分词器摘要、前缀、池化方式、维度、ORT 版本」的向量空间标识，专门用于向量的缓存键与落盘键；完整指纹继续用于来源证明。这样以后只换 Node 或实现文件时不用重编全库。
+
+### W3 分片长度（先离线评测，过了再动）
+
+- 收益：384 字分片的有效吞吐约为 96 字的 1.8 倍，叠加 4 线程约 3.2 倍；候选池同样行数能覆盖 4 倍多的文本（缓解 F11）。
+- 代价与牵连：
+  - 现在的 96 字保证了任何文本都不超过 512 token（worker 对超限直接拒绝整批，`EG2_TOKEN_LIMIT_NO_TRUNCATION`）。加长分片必须同时把 `maxTokens` 提高（模型上下文是 8192），或者在 worker 里做超限再切。
+  - 96／16 的切分在仓库里有多份：`06h9:123`（`rawSlices`）、`:133`（`projectedSlices`）、`13ap:225`（`semanticWindows`）、`13ap:661`（元数据行）、`06hc` 两处。要一起改，契约字符串里的 `original96/16` 也要换。
+  - 长分片会稀释短事实的匹配，对召回的影响没测。
+- 做法：先用 Q1 的回放量具在开发集上比较 96、192、320 三档的纯向量召回与无答案分布，再决定。没有明显不降，就不动。
+
+## 8. 第四批：规模
+
+### S1 先量真实库
+
+写一个只读统计脚本：对一个数据根，数出会话数、分片行数、按 96／16 切出的窗口总数、每会话窗口数分布、记忆头数与每条的分片数。只输出计数，不输出内容。用它回答三个问题：真实库是否普遍超过 4096 个窗口（F11）；有多少会话超过单文件约 2000 个窗口的上限；512 个记忆分片够不够。
+
+### S2 候选池上限（S1 证明需要时再做）
+
+4096 的上限同时卡在 `13ap` 的 `SEMANTIC_ROWS`、`06ha:228` 的策略评估、`:390` 的 `maxRows`。超过上限时候选池按目录顺序截断，「完整候选池」永远不成立，纯语义补充永远不触发。方向是两段式：第一段对全部落盘向量做纯数学的粗排（连续 Float32 矩阵，三万条 768 维是几十毫秒），并用计数证明所有合格窗口都有向量；第二段只为前 N 名和关键词相关字段构造策略行。这要出新的策略版本，先写设计再动。
+
+**关于会话搜索热查询 500 ms 的目标**：本方案只在查询编码上帮它省几十毫秒（L5a 去掉轮询，W1 减半）。剩下的大头是每次查询为构造策略行而回读全部候选会话的正文（302 ms）。把它降下来需要「未入选的行不回读原文」，这同样属于策略结构的改动，归到 S2 一起设计。
+
+## 9. 顺序、依赖与提交粒度
+
+```
+L0 ──► L5b ──► L1 ──► L2 ──► L3
+        │
+        └────► L5a ──► L4
+Q1（可与第一批并行，只读）──► D1/D6 拍板 ──► Q2 ──► Q3
+W1/W2/W3：第一批合入并稳定后，D5 拍板后一次做完
+S1：随时可做；S2 视 S1 结果
+```
+
+- L1 必须在 L5b 之后或同一提交里（否则更短的期限会更频繁地杀 worker）。
+- L4 落地后再做 W 批，会让已落盘的向量全部重编一次；可以接受，但发版说明里要写。若希望避免，先做 W2。
+- `app/src` 的改动在一个 worktree 里串行做，不要多个 agent 并行改同一批文件。
+- 每个工作包一个提交：先提交会红的测试，再提交实现；`server.js` 与 `manifest.json` 随实现一起提交；每个包合入前跑 `CLAUDE.md` 的五步快速检查，并附独立评审记录。
+- 真实模型的前后对照数字写进 `docs/optimization-plan/evidence/semantic-retrieval-20261116/`，并在 151 §8 追加一节。
+
+## 10. 拍板点
+
+| 编号 | 问题 | 建议 |
+|---|---|---|
+| D1 | 相对判据过门之前，自动注入是否退回「只重排、不补纯语义命中」 | 退回。SR2 记录为失败，151 第 32 行的既有决定也是这样 |
+| D2 | 落盘的 Gemma 向量是否按「与索引分片同级」信任（加原文摘要绑定，加密时密封），不另加 MAC | 接受 |
+| D3 | 记忆头向量是否落盘 | 不落盘，只做后台预编码 |
+| D4 | 发送预检的软上限 | 400 ms，先做常量；需要时再升配置键 |
+| D5 | 是否重新冻结 worker（线程数、最大 token、向量空间标识），以及由此带来的 SR 验收重跑 | 做，放在第一批稳定之后 |
+| D6 | 第二批的验收题集由谁出、怎样冻结 | 需要用户定；V7 R3 只当开发集 |
+
+## 附录 A 量具
+
+### A.1 直接量模型（不起服务）
+
+可加载的包内模型在 `C:/r31-gemma-default/final relocated/resources/gemma2`。要点：
+
+```js
+const { createRequire } = require('node:module'), path = require('node:path'), fs = require('node:fs');
+const root = process.argv[2];                                   // …/resources/gemma2
+const rt = createRequire(path.join(root, 'runtime', 'package.json'));
+const { Tokenizer } = rt('@huggingface/tokenizers'), ort = rt('onnxruntime-node');
+const assets = path.join(root, 'model');
+const tk = new Tokenizer(JSON.parse(fs.readFileSync(path.join(assets, 'tokenizer.json'))),
+                         JSON.parse(fs.readFileSync(path.join(assets, 'tokenizer_config.json'))));
+const session = await ort.InferenceSession.create(path.join(assets, 'onnx', 'model_q4.onnx'),
+  { executionProviders: ['cpu'], intraOpNumThreads: 2, interOpNumThreads: 1, logSeverityLevel: 4 });
+const empty = () => new ort.Tensor('float32', new Float32Array(0), [0, 512]);
+const ids = tk.encode('title: none | text: ' + text, { add_special_tokens: true }).ids;   // 查询前缀：'task: search result | query: '
+const out = await session.run({
+  input_ids: new ort.Tensor('int64', BigInt64Array.from(ids, BigInt), [1, ids.length]),
+  attention_mask: new ort.Tensor('int64', new BigInt64Array(ids.length).fill(1n), [1, ids.length]),
+  image_features: empty(), video_features: empty(), audio_features: empty(),
+}, ['sentence_embedding']);                                    // [1,768]，已归一化
+```
+
+每个配置先跑 3 次预热，再取 12 次的中位数。量之前记一下整机 CPU 负载。
+
+### A.2 用真实模型跑改过的源码
+
+- 开发运行：设 `RUYI_SEMANTIC_GEMMA2_ROOT`（含 `asset-lock.json` 的已校验 profile 目录）与 `RUYI_SEMANTIC_GEMMA2_LOCK_SHA256`，入口在 `13-http-router.js:7-9`。本机现成的一份 profile 在 `C:/r31-gemma-default/exe-tmp/ruyi-gemma2-7edf09ad…/`，用前核对它的锁摘要。
+- 夹具接法参考 `dev-harness/lib/desktop-app-lifetime.cjs:60`、`:164`（`RUYI_TEST_GEMMA2_ROOT`）。
+- `session-search.e2e.js --gemma2-package <解压包>` 测的是**包里的** `server.js`，不是工作树里改过的，别拿它验证未打包的改动。
+
+## 附录 B 小样本分数（开发样本，不是盲测）
+
+128 条合成记忆头：8 条主题头（番茄、密码重置、数据库回滚预案、航班取消、自行车、automobile、myocardial infarction、vacation policy）加 120 条运维类填充。文档文本为 `title: none | text: {名称} {描述}`。
+
+| 查询 | 应命中 | 最高分 | 第二名 | 池均值 | z |
+|---|---|---|---|---|---|
+| 西红柿 | 番茄 | 0.803 | 0.684 | 0.635 | 6.3 |
+| heart attack | myocardial infarction | 0.821 | 0.644 | 0.585 | 7.0 |
+| paid time off | vacation policy | 0.776 | 0.650 | 0.589 | 6.8 |
+| 骑脚踏车 | 自行车 | 0.771 | 0.663 | 0.621 | 6.0 |
+| bicycle | 自行车 | 0.759 | 0.690 | 0.603 | 5.3 |
+| tomato | 番茄 | 0.776 | 0.646 | 0.600 | 6.3 |
+| 心肌梗死 | myocardial infarction | 0.763 | 0.622 | 0.588 | 7.9 |
+| annual leave | vacation policy | 0.788 | 0.649 | 0.590 | 7.1 |
+| 忘记登录口令怎么办 | 密码重置 | 0.755 | 0.677 | 0.637 | 4.5 |
+| flight got cancelled | 航班取消 | 0.800 | 0.644 | 0.559 | 6.1 |
+| car | automobile | 0.771 | 0.685 | 0.614 | 7.0 |
+| how to bake sourdough bread | 无 | 0.575 | 0.571 | 0.523 | 2.0 |
+| 今天天气怎么样 | 无 | 0.648 | 0.640 | 0.609 | 2.4 |
+| 帮我写一首关于秋天的诗 | 无 | 0.627 | 0.626 | 0.553 | 2.9 |
+| what is the capital of France | 无 | 0.564 | 0.559 | 0.526 | 2.0 |
+| 你好 | 无 | 0.701 | 0.700 | 0.672 | 1.7 |
+| 继续 | 无 | 0.764 | 0.751 | 0.709 | 2.2 |
+
+说明：产品里「继续」这类续接词会先被 `buildPromptTaskContext`（`06-provider-engine.js:1918`）拼上最近的上下文再当查询，只有会话里没有前文时才会以原词进入；「你好」这类会以原词进入。
+
+## 附录 C 尚未验证、实现前要先钉住的事
+
+1. 「每个新会话首次预检都会重编全部记忆头」是从缓存键读出来的（F5），没有跑两个会话实测。L2 的第一条单测就是它。
+2. 已缓存预检的 288 ms 里 `check()` 占多少，没有量（L0）。
+3. 回填时读的正文与来源核验读的是同一份、不会读两遍，是从 `acceptBody` 的结构读出来的（L4）。
+4. 线程数不影响输出只验证了 5 条文本（W1）。
+5. 后台编码吞吐是按单片耗时推算的，没有在真实后台调度下量过（L4）。
+6. 分数分布的结论只来自 17 条查询、128 条合成记忆头，且没有走产品的准入路径（Q1）。
+7. 真实库的窗口数是否普遍超过 4096，没有量（S1）。
+
+## 11. 2026-11-27 接手记录
+
+D1、D2 已由维护者确认。自动发送只重排已有关键词候选。工作台可复用与原文摘要一致的本机索引向量，加密工作数据时沿用同一密封存储。D6 由独立评测者出题并冻结。D5 已获条件授权，第一批合入且稳定后再更换 worker 指纹并重跑发布验收。
+
+### 第一批实现评审
+
+| 范围 | 独立评审发现 | 处理与验证 |
+|---|---|---|
+| L1–L3 | 冷发送仍编文档，预热批次没有逐文件和密钥复核 | 发送时文档编码额度设为零。后台解析与工作进程提交均复核来源，变更后按原选择的键重新读取版本。单测覆盖原地改写、密钥锁定和跨会话复用。预检端到端测试验证关键词次序与 partial 回执。 |
+| L4 | 向量容量溢出会反复编码相同前缀，阻塞后续会话。重启时会重复扫描已回填来源。 | 按实际持久化容量裁剪 Gemma 可写窗口，跳过已读取的来源，再以回归件核对后续会话进度、扫描次数和 Float32 分值。停用语义时唤醒后台清理，同时停用两个开关也清理已有向量。 |
+| L5 | 交接时可能把租约发给过期请求，三个连续软超时未触发冷却。 | 租约交接时剔除到期者。客户端与 worker 主动报超时共用连续计数，第三次触发 30 秒准入冷却；成功、重启后清零。队列、过期、FIFO、恢复测试通过。 |
+
+UI 的 Gemma 检索保留有界的前台续算。曾试验禁止 UI 为普通正文现场编码，在后台忙或源码读取耗时的情形，五项原有查询进度测试失败。落盘完整的窗口仍优先回填，摘要不符的窗口重新取源。此处保留 151 §8.44 的可用性约定。
+
+### L0 分段实测与 L6 设计
+
+同一量具在基线提交 9c0e1d8f 上对 128 条合成短记忆头进行了计时。一次冷发送 9.73 秒，第二个会话的首发 9.88 秒，两次各编 128 个文档分片。八次暖查询的总时长中位 213 ms、p95 224 ms。其中回验中位 138 ms、p95 148 ms，每次暖查询都记录到 525 次 check。历史发布包的 16.3–16.7 秒来自另一轮负载与夹具，两组原始读数分别保留。[当前源码基线](evidence/semantic-retrieval-20261116/152-memory-baseline.json)
+
+回验已超过 L0 约定的 100 ms，单独登记 L6。先用量具区分一次源检查、每字段验证、最终披露三个调用点，再验证能否在同一阶段将同一个来源的重复文件检查合为一批。任何跨越异步授权边界、配置更新、密钥变化、文件版本变化或时间边界的复核均须重新执行。候选实现须有独立设计和审查，验证相同大小与 mtime 的外部改写、密钥在批次中撤回、选项过期和取消，最后再测冷暖两条路径。
+
+### 开发集与容量观测
+
+20 个合成记忆头的名称各 20 字、描述从 150 至 400 字，去重后窗口总数从 155 降至 84。[逐条计数](evidence/semantic-retrieval-20261116/152-header-fragments.json)
+
+只读统计本机一个实际数据根，共 169 个会话，未发现已发布的会话索引。该样本不能估计会话窗口的 4096 或单文件上限命中率。共 23 个可读记忆头、49 个窗口，5 个项目中包含全局记忆的最大范围为 33 个窗口。没有据此扩大 S2 候选池。[仅含计数的结果](evidence/semantic-retrieval-20261116/152-library-counts.json)
+
+Q1 的工作矩阵比较了 48 组判据。128 字段开发库的闲聊误报从 6/16 降到 0/16，但 V7 的中文同语种前五命中从 20/24 降至 17/24。缺数值与错实体两组仍各误报 12/12。随后在同一开发集补查保留原绝对底线的区间。0.70 加参照差值 ≥ 0.070 保留了中文前五 20/24、V7 整体前五 126/136，V7 无答案误报从 42 降至 39，记忆池闲聊仍为 0/16。下一轮须独立评价候选，无人值守发送继续执行 D1。[Q1 开发集报告](evidence/semantic-retrieval-20261116/152-admission-dev/README.md)
+
+D6 已独立冻结一份 112 题的小池补充集，四种语言组合各 28 题。当前仅完成题库完整性检查，未运行检索；完整 SR2 仍有单独的验收口径。清单 SHA-256 为 `1c7cff34316678f109efee82d1968118d32b46afd3fd7b8dbc2feae97d7c57c9`。
+
+### 真实模型和串行产品路径
+
+串行冷发送 98 ms，暖查询中位 209 ms、p95 228 ms；同项目跨会话复用时文档编码为零。25 个加密会话的 1,000 个窗口在 131.5 秒内完成后台建索引和编码；重启后首查完整，20/20 查询按时完成，p95 484 ms（未限制 CPU 核数）。同时运行全量回归时，发送预检 936 ms，会话查询 14/20 完整。关键词首屏三轮中的两轮满足 500 ms 目标，同机基线三轮中的一轮满足。逐次数据与基线比较见 [151 §8.48](151-3.1-pre-release-master-plan-20261118.md)。
+
+L4 补测跨进程停用：新服务启动后尚未进行任何搜索，在正常配置入口同时关闭索引与语义，已持久化的向量被删除，词法清单保留。修复前该用例会稳定留下文件。
