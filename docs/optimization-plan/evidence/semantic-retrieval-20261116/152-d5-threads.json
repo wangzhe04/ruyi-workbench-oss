@@ -1,0 +1,60 @@
+{
+  "kind": "threads",
+  "fixtureHash": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "lockSha256": "7edf09ad7e849a8e5f84402ce94fa522ed15ca0a4bd3e93186075d6f4af8950b",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "node": "v24.14.0",
+  "availableParallelism": 12,
+  "configurations": [
+    {
+      "threads": 2,
+      "nonidentical": 0,
+      "maxAbs": 0,
+      "sha256": "0b3d2e6b6a629f301769f4df4aa60c5c78c11246e0634869a536ab061d898bd9",
+      "medianMs": 83.49150000000009,
+      "p95Ms": 121.67009999999937
+    },
+    {
+      "threads": 1,
+      "nonidentical": 0,
+      "maxAbs": 0,
+      "sha256": "0b3d2e6b6a629f301769f4df4aa60c5c78c11246e0634869a536ab061d898bd9",
+      "medianMs": 128.4923000000017,
+      "p95Ms": 179.98350000000028
+    },
+    {
+      "threads": 3,
+      "nonidentical": 0,
+      "maxAbs": 0,
+      "sha256": "0b3d2e6b6a629f301769f4df4aa60c5c78c11246e0634869a536ab061d898bd9",
+      "medianMs": 60.820099999999,
+      "p95Ms": 83.53129999999965
+    },
+    {
+      "threads": 4,
+      "nonidentical": 0,
+      "maxAbs": 0,
+      "sha256": "0b3d2e6b6a629f301769f4df4aa60c5c78c11246e0634869a536ab061d898bd9",
+      "medianMs": 50.691899999999805,
+      "p95Ms": 71.77300000000105
+    },
+    {
+      "threads": 6,
+      "nonidentical": 0,
+      "maxAbs": 0,
+      "sha256": "0b3d2e6b6a629f301769f4df4aa60c5c78c11246e0634869a536ab061d898bd9",
+      "medianMs": 41.66800000000012,
+      "p95Ms": 55.89229999999998
+    }
+  ],
+  "count": 208,
+  "documents": 96,
+  "queries": 112,
+  "tokens": [
+    16,
+    23,
+    397
+  ],
+  "sampleSha256": "544f56937c08a1dacab5af228f9b02aee84f7f4fe2df033140388517aec70c9d",
+  "eachConfigurationUsesFreshProcess": true
+}

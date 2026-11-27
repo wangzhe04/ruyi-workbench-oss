@@ -1,0 +1,481 @@
+{
+  "kind": "geometry",
+  "fixtureHash": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "lockSha256": "7edf09ad7e849a8e5f84402ce94fa522ed15ca0a4bd3e93186075d6f4af8950b",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "node": "v24.14.0",
+  "availableParallelism": 12,
+  "configurations": [
+    {
+      "size": 96,
+      "overlap": 16,
+      "windows": 324,
+      "maxTokens": 86,
+      "positive": 136,
+      "hit1": 91,
+      "hit5": 126,
+      "negative": 132,
+      "fp": 42,
+      "mrr": 0.7780637254901962,
+      "groups": {
+        "zh-zh/positive": {
+          "count": 24,
+          "hits5": 20,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7140319234964752,
+            0.7819435722784496,
+            0.8302512138963669,
+            0.8340897768941887
+          ]
+        },
+        "en-zh/positive": {
+          "count": 24,
+          "hits5": 21,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7297088767564848,
+            0.7659852009560704,
+            0.8115505773015715,
+            0.8193658783048523
+          ]
+        },
+        "zh-en/positive": {
+          "count": 24,
+          "hits5": 24,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7500698179028813,
+            0.7962051221846638,
+            0.8364228662884599,
+            0.8576975516731097
+          ]
+        },
+        "en-en/positive": {
+          "count": 24,
+          "hits5": 23,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7193639275882477,
+            0.7894182271123598,
+            0.8474066208259625,
+            0.8525281409141822
+          ]
+        },
+        "exact-entity/positive": {
+          "count": 12,
+          "hits5": 10,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.798931398173428,
+            0.8095064389783873,
+            0.8360918742607502,
+            0.8360918742607502
+          ]
+        },
+        "correction/positive": {
+          "count": 12,
+          "hits5": 12,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7563009137120921,
+            0.8167189180495078,
+            0.9244774655806847,
+            0.9244774655806847
+          ]
+        },
+        "mixed-to-zh/positive": {
+          "count": 8,
+          "hits5": 8,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7638033008064139,
+            0.7777379049601646,
+            0.8299227703739138,
+            0.8299227703739138
+          ]
+        },
+        "mixed-to-en/positive": {
+          "count": 8,
+          "hits5": 8,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7675652303779529,
+            0.803037375055941,
+            0.857613334193216,
+            0.857613334193216
+          ]
+        },
+        "near-topic/missing-field": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 11,
+          "maxScoreQuantiles": [
+            0.6879021890050406,
+            0.7743260510154273,
+            0.8405675551479949,
+            0.8405675551479949
+          ]
+        },
+        "near-topic/missing-number": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 12,
+          "maxScoreQuantiles": [
+            0.739464553446832,
+            0.7965904194397335,
+            0.8912396619174372,
+            0.8912396619174372
+          ]
+        },
+        "negative-entity/entity-mismatch": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 12,
+          "maxScoreQuantiles": [
+            0.7845396647718333,
+            0.804728077191389,
+            0.8410905974458073,
+            0.8410905974458073
+          ]
+        },
+        "negative-ood/ood": {
+          "count": 80,
+          "hits5": 0,
+          "falsePositives": 5,
+          "maxScoreQuantiles": [
+            0.5796341303079907,
+            0.6680679563925523,
+            0.7035294953551458,
+            0.7225001143530887
+          ]
+        },
+        "mixed-ood/ood": {
+          "count": 16,
+          "hits5": 0,
+          "falsePositives": 2,
+          "maxScoreQuantiles": [
+            0.6303628451175516,
+            0.6668488568652672,
+            0.7148848056267266,
+            0.7148848056267266
+          ]
+        }
+      }
+    },
+    {
+      "size": 192,
+      "overlap": 16,
+      "windows": 197,
+      "maxTokens": 156,
+      "positive": 136,
+      "hit1": 89,
+      "hit5": 126,
+      "negative": 132,
+      "fp": 40,
+      "mrr": 0.769485294117647,
+      "groups": {
+        "zh-zh/positive": {
+          "count": 24,
+          "hits5": 19,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7140319234964752,
+            0.7726778491386863,
+            0.8302512138963669,
+            0.8340897768941887
+          ]
+        },
+        "en-zh/positive": {
+          "count": 24,
+          "hits5": 23,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7297088767564848,
+            0.7596633651172021,
+            0.8115505773015715,
+            0.8193658783048523
+          ]
+        },
+        "zh-en/positive": {
+          "count": 24,
+          "hits5": 23,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7366818363761514,
+            0.787511803350832,
+            0.8364228662884599,
+            0.8576975516731097
+          ]
+        },
+        "en-en/positive": {
+          "count": 24,
+          "hits5": 23,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7193639275882477,
+            0.7875816649071111,
+            0.8474066208259625,
+            0.8525281409141822
+          ]
+        },
+        "exact-entity/positive": {
+          "count": 12,
+          "hits5": 10,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7994865014448586,
+            0.8095064389783873,
+            0.8381686009196802,
+            0.8381686009196802
+          ]
+        },
+        "correction/positive": {
+          "count": 12,
+          "hits5": 12,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7563009137120921,
+            0.8167189180495078,
+            0.9244774655806847,
+            0.9244774655806847
+          ]
+        },
+        "mixed-to-zh/positive": {
+          "count": 8,
+          "hits5": 8,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7638033008064139,
+            0.7725806136722276,
+            0.8299227703739138,
+            0.8299227703739138
+          ]
+        },
+        "mixed-to-en/positive": {
+          "count": 8,
+          "hits5": 8,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.746077495329775,
+            0.8022249373621335,
+            0.8271809440699621,
+            0.8271809440699621
+          ]
+        },
+        "near-topic/missing-field": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 11,
+          "maxScoreQuantiles": [
+            0.6799190194161395,
+            0.7743260510154273,
+            0.8405675551479949,
+            0.8405675551479949
+          ]
+        },
+        "near-topic/missing-number": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 12,
+          "maxScoreQuantiles": [
+            0.739464553446832,
+            0.7965904194397335,
+            0.8912396619174372,
+            0.8912396619174372
+          ]
+        },
+        "negative-entity/entity-mismatch": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 12,
+          "maxScoreQuantiles": [
+            0.7845396647718333,
+            0.804728077191389,
+            0.8410905974458073,
+            0.8410905974458073
+          ]
+        },
+        "negative-ood/ood": {
+          "count": 80,
+          "hits5": 0,
+          "falsePositives": 3,
+          "maxScoreQuantiles": [
+            0.5737023501126993,
+            0.6545404018737994,
+            0.6953983231847021,
+            0.7166341965392202
+          ]
+        },
+        "mixed-ood/ood": {
+          "count": 16,
+          "hits5": 0,
+          "falsePositives": 2,
+          "maxScoreQuantiles": [
+            0.6116092772548779,
+            0.6582657545250103,
+            0.7148848056267266,
+            0.7148848056267266
+          ]
+        }
+      }
+    },
+    {
+      "size": 320,
+      "overlap": 16,
+      "windows": 152,
+      "maxTokens": 255,
+      "positive": 136,
+      "hit1": 90,
+      "hit5": 126,
+      "negative": 132,
+      "fp": 39,
+      "mrr": 0.7718137254901961,
+      "groups": {
+        "zh-zh/positive": {
+          "count": 24,
+          "hits5": 21,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7086445598323006,
+            0.7720583944258796,
+            0.8302512138963669,
+            0.8340897768941887
+          ]
+        },
+        "en-zh/positive": {
+          "count": 24,
+          "hits5": 21,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7271069115771337,
+            0.749995223757561,
+            0.8115505773015715,
+            0.8193658783048523
+          ]
+        },
+        "zh-en/positive": {
+          "count": 24,
+          "hits5": 23,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7500698179028813,
+            0.7962051221846638,
+            0.8364228662884599,
+            0.8576975516731097
+          ]
+        },
+        "en-en/positive": {
+          "count": 24,
+          "hits5": 23,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7193639275882477,
+            0.7875816649071111,
+            0.8474066208259625,
+            0.8525281409141822
+          ]
+        },
+        "exact-entity/positive": {
+          "count": 12,
+          "hits5": 10,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7952050731553281,
+            0.8095064389783873,
+            0.8390167864814795,
+            0.8390167864814795
+          ]
+        },
+        "correction/positive": {
+          "count": 12,
+          "hits5": 12,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7563009137120921,
+            0.8167189180495078,
+            0.9244774655806847,
+            0.9244774655806847
+          ]
+        },
+        "mixed-to-zh/positive": {
+          "count": 8,
+          "hits5": 8,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7293729891395153,
+            0.7681086946280421,
+            0.8299227703739138,
+            0.8299227703739138
+          ]
+        },
+        "mixed-to-en/positive": {
+          "count": 8,
+          "hits5": 8,
+          "falsePositives": 0,
+          "maxScoreQuantiles": [
+            0.7807845759809933,
+            0.8022249373621335,
+            0.8326497361218506,
+            0.8326497361218506
+          ]
+        },
+        "near-topic/missing-field": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 11,
+          "maxScoreQuantiles": [
+            0.6799190194161395,
+            0.7743260510154273,
+            0.8405675551479949,
+            0.8405675551479949
+          ]
+        },
+        "near-topic/missing-number": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 12,
+          "maxScoreQuantiles": [
+            0.739464553446832,
+            0.7965904194397335,
+            0.8912396619174372,
+            0.8912396619174372
+          ]
+        },
+        "negative-entity/entity-mismatch": {
+          "count": 12,
+          "hits5": 0,
+          "falsePositives": 12,
+          "maxScoreQuantiles": [
+            0.7845396647718333,
+            0.804728077191389,
+            0.8410905974458073,
+            0.8410905974458073
+          ]
+        },
+        "negative-ood/ood": {
+          "count": 80,
+          "hits5": 0,
+          "falsePositives": 2,
+          "maxScoreQuantiles": [
+            0.5614586878989924,
+            0.649350625111875,
+            0.6937701869491368,
+            0.7087222842954872
+          ]
+        },
+        "mixed-ood/ood": {
+          "count": 16,
+          "hits5": 0,
+          "falsePositives": 2,
+          "maxScoreQuantiles": [
+            0.6096721979590458,
+            0.6582657545250103,
+            0.7148848056267266,
+            0.7148848056267266
+          ]
+        }
+      }
+    }
+  ]
+}

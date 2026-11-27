@@ -45,7 +45,7 @@ const KEPT_CONFIG = new Map([
   ['dev-harness/semantic/download-candidates.cjs', '产品维护脚本:按 models.lock.json 下载模型资产并用产品 verify.cjs 校验;只依赖产品文件,semantic-runtime/README.md 按原路径指向它'],
   // Maintained evaluation entry points added after the historical archive was frozen.
   ...['gemma-session-timeout.cjs', 'sr2-encoder-comparison.cjs', 'sr2-product-evaluation.cjs', 'sr2-product-summary.cjs',
-    'admission-dev-corpus.cjs', 'admission-replay.cjs', 'admission-source-evidence.cjs', 'gemma-library-counts.cjs', 'gemma-memory-latency.cjs',
+    'admission-dev-corpus.cjs', 'admission-replay.cjs', 'admission-source-evidence.cjs', 'gemma-library-counts.cjs', 'gemma-memory-latency.cjs', 'gemma-worker-qualification.cjs',
     'gemma-stored-restart.cjs', 'independent-admission-once.cjs'].map(file => ['dev-harness/semantic/' + file, 'Current offline evaluation harness']),
 ]);
 
