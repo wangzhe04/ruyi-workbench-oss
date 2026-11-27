@@ -46596,7 +46596,7 @@ let host=null;
 const transportResults=new WeakMap(),methodToken=Object.freeze({id:'embeddinggemma2-global-eligible-k1-cos070-window-v1'});let transportEpoch=0,transportToken=Object.freeze({});
 const selectedMethod=()=>host?.selectedMethod()===true?methodToken:null;
 
-const providerPins=Object.freeze({'gemma2-provider.cjs':'40713b6792d39558374c8f08c58738288db075194baa33707a4130fefdb61c95','gemma2-profile-validation.cjs':'caf838b85a8cafff670f693dacee6bd1e0ac94abd54d704d5c09e4ef1c42ac57','embeddinggemma2-live-contract.cjs':'b9cd2d2b86a252a7682092776a4afa34363e6d6e3a298cd83c95a2093047a819'});
+const providerPins=Object.freeze({'gemma2-provider.cjs':'0c691712b6921877d0bef303a22eeed8ca268a3fd34d192db612ba9863198320','gemma2-profile-validation.cjs':'98841b433b653770dce310108d56e8af2cf2056e837b44d8b575a1cd94048750','embeddinggemma2-live-contract.cjs':'677ec5efeb2441547cdf61a22087f58fad7c2d84971c9512fa400fbdd86216a2'});
 function fixedProvider(file){const loaded=new Map();function load(target){const name=path.basename(target),pin=providerPins[name];if(!pin)throw Error('semantic.provider_source_untrusted');if(loaded.has(target))return loaded.get(target).exports;const stat=fs.lstatSync(target),bytes=fs.readFileSync(target);if(!stat.isFile()||stat.isSymbolicLink()||path.resolve(fs.realpathSync(target)).toLowerCase()!==path.resolve(target).toLowerCase()||crypto.createHash('sha256').update(bytes).digest('hex')!==pin)throw Error('semantic.provider_source_integrity');const module={exports:{}};loaded.set(target,module);const safeRequire=name=>{if(typeof name!=='string')throw Error('semantic.provider_require_contract');if(name.startsWith('node:'))return require(name);const resolved=path.isAbsolute(name)?name:path.resolve(path.dirname(target),name);return load(resolved);};require('node:vm').compileFunction(bytes.toString('utf8'),['require','module','exports','__filename','__dirname'],{filename:target})(safeRequire,module,module.exports,target,path.dirname(target));return module.exports;}return load(file);}
 
 let semanticRuntimeClient = null;
@@ -46631,7 +46631,9 @@ const SemanticRuntimeTransportProof=SemanticRuntimeCore.proof;
 
 // In-memory semantic primitives. The host owns runtime availability and authorization.
 const SemanticRetrieval = ((crypto) => {
-const scoreEvidenceRecords=new WeakMap(),scoreEvidenceModel='sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e';
+const scoreEvidenceRecords=new WeakMap(),scoreEvidenceModel='sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73';
+const gemmaVectorSpace='sha256:e761ff886bb020cf113fd75b6ce37d0a9f3ec1bd9824db788597d6d8830e8f64';
+const vectorSpaceFor=model=>model===scoreEvidenceModel?gemmaVectorSpace:null;
 const scoreEvidenceInvalid=()=>Error('semantic.score_evidence_invalid');
 function scoreEvidenceIdentity(value){if(value===null||['string','boolean'].includes(typeof value)||typeof value==='number'&&Number.isFinite(value))return JSON.stringify(value);if(Array.isArray(value)&&value.length<=64&&value.every(v=>v===null||['string','boolean'].includes(typeof v)||typeof v==='number'&&Number.isFinite(v)))return JSON.stringify(value);throw scoreEvidenceInvalid();}
 function scoreEvidenceVector(v){return Array.isArray(v)&&v.length===768&&v.every(Number.isFinite)&&v.some(n=>n!==0);}
@@ -46691,7 +46693,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(warmSendQuery && hint>0)return Math.max(64,Math.ceil(hint));
       return Math.max(local,Math.ceil(hint));
     };
-    const key=(scope,model,value)=>crypto.createHash('sha256').update(JSON.stringify([scope,model,value])).digest('hex');
+    const key=(scope,model,value)=>crypto.createHash('sha256').update(JSON.stringify([scope,vectorSpaceFor(model)?['space',gemmaVectorSpace]:model,value])).digest('hex');
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
@@ -46913,7 +46915,7 @@ const SemanticWindowPolicy = (() => {
 // producer search, while every scalar verdict remains bound to its own field.
 const crypto=require('node:crypto'),Windowing=typeof SemanticOriginalWindows==='undefined'?null:SemanticOriginalWindows;
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
+const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
   weakWindow: 'fixed-best-eligible-original96-overlap16-before-cosine-admission; no-result-driven-window-switch', metadataDisplay: 'same-field-complete-projected-context-not-raw-window-quote', coarseThreshold: null, strong: 'same-original-field-only', unknown: 'not-promoted-and-partial', pools:Object.freeze({session:'complete eligible committed-body pool plus same-field lexically related metadata including strong fields; no unrelated metadata discovery',memory:'complete bounded eligible memory-header fields',observation:'complete bounded registered-tool or authorized-projected-message fields'}),geometry:Object.freeze({message:'canonical-message-v3 original96/16',memory:'raw-original-v1 original96/16',metadata:'raw-metadata-v1 original96/16',committedMessage:'privacy-projected-v1 placeholder-safe96/16'}),metadataContext:'identity title/brief.title/cwd are labels; summary/gist need their own admitted field; recent request omitted without a field proof',automatic: null });
 
 function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false, partialLexicalFields = false }) {
@@ -47145,7 +47147,7 @@ return {create,CONTRACT};
 })();
 
 
-  return Object.freeze({create,assessAdmission,searchPolicy,structuredIds,structuredIdMatches,readScoreEvidence,windowPolicy:SemanticWindowPolicy,admissionRequest:SemanticAdmissionRequest,hasScoreEvidence:result=>scoreEvidenceRecords.has(result)});
+  return Object.freeze({create,vectorSpaceFor,assessAdmission,searchPolicy,structuredIds,structuredIdMatches,readScoreEvidence,windowPolicy:SemanticWindowPolicy,admissionRequest:SemanticAdmissionRequest,hasScoreEvidence:result=>scoreEvidenceRecords.has(result)});
 })(require('node:crypto'));
 
 // Compatibility aliases share the scorer's closed reader; no caller-supplied issuer.
@@ -119798,13 +119800,21 @@ const SessionFullTextIndex = ((io,p,c) => {
     const vectorGet=(sid,model,key)=>{const entry=vectorMemory.get(sid);if(!entry||entry.model!==model)return null;return entry.entries.get(key)||null;};
     // 152 L4:落盘向量对应原文片段的 sha256(schema 2)。Gemma 请求只用带摘要、且回读原文后摘要相符的向量。
     const vectorDigest=(sid,model,key)=>{const entry=vectorMemory.get(sid);if(!entry||entry.model!==model)return null;return entry.entries.texts?.get(key)||null;};
-    const VECTOR_SHAPES=new Set(['dims,entries,model,schema,sessionId','dims,entries,model,schema,sessionId,texts']);
+    const VECTOR_SHAPES=new Set(['dims,entries,model,schema,sessionId','dims,entries,model,schema,sessionId,texts','dims,entries,schema,sessionId,space,texts']);
+    const storageSpace=model=>typeof SemanticRetrieval==='undefined'?null:SemanticRetrieval.vectorSpaceFor?.(model);
     function decodeVectors(value,sid,model){
-      // schema 1(无原文摘要)照旧可读;对 Gemma 不算数(请求侧要摘要,后台按 schema 2 重编),其他模型的旧向量照常保留。
-      if(!value||!VECTOR_SHAPES.has(keys(value))||![1,VECTOR_SCHEMA].includes(value.schema)||(value.schema===VECTOR_SCHEMA)!==Object.hasOwn(value,'texts')||value.sessionId!==sid||typeof value.model!=='string'||!value.model.length||value.model.length>512||!Number.isSafeInteger(value.dims)||value.dims<1||value.dims>8192||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return null;
-      const out=new Map();if(value.model!==model)return out;const rows=Object.entries(value.entries);if(rows.length>VECTOR_ENTRIES)return null;
+      if(!value||!VECTOR_SHAPES.has(keys(value))||value.sessionId!==sid||!Number.isSafeInteger(value.dims)||value.dims<1||value.dims>8192||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return null;
+      const out=new Map();
+      if(value.schema===3){
+        const space=storageSpace(model);
+        if(!space||value.space!==space||value.dims!==768||!Object.hasOwn(value,'texts'))return null;
+      }else{
+        if(![1,VECTOR_SCHEMA].includes(value.schema)||(value.schema===VECTOR_SCHEMA)!==Object.hasOwn(value,'texts')||typeof value.model!=='string'||!value.model.length||value.model.length>512)return null;
+        if(value.model!==model)return out;
+      }
+      const rows=Object.entries(value.entries);if(rows.length>VECTOR_ENTRIES)return null;
       for(const [key,text]of rows){if(!HEX.test(key))return null;const vector=unpackVector(text,value.dims);if(!vector)return null;out.set(key,vector);}
-      out.texts=new Map();if(value.schema===VECTOR_SCHEMA){if(!value.texts||typeof value.texts!=='object'||Array.isArray(value.texts))return null;for(const [key,sha]of Object.entries(value.texts)){if(!out.has(key)||!HEX.test(sha))return null;out.texts.set(key,sha);}}
+      out.texts=new Map();if(value.schema!==1){if(!value.texts||typeof value.texts!=='object'||Array.isArray(value.texts))return null;for(const [key,sha]of Object.entries(value.texts)){if(!out.has(key)||!HEX.test(sha))return null;out.texts.set(key,sha);}}
       return out;
     }
     // 回读失败(坏件、缺钥匙、被删)一律当「没有向量」:语义只少几个候选,词法与披露不受影响;撤权/暂停照常上抛。
@@ -120658,7 +120668,8 @@ const SessionFullTextIndex = ((io,p,c) => {
       const fit=dims?vectorCapacity(dims):0,next=new Map();next.texts=new Map();
       for(const row of windows){if(next.size>=fit)break;const sha=freshTexts.get(row.key)||existingTexts.get(row.key),vector=fresh.get(row.key)||existing.get(row.key);if(vector&&vector.length===dims&&(sha||!needDigest)){next.set(row.key,vector);if(sha)next.texts.set(row.key,sha);}}
       await revoked();if(await host.epoch(sid)!==epoch)return 'skip';
-      const record={schema:VECTOR_SCHEMA,sessionId:sid,model,dims:dims||1,entries:Object.fromEntries([...next].map(([key,vector])=>[key,packVector(vector)])),texts:Object.fromEntries(next.texts)},policy=await host.enabled();
+      const space=storageSpace(model);
+      const record={...(space?{schema:3,space}:{schema:VECTOR_SCHEMA,model}),sessionId:sid,dims:dims||1,entries:Object.fromEntries([...next].map(([key,vector])=>[key,packVector(vector)])),texts:Object.fromEntries(next.texts)},policy=await host.enabled();
       const written=await exclusive(async()=>{await revoked();const current=await currentManifest(sid);if(current===malformedManifest||current?.generation!==value.generation)return false;
         if(next.size)await write(sid,VECTOR_FILE,record,VECTOR_BYTES,policy,checkPaused);else await removeOwned(sid,[VECTOR_FILE],checkPaused);return true;});
       if(!written)return 'skip';

@@ -1,6 +1,8 @@
 // In-memory semantic primitives. The host owns runtime availability and authorization.
 const SemanticRetrieval = ((crypto) => {
-const scoreEvidenceRecords=new WeakMap(),scoreEvidenceModel='sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e';
+const scoreEvidenceRecords=new WeakMap(),scoreEvidenceModel='sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73';
+const gemmaVectorSpace='sha256:e761ff886bb020cf113fd75b6ce37d0a9f3ec1bd9824db788597d6d8830e8f64';
+const vectorSpaceFor=model=>model===scoreEvidenceModel?gemmaVectorSpace:null;
 const scoreEvidenceInvalid=()=>Error('semantic.score_evidence_invalid');
 function scoreEvidenceIdentity(value){if(value===null||['string','boolean'].includes(typeof value)||typeof value==='number'&&Number.isFinite(value))return JSON.stringify(value);if(Array.isArray(value)&&value.length<=64&&value.every(v=>v===null||['string','boolean'].includes(typeof v)||typeof v==='number'&&Number.isFinite(v)))return JSON.stringify(value);throw scoreEvidenceInvalid();}
 function scoreEvidenceVector(v){return Array.isArray(v)&&v.length===768&&v.every(Number.isFinite)&&v.some(n=>n!==0);}
@@ -60,7 +62,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(warmSendQuery && hint>0)return Math.max(64,Math.ceil(hint));
       return Math.max(local,Math.ceil(hint));
     };
-    const key=(scope,model,value)=>crypto.createHash('sha256').update(JSON.stringify([scope,model,value])).digest('hex');
+    const key=(scope,model,value)=>crypto.createHash('sha256').update(JSON.stringify([scope,vectorSpaceFor(model)?['space',gemmaVectorSpace]:model,value])).digest('hex');
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
@@ -282,7 +284,7 @@ const SemanticWindowPolicy = (() => {
 // producer search, while every scalar verdict remains bound to its own field.
 const crypto=require('node:crypto'),Windowing=typeof SemanticOriginalWindows==='undefined'?null:SemanticOriginalWindows;
 const hash = value => crypto.createHash('sha256').update(JSON.stringify(value)).digest('hex');
-const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
+const CONTRACT = Object.freeze({ id: 'embeddinggemma2-global-eligible-k1-cos070-window-v1',modelId:'embeddinggemma-2-text-q4',modelFingerprint:'sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73', topK: 1, threshold: .70, scoreKind:'cosine-not-probability', verifier:null,
   weakWindow: 'fixed-best-eligible-original96-overlap16-before-cosine-admission; no-result-driven-window-switch', metadataDisplay: 'same-field-complete-projected-context-not-raw-window-quote', coarseThreshold: null, strong: 'same-original-field-only', unknown: 'not-promoted-and-partial', pools:Object.freeze({session:'complete eligible committed-body pool plus same-field lexically related metadata including strong fields; no unrelated metadata discovery',memory:'complete bounded eligible memory-header fields',observation:'complete bounded registered-tool or authorized-projected-message fields'}),geometry:Object.freeze({message:'canonical-message-v3 original96/16',memory:'raw-original-v1 original96/16',metadata:'raw-metadata-v1 original96/16',committedMessage:'privacy-projected-v1 placeholder-safe96/16'}),metadataContext:'identity title/brief.title/cwd are labels; summary/gist need their own admitted field; recent request omitted without a field proof',automatic: null });
 
 function createSemanticCoarsePolicy({ identify, normalize, terms, readScoreEvidence, explicitMemory = false, partialLexicalFields = false }) {
@@ -514,7 +516,7 @@ return {create,CONTRACT};
 })();
 
 
-  return Object.freeze({create,assessAdmission,searchPolicy,structuredIds,structuredIdMatches,readScoreEvidence,windowPolicy:SemanticWindowPolicy,admissionRequest:SemanticAdmissionRequest,hasScoreEvidence:result=>scoreEvidenceRecords.has(result)});
+  return Object.freeze({create,vectorSpaceFor,assessAdmission,searchPolicy,structuredIds,structuredIdMatches,readScoreEvidence,windowPolicy:SemanticWindowPolicy,admissionRequest:SemanticAdmissionRequest,hasScoreEvidence:result=>scoreEvidenceRecords.has(result)});
 })(require('node:crypto'));
 
 // Compatibility aliases share the scorer's closed reader; no caller-supplied issuer.

@@ -313,13 +313,21 @@ const SessionFullTextIndex = ((io,p,c) => {
     const vectorGet=(sid,model,key)=>{const entry=vectorMemory.get(sid);if(!entry||entry.model!==model)return null;return entry.entries.get(key)||null;};
     // 152 L4:落盘向量对应原文片段的 sha256(schema 2)。Gemma 请求只用带摘要、且回读原文后摘要相符的向量。
     const vectorDigest=(sid,model,key)=>{const entry=vectorMemory.get(sid);if(!entry||entry.model!==model)return null;return entry.entries.texts?.get(key)||null;};
-    const VECTOR_SHAPES=new Set(['dims,entries,model,schema,sessionId','dims,entries,model,schema,sessionId,texts']);
+    const VECTOR_SHAPES=new Set(['dims,entries,model,schema,sessionId','dims,entries,model,schema,sessionId,texts','dims,entries,schema,sessionId,space,texts']);
+    const storageSpace=model=>typeof SemanticRetrieval==='undefined'?null:SemanticRetrieval.vectorSpaceFor?.(model);
     function decodeVectors(value,sid,model){
-      // schema 1(无原文摘要)照旧可读;对 Gemma 不算数(请求侧要摘要,后台按 schema 2 重编),其他模型的旧向量照常保留。
-      if(!value||!VECTOR_SHAPES.has(keys(value))||![1,VECTOR_SCHEMA].includes(value.schema)||(value.schema===VECTOR_SCHEMA)!==Object.hasOwn(value,'texts')||value.sessionId!==sid||typeof value.model!=='string'||!value.model.length||value.model.length>512||!Number.isSafeInteger(value.dims)||value.dims<1||value.dims>8192||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return null;
-      const out=new Map();if(value.model!==model)return out;const rows=Object.entries(value.entries);if(rows.length>VECTOR_ENTRIES)return null;
+      if(!value||!VECTOR_SHAPES.has(keys(value))||value.sessionId!==sid||!Number.isSafeInteger(value.dims)||value.dims<1||value.dims>8192||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return null;
+      const out=new Map();
+      if(value.schema===3){
+        const space=storageSpace(model);
+        if(!space||value.space!==space||value.dims!==768||!Object.hasOwn(value,'texts'))return null;
+      }else{
+        if(![1,VECTOR_SCHEMA].includes(value.schema)||(value.schema===VECTOR_SCHEMA)!==Object.hasOwn(value,'texts')||typeof value.model!=='string'||!value.model.length||value.model.length>512)return null;
+        if(value.model!==model)return out;
+      }
+      const rows=Object.entries(value.entries);if(rows.length>VECTOR_ENTRIES)return null;
       for(const [key,text]of rows){if(!HEX.test(key))return null;const vector=unpackVector(text,value.dims);if(!vector)return null;out.set(key,vector);}
-      out.texts=new Map();if(value.schema===VECTOR_SCHEMA){if(!value.texts||typeof value.texts!=='object'||Array.isArray(value.texts))return null;for(const [key,sha]of Object.entries(value.texts)){if(!out.has(key)||!HEX.test(sha))return null;out.texts.set(key,sha);}}
+      out.texts=new Map();if(value.schema!==1){if(!value.texts||typeof value.texts!=='object'||Array.isArray(value.texts))return null;for(const [key,sha]of Object.entries(value.texts)){if(!out.has(key)||!HEX.test(sha))return null;out.texts.set(key,sha);}}
       return out;
     }
     // 回读失败(坏件、缺钥匙、被删)一律当「没有向量」:语义只少几个候选,词法与披露不受影响;撤权/暂停照常上抛。
@@ -1173,7 +1181,8 @@ const SessionFullTextIndex = ((io,p,c) => {
       const fit=dims?vectorCapacity(dims):0,next=new Map();next.texts=new Map();
       for(const row of windows){if(next.size>=fit)break;const sha=freshTexts.get(row.key)||existingTexts.get(row.key),vector=fresh.get(row.key)||existing.get(row.key);if(vector&&vector.length===dims&&(sha||!needDigest)){next.set(row.key,vector);if(sha)next.texts.set(row.key,sha);}}
       await revoked();if(await host.epoch(sid)!==epoch)return 'skip';
-      const record={schema:VECTOR_SCHEMA,sessionId:sid,model,dims:dims||1,entries:Object.fromEntries([...next].map(([key,vector])=>[key,packVector(vector)])),texts:Object.fromEntries(next.texts)},policy=await host.enabled();
+      const space=storageSpace(model);
+      const record={...(space?{schema:3,space}:{schema:VECTOR_SCHEMA,model}),sessionId:sid,dims:dims||1,entries:Object.fromEntries([...next].map(([key,vector])=>[key,packVector(vector)])),texts:Object.fromEntries(next.texts)},policy=await host.enabled();
       const written=await exclusive(async()=>{await revoked();const current=await currentManifest(sid);if(current===malformedManifest||current?.generation!==value.generation)return false;
         if(next.size)await write(sid,VECTOR_FILE,record,VECTOR_BYTES,policy,checkPaused);else await removeOwned(sid,[VECTOR_FILE],checkPaused);return true;});
       if(!written)return 'skip';
