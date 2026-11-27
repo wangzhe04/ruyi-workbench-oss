@@ -387,16 +387,26 @@ test('[G16] P6 semantic off→on in the middle of a purge re-encodes the purged 
 
 // ── 4A 三审(v4) ────────────────────────────────────────────────────────────────────────────
 test('[G17] P7 retry waits are not learned as encoding cost: repeated collisions keep succeeding on one instance', async () => {
-  let busyUntil = 0;
+  let now = 10000, busyUntil = 0;
+  class Clock extends Date { static now() { return now; } }
+  const wait = (resolve, ms) => { now += ms; queueMicrotask(resolve); };
+  const queryBudgets = [];
   const shared = { descriptor: () => ({ ...DESCRIPTOR }), prepare: async () => ({ ...DESCRIPTOR }),
-    async encode(texts) { if (Date.now() < busyUntil) return { ok: false, reason: 'overloaded' }; await sleep(5); return { ok: true, modelFingerprint: MODEL, vectors: texts.map(() => [1, 0, 0]) }; } };
-  const retrieval = vm.runInNewContext(fs.readFileSync(path.join(SRC, '06ha-semantic-retrieval.js'), 'utf8') + '\nSemanticRetrieval;', { require, Date, setTimeout }).create(shared);
+    async encode(texts, options) {
+      if (Clock.now() < busyUntil) return { ok: false, reason: 'overloaded' };
+      if (options.role === 'query') queryBudgets.push(options.minimumBudgetMs);
+      now += 5;
+      return { ok: true, modelFingerprint: MODEL, vectors: texts.map(() => [1, 0, 0]) };
+    } };
+  const retrieval = vm.runInNewContext(fs.readFileSync(path.join(SRC, '06ha-semantic-retrieval.js'), 'utf8') + '\nSemanticRetrieval;', { require, Date: Clock, setTimeout: wait }).create(shared);
   const statuses = [];
   for (let n = 0; n < 4; n++) {
-    busyUntil = Date.now() + 120;   // a ~120 ms background batch is in flight when the foreground arrives
+    busyUntil = Clock.now() + 120;
     statuses.push((await retrieval.score('query ' + n, ['doc ' + n], { scopeId: 's', deadlineMs: 250, identities: ['i' + n] })).status);
-    await sleep(150);
+    now += 150;
   }
+  a.equal(queryBudgets.length, 4);
+  a.ok(queryBudgets.every(budget => budget <= queryBudgets[0]), 'retry waits never inflate the next query budget');
   a.deepEqual(statuses, ['ready', 'ready', 'ready', 'ready'], `every collision recovered within 250 ms (${statuses})`);
 });
 

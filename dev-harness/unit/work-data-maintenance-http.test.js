@@ -24,12 +24,14 @@ async function fixture(t,{readStatus=ordinary,assertColdOwner=()=>true}={}){
 }
 
 test('cold-owner proof is required before binding any listener',async t=>{
-  const port=await freePort();let reads=0,binds=0;
+  const competing=http.createServer();
+  const port=await bind(competing,0);t.after(()=>new Promise(resolve=>competing.close(resolve)));
+  let reads=0,binds=0;
   const observedHttp={createServer:(...args)=>{const server=http.createServer(...args),listen=server.listen;server.listen=function(...args){binds++;return listen.apply(server,args);};return server;}};
   const observedApi=vm.runInNewContext(source+'\nWorkDataMaintenanceHttp;', {http:observedHttp,crypto,Buffer,URL,Set,Promise});
   const host=observedApi.create({id,port,assertColdOwner:()=>false,readStatus:()=>{reads++;return ordinary();}});t.after(()=>host.close());
   await assert.rejects(host.listen(),{code:'work_data_setup.ownership_required'});
-  const competing=http.createServer();await bind(competing,port);await new Promise(resolve=>competing.close(resolve));assert.equal(reads,0);assert.equal(binds,0);
+  assert.equal(reads,0);assert.equal(binds,0);
 });
 test('actual loopback progress projects current authority and finite job fields without completion or secrets',async t=>{
   const value=ordinary(),f=await fixture(t,{readStatus:()=>value});
