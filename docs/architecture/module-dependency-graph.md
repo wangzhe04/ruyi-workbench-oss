@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4461 | 4402 | 972 | 67 | 0 | 1 |
+| 145 | 4462 | 4404 | 972 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -18,7 +18,7 @@
 | 0 | `00-boot.js` | bootstrap | 188 | 7 | 4 |
 | 1 | `00b-ruyi-names.js` | bootstrap | 5 | 0 | 0 |
 | 2 | `01b-route-auth.js` | foundation | 1 | 0 | 0 |
-| 3 | `01c-runtime-flags.js` | foundation | 37 | 0 | 0 |
+| 3 | `01c-runtime-flags.js` | foundation | 38 | 0 | 0 |
 | 4 | `01d-win-cmdline.js` | foundation | 13 | 0 | 0 |
 | 5 | `01e-permission-modes.js` | foundation | 18 | 1 | 1 |
 | 6 | `01f-agent-cli-types.js` | foundation | 4 | 1 | 1 |
@@ -84,8 +84,8 @@
 | 66 | `06hb-semantic-runtime.js` | unclassified | 4 | 0 | 0 |
 | 67 | `06ha-semantic-retrieval.js` | unclassified | 4 | 2 | 2 |
 | 68 | `06i-steward-core.js` | engine | 166 | 1 | 1 |
-| 69 | `06d-memory-domain.js` | engine | 199 | 47 | 12 |
-| 70 | `06hc-memory-semantic.js` | unclassified | 3 | 16 | 6 |
+| 69 | `06d-memory-domain.js` | engine | 199 | 48 | 12 |
+| 70 | `06hc-memory-semantic.js` | unclassified | 3 | 17 | 6 |
 | 71 | `06e-mission-domain.js` | engine | 3 | 13 | 5 |
 | 72 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 73 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
@@ -369,7 +369,7 @@
 | `06c-agent-loop-hooks.js` | `04-permission-runtime.js` | backward | `logEvent`, `redact` |
 | `06d-memory-domain.js` | `00-boot.js` | backward | `MemoryCliHooks`, `MemorySemanticHooks`, `SKILL_ID_RE`, `WorkDataRootHooks`, `agentCliHomes`, `apiFailure`, `appendUsageLedger`, `cachedInputTokensFromUsage`, `computeProviderCost`, `crypto`, `fsp`, `json`, `makeId`, `neutralizeFenceTag`, `nowIso`, `os`, `path`, `paths`, `runKeyedChain`, `safeJsonParse`, `tildePath` |
 | `06d-memory-domain.js` | `01-config.js` | backward | `DurableJsonStore`, `atomicWriteJson`, `configFileStamp`, `configReadGeneration`, `readConfig`, `safeSessionId` |
-| `06d-memory-domain.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryIndexCharCap`, `memoryRelevanceMax`, `memoryVectorRecallEnabled` |
+| `06d-memory-domain.js` | `01c-runtime-flags.js` | backward | `MEMORY_SEND_SEMANTIC_BUDGET_MS`, `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryIndexCharCap`, `memoryRelevanceMax`, `memoryVectorRecallEnabled` |
 | `06d-memory-domain.js` | `01p-work-data-store.js` | backward | `WorkDataStore` |
 | `06d-memory-domain.js` | `02-session-store.js` | backward | `loadSession`, `sessionObjectIsStale` |
 | `06d-memory-domain.js` | `03-bridge-guard.js` | backward | `normalizeCwd` |
@@ -395,7 +395,7 @@
 | `06ha-semantic-retrieval.js` | `06h9-semantic-policy.js` | backward | `SemanticOriginalWindows` |
 | `06ha-semantic-retrieval.js` | `06hb-semantic-runtime.js` | backward | `SemanticRuntimeTransportProof` |
 | `06hc-memory-semantic.js` | `00-boot.js` | backward | `MemorySemanticHooks`, `SemanticFailurePolicy`, `SemanticRuntimeHooks`, `crypto` |
-| `06hc-memory-semantic.js` | `01c-runtime-flags.js` | backward | `memoryVectorRecallEnabled` |
+| `06hc-memory-semantic.js` | `01c-runtime-flags.js` | backward | `MEMORY_SEND_SEMANTIC_BUDGET_MS`, `memoryVectorRecallEnabled` |
 | `06hc-memory-semantic.js` | `06d-memory-domain.js` | backward | `memoryExplicitRetrievalText`, `memoryRetrievalKey`, `memoryRetrievalText`, `memorySemanticBudgetSafe`, `rankMemoriesForRecallDetailed`, `rankRelevantMemoriesScored` |
 | `06hc-memory-semantic.js` | `06h-retrieval-index.js` | backward | `retrievalTerms` |
 | `06hc-memory-semantic.js` | `06ha-semantic-retrieval.js` | backward | `SemanticAdmissionRequest`, `SemanticPolicyConsumers`, `SemanticRetrieval` |

@@ -272,6 +272,7 @@
       "layer": "foundation",
       "provides": [
         "MEMORY_FIXED_SELECTION_HARD_MAX",
+        "MEMORY_SEND_SEMANTIC_BUDGET_MS",
         "appendOnlyToolSchemasEnabled",
         "budgetGuardDecision",
         "budgetGuardEnabled",
@@ -8031,6 +8032,13 @@
         },
         {
           "provider": "01c-runtime-flags.js",
+          "symbol": "MEMORY_SEND_SEMANTIC_BUDGET_MS",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
           "symbol": "memoryFixedSelectionMax",
           "kinds": [
             "call"
@@ -8190,6 +8198,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "01c-runtime-flags.js",
+          "symbol": "MEMORY_SEND_SEMANTIC_BUDGET_MS",
           "kinds": [
             "read"
           ]

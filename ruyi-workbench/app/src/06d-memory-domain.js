@@ -3072,7 +3072,9 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     try {
       recalled = typeof MemorySemanticHooks.rank === 'function'
         ? await MemorySemanticHooks.rank(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig,
-          { scopeId: 'memory:' + String(session?.id || '') + ':' + projectKeyForCwd(cwd), signal: options.signal, check })
+          { scopeId: 'memory:' + String(session?.id || '') + ':' + projectKeyForCwd(cwd), signal: options.signal, check,
+            // 152 L1:修前不带期限,向量没缓存时要等全部记忆头编完(128 条实测 16.5 s)才发消息。
+            deadline: Date.now() + MEMORY_SEND_SEMANTIC_BUDGET_MS, cwd })
         : rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
     } catch (error) {
       if (error?.code !== 'memory_semantic.stale') throw error;

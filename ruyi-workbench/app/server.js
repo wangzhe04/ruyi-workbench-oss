@@ -2183,6 +2183,9 @@ function memoryLimit(config, key, lo, hi, fallback) {
 function coreMemoryMaxItems(config) { return memoryLimit(config, 'coreMemoryMaxItemsV1', 0, 2000, 200); }
 function coreMemoryCharBudget(config) { return memoryLimit(config, 'coreMemoryCharBudgetV1', 0, 200000, 16000); }
 function memoryRelevanceMax(config) { return memoryLimit(config, 'memoryRelevanceMaxV1', 0, 128, 8); }
+// 152 L1:每条消息发送前的记忆语义层只等这么久(含查询编码与准入)。到点没齐就按关键词基线发出,
+// 尾标如实写「基础结果」;文档向量由后台预编码补齐(152 L2),下一条消息自然用上。
+const MEMORY_SEND_SEMANTIC_BUDGET_MS = 400;
 // 固定选择上限的「钳位上界」:配置可调范围 [1, 1024],默认 64。会话落盘清洗(02 normalizeSession)取同一个上界,
 // 路由按 memoryFixedSelectionMax(config) 接受多少条、重载就保留多少条 —— 修前 normalizeSession 写死 12,保存成功后重载被截。
 const MEMORY_FIXED_SELECTION_HARD_MAX = 1024;
@@ -52466,7 +52469,9 @@ async function resolveMemoryPreflight(session, cwd, query, onSourceMismatch, con
     try {
       recalled = typeof MemorySemanticHooks.rank === 'function'
         ? await MemorySemanticHooks.rank(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig,
-          { scopeId: 'memory:' + String(session?.id || '') + ':' + projectKeyForCwd(cwd), signal: options.signal, check })
+          { scopeId: 'memory:' + String(session?.id || '') + ':' + projectKeyForCwd(cwd), signal: options.signal, check,
+            // 152 L1:修前不带期限,向量没缓存时要等全部记忆头编完(128 条实测 16.5 s)才发消息。
+            deadline: Date.now() + MEMORY_SEND_SEMANTIC_BUDGET_MS, cwd })
         : rankMemoriesForRecallDetailed(nonCore, query, memoryRelevanceMax(effectiveConfig), effectiveConfig);
     } catch (error) {
       if (error?.code !== 'memory_semantic.stale') throw error;
@@ -52554,6 +52559,8 @@ const MemorySemanticRecall = (() => {
   // 调用方的回验回调经 SemanticFailurePolicy.guard 包过,它抛的(撤权、stale、取消、privacy、work_data)照常上抛。
   // 单文件 vm 夹具里没有 00-boot 时整体保守:不包、不降级(行为同修前)。
   const failures = typeof SemanticFailurePolicy !== 'undefined' ? SemanticFailurePolicy : { guard: fn => fn, degradable: () => false };
+  const sendBudgetMs = () => typeof MEMORY_SEND_SEMANTIC_BUDGET_MS === 'number' ? MEMORY_SEND_SEMANTIC_BUDGET_MS : 400;
+  const sendDeadline = context => Number.isFinite(context?.deadline) ? context.deadline : Date.now() + sendBudgetMs();
   function create(host) {
     const searchProgress = new Map();
     let progressGeneration = 0;
@@ -52698,7 +52705,7 @@ const MemorySemanticRecall = (() => {
       let result;
       try {
         result = await host.score(query, texts, {
-          scopeId: context.scopeId, signal: context.signal, waitForCompletion: true, maxEncodeDocuments: 16,
+          scopeId: context.scopeId, signal: context.signal, deadline: sendDeadline(context), waitForCompletion: true, maxEncodeDocuments: 16,
           // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
           // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
@@ -52781,7 +52788,7 @@ const MemorySemanticRecall = (() => {
         encodedFragments:0,admissionEvaluated:false,complete:false};
       if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
       {
-        const deadline=Math.min(automaticBaseline ? Number.MAX_SAFE_INTEGER : Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
+        const deadline=automaticBaseline ? sendDeadline(context) : Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
         try{
           for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
           const entriesByField=new Map(selected.map(entry=>[fields.get(host.key(entry)),entry]));

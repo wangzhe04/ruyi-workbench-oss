@@ -17,6 +17,8 @@ const MemorySemanticRecall = (() => {
   // 调用方的回验回调经 SemanticFailurePolicy.guard 包过,它抛的(撤权、stale、取消、privacy、work_data)照常上抛。
   // 单文件 vm 夹具里没有 00-boot 时整体保守:不包、不降级(行为同修前)。
   const failures = typeof SemanticFailurePolicy !== 'undefined' ? SemanticFailurePolicy : { guard: fn => fn, degradable: () => false };
+  const sendBudgetMs = () => typeof MEMORY_SEND_SEMANTIC_BUDGET_MS === 'number' ? MEMORY_SEND_SEMANTIC_BUDGET_MS : 400;
+  const sendDeadline = context => Number.isFinite(context?.deadline) ? context.deadline : Date.now() + sendBudgetMs();
   function create(host) {
     const searchProgress = new Map();
     let progressGeneration = 0;
@@ -161,7 +163,7 @@ const MemorySemanticRecall = (() => {
       let result;
       try {
         result = await host.score(query, texts, {
-          scopeId: context.scopeId, signal: context.signal, waitForCompletion: true, maxEncodeDocuments: 16,
+          scopeId: context.scopeId, signal: context.signal, deadline: sendDeadline(context), waitForCompletion: true, maxEncodeDocuments: 16,
           // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
           // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
@@ -244,7 +246,7 @@ const MemorySemanticRecall = (() => {
         encodedFragments:0,admissionEvaluated:false,complete:false};
       if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
       {
-        const deadline=Math.min(automaticBaseline ? Number.MAX_SAFE_INTEGER : Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
+        const deadline=automaticBaseline ? sendDeadline(context) : Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
         try{
           for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
           const entriesByField=new Map(selected.map(entry=>[fields.get(host.key(entry)),entry]));
