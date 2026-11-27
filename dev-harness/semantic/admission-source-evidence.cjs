@@ -10,7 +10,7 @@ const {memoryCorpus} = require('./admission-dev-corpus.cjs');
 const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 const devHash = '63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3';
 const matrixHash = '002b825765a69708234ec680d02d1c8619cfab386feb2c864de68843dbae740b';
-const modes = ['reference', 'identifier', 'typed-number', 'typed-attribute'];
+const modes = ['reference', 'identifier', 'typed-number', 'typed-attribute', 'relation-local', 'relation-cross-abstain-to-score'];
 const normalize = text => text.normalize('NFKC').toLowerCase();
 function codes(text) {
   return (text.match(/[a-z0-9]+(?:[-_][a-z0-9]+)+/g) || []).filter(token => /[a-z]/.test(token) && /\d/.test(token));
@@ -30,6 +30,27 @@ const attrs = [
   [/作者|编写者|\bauthor\b|\bwho (?:wrote|drew|composed)/, /(?:作者|编写者)\s*(?:是|为|[:=])\s*\S+|(?:written|drawn|composed) by\s+\w+|author\s*[:=]\s*\S+/],
   [/叫什么名字|姓名|\bwhat is the name\b/, /(?:姓名|名字)\s*(?:叫|是|为|[:=])\s*\S+|名叫\S+|\b(?:named|called)\s+\w+|\bname\s*[:=]\s*\S+/],
 ];
+// Compare a literal local relation against a multilingual fallback. These features
+// only see original query/source text. Neither language labels nor gold field IDs enter.
+const segment = new Intl.Segmenter('zh', {granularity:'word'});
+const stop = new Set(('which what when where who how many much long is are was were did does do the this that these those of a an by in for to and or with can could would should will after before its at on has have from named name number price cost brand manufacturer author minutes hours days seconds length maximum minimum '+
+  '哪些 哪个 什么 多少 几个 怎么 如何 是否 谁 有的 是 的 有 在 从 对 与 和 后 前 需要 应该 可以 使用 规定 名字 姓名 品牌 价格 费用 几分钟 多少天 分钟 小时 时间 长度 数量 最多 最少').split(/\s+/));
+const negative = /(?:并非|不是|并不|不能|未曾|未被|不含|不得|不再|没有|未获|禁止|除外|\b(?:no|not|never|neither|without|except|prohibited)\b|n['’]t\b)/i;
+function words(text) {
+  return [...segment.segment(normalize(text))].filter(part=>part.isWordLike).map(part=>part.segment)
+    .filter(word=>!stop.has(word) && !/^\d+$/.test(word) && (word.length>1 || /[\p{Script=Han}]/u.test(word)));
+}
+function relation(question) {
+  const q = normalize(question);
+  const phrase = q.match(/\bhow many (.+?)(?=\s+(?:are|were|is|was|do|does|did|can|could|will|may|have|has)\b|[?？]|$)/)?.[1]
+    || q.match(/(?:多少|几)(?:个|张|位|名|条|台|组|份|件)([^，。！？?]{1,14})/)?.[1];
+  // An explicit quoted name or a capitalized name inside a sentence anchors the subject.
+  const quoted = [...question.matchAll(/[“「《"]([^”」》"]{2,48})[”」》"]/g)].map(m=>normalize(m[1]));
+  const names = [...question.matchAll(/\b[A-Z][a-z]{2,}(?:[ -][A-Z][a-z]{2,})*\b/g)]
+    .filter(m=>m.index>0).map(m=>normalize(m[0]));
+  return {han:/\p{Script=Han}/u.test(q), negative:negative.test(q), topic:words(q),
+    target: phrase ? words(phrase) : [], names:[...new Set([...quoted,...names])]};
+}
 function requirements(query) {
   const q = normalize(query);
   const wantsNumber = /多少|几[个位张名人天小分秒行]|(?:最多|最少).*(?:几|多少)|\bhow (?:many|much|long)\b|\b(?:maximum|minimum) (?:length|number|size)\b/.test(q);
@@ -39,11 +60,25 @@ function requirements(query) {
   const number = !numeric ? null : unit ? new RegExp(value + '\\s*(?:' + unit[1].source.replace(/\\b/g, '') + ')(?![a-z])', 'i') : count;
   const currency = /价格|费用|多少钱|\b(?:price|cost)\b/.test(q) && numeric;
   const numberPattern = currency ? new RegExp('(?:' + number.source + '|[$€£￥¥]\\s*' + value + ')', 'i') : number;
-  return {ids:codes(q), number:numberPattern, attrs:attrs.filter(([ask]) => ask.test(q)).map(([, evidence]) => evidence)};
+  return {relation:relation(query), ids:codes(q), number:numberPattern, attrs:attrs.filter(([ask]) => ask.test(q)).map(([, evidence]) => evidence)};
 }
 function supported(need, clause, level) {
   if (level === 0) return true;
   const text = normalize(clause);
+  if (level >= 4) {
+    const r = need.relation;
+    // If we cannot compare lexical ownership across scripts, measure the cost
+    // of deferring to the reference scorer while still enforcing explicit IDs.
+    if (level === 5 && r.han !== /\p{Script=Han}/u.test(text)) return supported(need, clause, 1);
+    const scoped = need.number || need.attrs.length || r.names.length || r.negative;
+    if (!scoped) return supported(need,clause,3);
+    const parts = text.split(/[,，、]|(?:然而|而是|但(?:是)?|而非)|\b(?:but|whereas|rather than|instead of)\b/);
+    return parts.some(part => {
+      if (!supported(need,part,3) || negative.test(part) !== r.negative) return false;
+      if (r.names.some(name=>!part.includes(name)) || r.target.some(term=>!part.includes(term))) return false;
+      return need.ids.length>0 || r.names.length>0 || r.target.length>0 || r.topic.some(term=>part.includes(term));
+    });
+  }
   const present = need.ids.length ? codes(text) : [];
   return need.ids.every(id => present.includes(id)) && (level < 2 || !need.number || need.number.test(text))
     && (level < 3 || need.attrs.every(pattern => pattern.test(text)));
@@ -120,15 +155,17 @@ function run(fixture, output) {
   const report = {kind:'152-development-source-evidence',fixtureSha256:devHash,matrixSha256:matrixHash,model:matrix.fingerprint,pools};
   fs.writeFileSync(output, JSON.stringify(report,null,2)+'\n',{flag:'wx'});
 }
-function contrasts(file, output) {
+function contrasts(file, output, mode = 'typed-attribute') {
+  const level = modes.indexOf(mode);
+  assert.ok(level >= 0, 'unknown evidence rule');
   const bytes = fs.readFileSync(file);
   const pairs = JSON.parse(bytes.toString('utf8').replace(/^\uFEFF/, ''));
   const rows = pairs.map(({category,query,positive,negative}) => {
     const need = requirements(query);
-    const passes = text => windows({id:'probe',text}).some(w => w.clauses.some(clause => supported(need, clause, 3)));
+    const passes = text => windows({id:'probe',text}).some(w => w.clauses.some(clause => supported(need, clause, level)));
     return {category,positiveKept:passes(positive),negativeBlocked:!passes(negative)};
   });
-  const result = {kind:'source-guard-only',pairsSha256:sha(bytes),rows,positiveKept:rows.filter(r=>r.positiveKept).length,
+  const result = {kind:'source-guard-only',mode,pairsSha256:sha(bytes),rows,positiveKept:rows.filter(r=>r.positiveKept).length,
     negativeBlocked:rows.filter(r=>r.negativeBlocked).length,bothCorrect:rows.filter(r=>r.positiveKept && r.negativeBlocked).length};
   fs.writeFileSync(output, JSON.stringify(result,null,2)+'\n', {flag:'wx'});
 }

@@ -1,0 +1,512 @@
+[
+  {
+    "kind": "source-guard-only",
+    "mode": "typed-attribute",
+    "pairsSha256": "22c72de33d79c26d8121df5ed64288ae48e7b12e37db4f4a99ed60a092e7d1a2",
+    "rows": [
+      {
+        "category": "zh-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "zh-en/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-zh/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      }
+    ],
+    "positiveKept": 27,
+    "negativeBlocked": 5,
+    "bothCorrect": 0
+  },
+  {
+    "kind": "source-guard-only",
+    "mode": "relation-local",
+    "pairsSha256": "22c72de33d79c26d8121df5ed64288ae48e7b12e37db4f4a99ed60a092e7d1a2",
+    "rows": [
+      {
+        "category": "zh-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/negation",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/negation",
+        "positiveKept": false,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "zh-en/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/negation",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-zh/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-zh/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      }
+    ],
+    "positiveKept": 24,
+    "negativeBlocked": 7,
+    "bothCorrect": 0
+  },
+  {
+    "kind": "source-guard-only",
+    "mode": "relation-cross-abstain-to-score",
+    "pairsSha256": "22c72de33d79c26d8121df5ed64288ae48e7b12e37db4f4a99ed60a092e7d1a2",
+    "rows": [
+      {
+        "category": "zh-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-zh/negation",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/number",
+        "positiveKept": false,
+        "negativeBlocked": true
+      },
+      {
+        "category": "en-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-en/negation",
+        "positiveKept": false,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "zh-en/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/number",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/entity",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/attribute",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      },
+      {
+        "category": "en-zh/negation",
+        "positiveKept": true,
+        "negativeBlocked": false
+      }
+    ],
+    "positiveKept": 28,
+    "negativeBlocked": 3,
+    "bothCorrect": 0
+  }
+]

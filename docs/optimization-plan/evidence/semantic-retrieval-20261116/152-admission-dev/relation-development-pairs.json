@@ -1,0 +1,194 @@
+[
+  {
+    "category": "zh-zh/number",
+    "query": "给山麓宿舍送洗的那批毛巾，最后点交了多少条？",
+    "positive": "洗衣房今早点交山麓宿舍的毛巾。原估二十四条，加上电梯里找回的两条，交接簿写成二十六条。",
+    "negative": "洗衣房今早核过山麓宿舍的毛巾。原估二十四条，电梯里又找到两条床单；毛巾到底交了多少，交接簿空着。"
+  },
+  {
+    "category": "zh-zh/number",
+    "query": "食堂后窗的新纱网裁多宽？请按厘米告诉我。",
+    "positive": "前窗的旧网宽八十厘米。后窗新网的裁切单改成零点七五米，装框的余量已经算进去了。",
+    "negative": "前窗的旧网宽八十厘米。后窗新网所用的整卷网布宽零点七五米，裁切单上的成品宽还没填。"
+  },
+  {
+    "category": "zh-zh/entity",
+    "query": "哪位搭车的人捎走了给山顶咖啡店的围裙？",
+    "positive": "两位搭车人都要上山。戴草帽的先拿走自己的雨披，拿竹手杖的把商店托运的围裙带到了山顶咖啡店。",
+    "negative": "两位搭车人都要上山。戴草帽的先拿走自己的雨披，拿竹手杖的在店门口问过围裙的事，店主还在打听是谁捎去的。"
+  },
+  {
+    "category": "zh-zh/entity",
+    "query": "修车摊那位临时帮忙的人，把落下的围脖还给了谁？",
+    "positive": "修车摊的临时帮手捡到一条围脖。卖栗子的只帮忙认了针脚，最后来领走的是隔壁配眼镜的人。",
+    "negative": "修车摊的临时帮手捡到一条围脖。卖栗子的帮忙认了针脚，隔壁配眼镜的人也前来辨认，交还给谁没有记录。"
+  },
+  {
+    "category": "zh-zh/attribute",
+    "query": "借去给街角照相馆展出的那台收音机，旋钮是什么材质？",
+    "positive": "照相馆借的是左边那台。它的外壳贴木皮，旋钮却是陶瓷烧的；右边那台还留在库房。",
+    "negative": "照相馆借的是左边那台。它的外壳贴木皮，右边留在库房的那台配着陶瓷旋钮，出借单没写左边那台的旋钮。"
+  },
+  {
+    "category": "zh-zh/attribute",
+    "query": "周五早餐会上给怕酸的人留的那壶饮料是什么口味？",
+    "positive": "周五早餐会预留了两壶。怕酸的人要找土黄色壶，那里面是烘米味；柑橘味的一壶给不喝咖啡的人。",
+    "negative": "周五早餐会预留了两壶。怕酸的人要找土黄色壶，不喝咖啡的人则领烘米味的；土黄色壶的饮料口味尚未确定。"
+  },
+  {
+    "category": "zh-zh/negation",
+    "query": "新来的保洁员是否获准在闭馆后使用阅览区的水槽？",
+    "positive": "保洁员问的是闭馆以后。负责人只禁止他用装裱室的水槽，阅览区那一个明确同意给他用。",
+    "negative": "保洁员问的是闭馆以后。负责人只说装裱室的水槽不能用，对于阅览区那一个，他说还要问清楚才能答复。"
+  },
+  {
+    "category": "zh-zh/negation",
+    "query": "便当铺这次有没有承诺为晚到的夜班司机留热饭？",
+    "positive": "店主没答应保留座位，但对晚到的夜班司机另有一句承诺，饭会替他们保温到人来。",
+    "negative": "店主没答应保留座位。旁边有人建议给晚到的夜班司机留热饭，那段录音到店主开口以前就结束了。"
+  },
+  {
+    "category": "en-en/number",
+    "query": "How much flour actually went into the canteen's oat loaf, in grams?",
+    "positive": "For the oat loaf the cook weighed a full kilogram of flour, then returned a quarter of it to the sack. The remainder all went into the dough.",
+    "negative": "For the oat loaf the cook brought out a full kilogram of flour. A quarter kilogram was reserved for dusting trays, and the amount mixed into the dough was never weighed."
+  },
+  {
+    "category": "en-en/number",
+    "query": "How long was the reading room open after the speaker left?",
+    "positive": "The speaker left at a quarter past eight. The reading room stayed open until nine, when the last reader handed back the key.",
+    "negative": "The speaker left at a quarter past eight. Nine was the planned closing time for the reading room, but that evening's actual closing time was not entered."
+  },
+  {
+    "category": "en-en/entity",
+    "query": "Who found the missing violin mute during the break?",
+    "positive": "The accompanist heard something rattle under a chair. The person selling interval drinks bent down, pulled out the violin mute and handed it to the player.",
+    "negative": "The accompanist heard something rattle under a chair. The person selling interval drinks returned the violin mute to the player afterward, but nobody noted who found it."
+  },
+  {
+    "category": "en-en/entity",
+    "query": "Whose coat did the volunteer move out of the leaking cloakroom?",
+    "positive": "The volunteer moved one coat. Its owner was the woman tuning the piano; the man delivering flowers had already taken his own coat upstairs.",
+    "negative": "The volunteer moved one coat. The woman tuning the piano and the man delivering flowers were both asked if it belonged to them. Its owner was never established."
+  },
+  {
+    "category": "en-en/attribute",
+    "query": "Which finish did the carpenter choose for the tabletop in the children's corner?",
+    "positive": "The carpenter compared wax and oil. Oil went on the children's tabletop, while wax went on the little shelf fixed underneath it.",
+    "negative": "The carpenter compared wax and oil. Oil went on the shelf fixed underneath the children's tabletop; the note stops before the choice for the tabletop."
+  },
+  {
+    "category": "en-en/attribute",
+    "query": "What shape is the clasp on the portfolio the singer took home?",
+    "positive": "The singer took the green portfolio with the teardrop clasp. A teardrop sticker on the other portfolio marks a loose hinge, not its clasp.",
+    "negative": "The singer took the green portfolio with the teardrop sticker. The other portfolio has a teardrop clasp; its description says nothing about the green one's clasp."
+  },
+  {
+    "category": "en-en/negation",
+    "query": "Did the café owner rule out serving the pear tart cold?",
+    "positive": "The owner ruled out reheating the custard. When asked specifically about the pear tart, she said serving it cold was fine.",
+    "negative": "The owner ruled out reheating the custard. A customer asked whether that meant the pear tart could be served cold, but the owner's reply was inaudible."
+  },
+  {
+    "category": "en-en/negation",
+    "query": "Is the bass player exempt from bringing a folding stand on Sunday?",
+    "positive": "For Sunday everyone brings a folding stand except the bass player, who uses the tall one fixed to the floor. The spare stool is a separate matter.",
+    "negative": "For Sunday the bass player is excused from bringing the spare stool. The question about bringing a folding stand was deferred until the room layout is final."
+  },
+  {
+    "category": "zh-en/number",
+    "query": "窗台上那盆迷迭香每次实际浇多少毫升？",
+    "positive": "The jug is marked at half a litre, but the rosemary on the sill gets only half of that measure each time. The rest is for the sink-side fern.",
+    "negative": "The jug is marked at half a litre. Half of that measure goes to the fern; the note only says to check the rosemary on the sill before deciding whether to water it."
+  },
+  {
+    "category": "zh-en/number",
+    "query": "这趟送布料的车从离开染坊到抵达裁缝铺，路上用了多久？",
+    "positive": "The fabric van left the dye house at ten past six and reached the tailor's at half past six. Unloading took another ten minutes.",
+    "negative": "The fabric van left the dye house at ten past six. Half past six was when the tailor started waiting for it; the note gives only the unloading time, ten minutes."
+  },
+  {
+    "category": "zh-en/entity",
+    "query": "谁把教室里那面裂了的镜子搬去修了？",
+    "positive": "The dancer with the green scarf spotted the crack. The person who usually sweeps the stairs wrapped the classroom mirror and took it to the repairer.",
+    "negative": "The dancer with the green scarf spotted the crack. The person who usually sweeps the stairs wrapped the classroom mirror for collection; the repairer did not note who delivered it."
+  },
+  {
+    "category": "zh-en/entity",
+    "query": "替河边面摊补交雨棚押金的是哪位邻居？",
+    "positive": "At the riverside noodle stall the neighbour who mends clocks witnessed the canopy payment. The neighbour who walks the greyhound actually paid the outstanding deposit.",
+    "negative": "At the riverside noodle stall the neighbour who mends clocks witnessed the canopy payment. The neighbour who walks the greyhound carried the receipt back; neither could say who supplied the deposit."
+  },
+  {
+    "category": "zh-en/attribute",
+    "query": "送到楼下诊所的那床毯子，包边是什么颜色？",
+    "positive": "The clinic downstairs received the lighter blanket. Its field is grey and the binding is plum; the darker blanket stayed on the trolley.",
+    "negative": "The clinic downstairs received the lighter blanket. The darker one left on the trolley has plum binding; the grey packing slip does not describe the lighter one's edges."
+  },
+  {
+    "category": "zh-en/attribute",
+    "query": "修鞋铺橱窗里那只展示鞋的鞋跟是用什么做的？",
+    "positive": "The cobbler put the left shoe in the window. The upper is linen, and the heel on that shoe is stacked leather. Its right-hand partner still has a temporary wooden heel.",
+    "negative": "The cobbler put the left shoe in the window. The right-hand partner is waiting for its stacked leather heel. The left shoe's linen upper is described, but its heel is not."
+  },
+  {
+    "category": "zh-en/negation",
+    "query": "周六拍大合照时，实习生是否可以不戴红色领带？",
+    "positive": "Nobody is exempt from the red tie on Saturday, the interns included. The earlier exemption applied only to rehearsals without a camera.",
+    "negative": "Nobody is exempt from the red tie during rehearsals, the interns included. Whether interns may go without it for Saturday's group photo was left for the photographer to decide."
+  },
+  {
+    "category": "zh-en/negation",
+    "query": "副厨有没有同意把已经切好的橙子改用金属碗装？",
+    "positive": "The assistant cook objected to cutting more oranges. Moving the slices already prepared into a metal bowl got a separate, explicit yes.",
+    "negative": "The assistant cook objected to cutting more oranges. A metal bowl for the slices already prepared was proposed after she left, and her view on it is missing."
+  },
+  {
+    "category": "en-zh/number",
+    "query": "How many metres of ribbon did the dressmaker actually sew onto the green curtain?",
+    "positive": "裁缝给绿帘预留了三米缎带。完工后剩下四十厘米整段没动，预留的其余缎带都缝到了帘上。",
+    "negative": "裁缝给绿帘预留了三米缎带。工台另有一段四十厘米的旧带子，账上只写预留量，没有绿帘实际缝入的长度。"
+  },
+  {
+    "category": "en-zh/number",
+    "query": "How many minutes passed between the rooftop bell and the opening of the pottery stall?",
+    "positive": "屋顶的钟在九点五十五响了一次。陶器摊等到十点十分才掀帘，旁边卖糖的更早就开了。",
+    "negative": "屋顶的钟在九点五十五响了一次。十点十分掀帘的是旁边的糖摊，陶器摊那天的开摊时刻没记下来。"
+  },
+  {
+    "category": "en-zh/entity",
+    "query": "Who signed for the package of empty slide frames at the theatre?",
+    "positive": "剧场收到一包空幻灯片框。戴银耳环的寄件员把包裹递过去，最后在签收联留下名字的是修幕布的师傅。",
+    "negative": "剧场收到一包空幻灯片框。戴银耳环的寄件员见到了修幕布的师傅；存根只有寄件员签名，收件人那一栏被撕掉了。"
+  },
+  {
+    "category": "en-zh/entity",
+    "query": "Which passenger left the thermos on the last hillside bus?",
+    "positive": "末班山路车上的热水壶是扎白头巾的乘客落下的。提花篮的人发现后把壶交给了司机。",
+    "negative": "末班山路车上，提花篮的人发现了热水壶，扎白头巾的乘客把它交给司机。壶身没有名字，没人说得出是谁落下的。"
+  },
+  {
+    "category": "en-zh/attribute",
+    "query": "What was the lining of the hat lent to the evening storyteller made of?",
+    "positive": "借给晚场说书人的帽子外层是呢料，贴头的里衬却用了棉纱。草编那顶只在白天当道具。",
+    "negative": "借给晚场说书人的帽子外层是呢料。道具师拿棉纱给白天那顶草帽换了里衬，没有拆开检查说书人的那顶。"
+  },
+  {
+    "category": "en-zh/attribute",
+    "query": "Which scent did the laundress use for the guest towels kept upstairs?",
+    "positive": "楼上的客用毛巾漂洗时用了桂花香液。洗衣人把无香的那一份留给楼下做面点时擦手。",
+    "negative": "楼上的客用毛巾单独漂洗。洗衣人把桂花香液带到楼下给面点间用，楼上那一盆的香型在洗涤单上漏记了。"
+  },
+  {
+    "category": "en-zh/negation",
+    "query": "Did the bookbinder refuse to put the owner's initials on the new cover?",
+    "positive": "装订师拒绝的是在旧封皮上烫字。面对新封皮，他明确答应把书主的姓名首字母压在下角。",
+    "negative": "装订师拒绝的是在旧封皮上烫字。书主接着问新封皮能否压姓名首字母，录音在答复前中断。"
+  },
+  {
+    "category": "en-zh/negation",
+    "query": "Was the person selling tickets allowed to leave before the afternoon recital ended?",
+    "positive": "午后独奏会散场前，门口检票的得留下；售票的那位已经得到许可，可以提前离开。",
+    "negative": "午后独奏会散场前，门口检票的得留下；售票的那位提出想提前离开，领班还没有批复。"
+  }
+]
