@@ -195,10 +195,11 @@ test('soft deadline during final epoch checks keeps the already validated lexica
 });
 
 test('slow singleton estimates and changing queries still advance the authorized document cache',async t=>{
-  const {f,advance}=await setup(t);
+  const {f,advance}=await setup(t,{background:false});
   const runtime=f.context.SemanticRuntimeHooks,encode=runtime.encode,submitted=[];
   runtime.estimateEncodingBudget=(role,count)=>(role==='document'?3600:1200)*count;
   runtime.encode=async(texts,options)=>{
+    if(options.priority==='background')return encode(texts,options);
     const remaining=options.deadline-f.context.Date.now();
     a.ok(remaining>=runtime.estimateEncodingBudget(options.role,texts.length));
     if(options.role==='document'){
