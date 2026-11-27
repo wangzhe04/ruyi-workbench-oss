@@ -7,7 +7,7 @@
 
 | 模块 | 顶层符号 | 跨模块符号引用 | 模块边 | 前向边 | 重复导出 | 强连通分量 |
 |---:|---:|---:|---:|---:|---:|---:|
-| 145 | 4462 | 4404 | 972 | 67 | 0 | 1 |
+| 145 | 4464 | 4413 | 973 | 67 | 0 | 1 |
 
 “前向边”表示较早拼接的模块引用较晚模块，依赖函数提升或延迟执行；它不是自动判错，但已由债务上限锁住，禁止无评审增加。
 
@@ -85,7 +85,7 @@
 | 67 | `06ha-semantic-retrieval.js` | unclassified | 4 | 2 | 2 |
 | 68 | `06i-steward-core.js` | engine | 166 | 1 | 1 |
 | 69 | `06d-memory-domain.js` | engine | 199 | 48 | 12 |
-| 70 | `06hc-memory-semantic.js` | unclassified | 3 | 17 | 6 |
+| 70 | `06hc-memory-semantic.js` | unclassified | 5 | 25 | 7 |
 | 71 | `06e-mission-domain.js` | engine | 3 | 13 | 5 |
 | 72 | `06f-autonomy-grants.js` | engine | 25 | 12 | 5 |
 | 73 | `06g-resource-leases.js` | engine | 21 | 5 | 3 |
@@ -104,7 +104,7 @@
 | 86 | `11d-media-inspection.js` | tools | 1 | 1 | 1 |
 | 87 | `12-tool-dispatch.js` | tools | 78 | 165 | 24 |
 | 88 | `13f-native-tool-schemas.js` | transport | 2 | 1 | 1 |
-| 89 | `13-http-router.js` | transport | 74 | 269 | 37 |
+| 89 | `13-http-router.js` | transport | 74 | 270 | 37 |
 | 90 | `13b-api-domain-routes.js` | transport | 41 | 68 | 11 |
 | 91 | `13c-overlay-routes.js` | transport | 11 | 13 | 3 |
 | 92 | `13d-core-domain-routes.js` | transport | 43 | 137 | 15 |
@@ -395,8 +395,9 @@
 | `06ha-semantic-retrieval.js` | `06h9-semantic-policy.js` | backward | `SemanticOriginalWindows` |
 | `06ha-semantic-retrieval.js` | `06hb-semantic-runtime.js` | backward | `SemanticRuntimeTransportProof` |
 | `06hc-memory-semantic.js` | `00-boot.js` | backward | `MemorySemanticHooks`, `SemanticFailurePolicy`, `SemanticRuntimeHooks`, `crypto` |
+| `06hc-memory-semantic.js` | `01-config.js` | backward | `readConfig` |
 | `06hc-memory-semantic.js` | `01c-runtime-flags.js` | backward | `MEMORY_SEND_SEMANTIC_BUDGET_MS`, `memoryVectorRecallEnabled` |
-| `06hc-memory-semantic.js` | `06d-memory-domain.js` | backward | `memoryExplicitRetrievalText`, `memoryRetrievalKey`, `memoryRetrievalText`, `memorySemanticBudgetSafe`, `rankMemoriesForRecallDetailed`, `rankRelevantMemoriesScored` |
+| `06hc-memory-semantic.js` | `06d-memory-domain.js` | backward | `loadMemoryRegistry`, `memoryBodyAuthority`, `memoryEntriesUnchanged`, `memoryExplicitRetrievalText`, `memoryIsExpired`, `memoryRetrievalKey`, `memoryRetrievalText`, `memorySemanticBudgetSafe`, `memorySnapshotToken`, `memoryStatBaseline`, `projectKeyForCwd`, `rankMemoriesForRecallDetailed`, `rankRelevantMemoriesScored` |
 | `06hc-memory-semantic.js` | `06h-retrieval-index.js` | backward | `retrievalTerms` |
 | `06hc-memory-semantic.js` | `06ha-semantic-retrieval.js` | backward | `SemanticAdmissionRequest`, `SemanticPolicyConsumers`, `SemanticRetrieval` |
 | `06hc-memory-semantic.js` | `06hb-semantic-runtime.js` | backward | `SemanticRuntimeTransportProof` |
@@ -560,7 +561,7 @@
 | `12-tool-dispatch.js` | `11b-file-text-io.js` | backward | `FileTextIo` |
 | `12-tool-dispatch.js` | `11c-file-visual-io.js` | backward | `FileVisualIo` |
 | `12-tool-dispatch.js` | `11d-media-inspection.js` | backward | `MediaInspection` |
-| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `CliBusinessHooks`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `DesktopLifetimeHooks`, `EventStreamHooks`, `ExternalBotHooks`, `InternalMcpHooks`, `MediaImageHooks`, `MemoryCliHooks`, `MigrationHooks`, `OVERLAY_ID`, `ProxyModelHooks`, `SKILL_ID_RE`, `SemanticRuntimeHooks`, `ThreadRelayHooks`, `URL`, `VERSION`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `dataRootSource`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `recordInstallLaunch`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked` |
+| `13-http-router.js` | `00-boot.js` | backward | `APP_NAME`, `CONFIG_SCHEMA`, `CliBusinessHooks`, `DATA_ROOT_MIGRATION`, `DEFAULT_PORT`, `DesktopLifetimeHooks`, `EventStreamHooks`, `ExternalBotHooks`, `InternalMcpHooks`, `MediaImageHooks`, `MemoryCliHooks`, `MemorySemanticHooks`, `MigrationHooks`, `OVERLAY_ID`, `ProxyModelHooks`, `SKILL_ID_RE`, `SemanticRuntimeHooks`, `ThreadRelayHooks`, `URL`, `VERSION`, `WorkDataAttachmentUploadHooks`, `WorkDataMaintenanceHooks`, `WorkDataMaintenanceRuntimeHooks`, `WorkDataRootHooks`, `WorkDataSetupHooks`, `apiFailure`, `apiSessionIdInvalid`, `apiSessionNotFound`, `buildUsageSummary`, `cp`, `crypto`, `dataRoot`, `dataRootAliases`, `dataRootSource`, `defaultDataRoots`, `ensureDirs`, `exePath`, `externalRoot`, `flushUsageLedgerSync`, `fs`, `fsp`, `http`, `isDirectServeInvocation`, `isPkg`, `json`, `lstatOrNull`, `migrateLegacyDataRoot`, `nowIso`, `os`, `path`, `paths`, `recordInstallLaunch`, `runKeyedChain`, `safeJsonParse`, `spawnDetachedChecked` |
 | `13-http-router.js` | `00b-ruyi-names.js` | backward | `LEGACY_RUYI_MCP_SERVER_IDS`, `RUYI_MCP_SERVER_ID` |
 | `13-http-router.js` | `01-config.js` | backward | `ConfigPatchHooks`, `RUNTIME`, `atomicWriteJson`, `authorizeRoute`, `autoImportClaudeCodeMcp`, `beginBootCliPathProbes`, `contentTypeFor`, `decodeClaudeCliText`, `desktopMcpDetectionPending`, `detectClaudePath`, `detectDesktopMcp`, `detectKimiPath`, `effectiveAnthropicEnv`, `ensureDesktopMcpWarm`, `externalServerJs`, `finishBootCliPathProbes`, `generateMcpConfig`, `hostAllowed`, `isLoopbackBindHost`, `mcpConfigFilePath`, `mutateConfig`, `prepareAgentCliSpawn`, `readConfig`, `readJsonBody`, `requestIsLoopback`, `safeSessionId`, `selectedAgentCli`, `send`, `sendError`, `serveStatic`, `sweepStaleScriptFiles`, `syncAgentCliMcpManifests`, `syncAgentRolesToClaude`, `syncClaudeCliSettings`, `syncMcpServersToClaude`, `tokenMatches`, `tokenOk`, `waitForBootCliPathProbes` |
 | `13-http-router.js` | `01c-runtime-flags.js` | backward | `coreMemoryCharBudget`, `coreMemoryMaxItems`, `memoryFixedSelectionMax`, `memoryRelevanceMax`, `observationRecallEnabled` |

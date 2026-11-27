@@ -8170,6 +8170,8 @@
       "layer": "unclassified",
       "provides": [
         "MemorySemanticRecall",
+        "memoryHeaderPrewarm",
+        "memoryRetrievalScorer",
         "memorySemanticRecall",
         "memorySemanticRetrieval"
       ],
@@ -8203,6 +8205,13 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01c-runtime-flags.js",
           "symbol": "MEMORY_SEND_SEMANTIC_BUDGET_MS",
           "kinds": [
@@ -8218,7 +8227,35 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "loadMemoryRegistry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryBodyAuthority",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryEntriesUnchanged",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "memoryExplicitRetrievalText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
           "kinds": [
             "call"
           ]
@@ -8240,6 +8277,27 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "memorySemanticBudgetSafe",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySnapshotToken",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryStatBaseline",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "projectKeyForCwd",
           "kinds": [
             "call"
           ]
@@ -16493,6 +16551,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemorySemanticHooks",
           "kinds": [
             "read"
           ]

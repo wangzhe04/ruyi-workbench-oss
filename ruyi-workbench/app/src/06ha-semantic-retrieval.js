@@ -61,7 +61,11 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,waitForCompletion=false,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,waitForCompletion=false,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored,documentScopeId}={}) {
+      // 152 L2: document vectors may live in a shared scope (memory headers are the same text in every session).
+      // The cache key still contains the exact identity and text, so only a caller holding that text can hit it.
+      // Query vectors, score evidence and the admission request stay bound to the per-request scopeId.
+      const docScope=typeof documentScopeId==='string'&&documentScopeId?documentScopeId:scopeId;
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
@@ -89,7 +93,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(purpose==='automatic'&&!(typeof minScore==='number'&&Number.isFinite(minScore)))return empty('disabled');
       const model=descriptor.modelFingerprint;if(typeof model!=='string'||!model.length||model.length>512)throw Error('semantic.invalid_model');
       let requestCodecToken=null;if(descriptor.modelId==='embeddinggemma-2-text-q4'){if(!codecProof)throw Error('semantic.untrusted_codec_result');requestCodecToken=codecProof.snapshot(model);if(requestCodecToken!==codecToken){clear();generation=cacheGeneration;codecToken=requestCodecToken;}}
-      const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(scopeId,model,['document',identities[n],text]));
+      const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(docScope,model,['document',identities[n],text]));
       let q=get(queries,qkey),status='ready';const cachedDocuments=keys.map(k=>get(documents,k)||null),vectors=cachedDocuments.map(row=>row?.vector||null),encodedTexts=cachedDocuments.map(row=>row?.encodedText??null);
       // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。只给非 Gemma 模型用 ——
       // Gemma 的分数证据要绑原文(encodedTexts),持久层不存原文。读盘途中缓存被清(撤权、换模型)就当没读到。
@@ -116,7 +120,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         texts=texts.slice(0,encodedCount);
         const minimumBudgetMs=minimumBudget(role,texts.length);
         if(finishDeadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
-        const encodeOptions={role,scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode};
+        const encodeOptions={role,scopeId:role==='document'?docScope:scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode,...(role==='query'?{priority:'query'}:{})};
         if(waitForSend)encodeOptions.budgetMs=8000;
         else if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
         let began=Date.now();
@@ -143,7 +147,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         if(result?.ok)callMsPerText[role]=Math.min(costCap,Math.max(12,callMsPerText[role]*0.6+perText*0.4));
         else if(result?.reason==='timeout')callMsPerText[role]=Math.min(costCap,Math.max(callMsPerText[role]*1.5,perText));
         if(!result?.ok){if(['unavailable','disabled','timeout','overloaded'].includes(result?.reason))return result;throw Error('semantic.encode_failed');}
-        const validated=descriptor.modelId==='embeddinggemma-2-text-q4'?codecProof.verify(result,{texts,role,scopeId,modelFingerprint:model}):result;
+        const validated=descriptor.modelId==='embeddinggemma-2-text-q4'?codecProof.verify(result,{texts,role,scopeId:encodeOptions.scopeId,modelFingerprint:model}):result;
         if(validated.modelFingerprint!==model||!Array.isArray(validated.vectors)||validated.vectors.length!==texts.length||!validated.vectors.every(vector))throw Error('semantic.invalid_vectors');
         const dimension=validated.vectors[0].length;if(descriptor.modelId==='embeddinggemma-2-text-q4'&&dimension!==768)throw Error('semantic.invalid_vectors');if(validated.vectors.some(v=>v.length!==dimension)||q&&q.length!==dimension)throw Error('semantic.invalid_vectors');
         return {ok:true,modelFingerprint:validated.modelFingerprint,vectors:validated.vectors.map(v=>v.slice()),...(validated.truncated?{truncated:validated.truncated.slice()}:{}),encodedCount};
@@ -209,7 +213,49 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
       return scored;
     }
-    return Object.freeze({score,clear,forget});
+    // 152 L2: encode documents ahead of any query, into the same cache rows score() reads. Nothing is scored or
+    // disclosed here; resolveTexts/beforeEncode keep the caller's source checks before every single-text batch.
+    // Background callers do not queue behind foreground work (maxWaitMs:0) and come back later on 'busy'.
+    async function prime(docs,{documentScopeId,identities=[],owners=[],signal,deadline=Infinity,maxEncodeDocuments=512,resolveTexts,beforeEncode,priority='background',maxWaitMs=0,gapMs=0}={}){
+      let generation=cacheGeneration;
+      const aborted=()=>{if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;};
+      const out=(status,extra={})=>({status,total:Array.isArray(docs)?docs.length:0,cached:0,encoded:0,...extra});
+      if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return out('unavailable');
+      if(typeof documentScopeId!=='string'||!documentScopeId||!Array.isArray(docs)||docs.length>documentLimit||docs.some(text=>typeof text!=='string'))throw Error('semantic.prime_invalid');
+      // A one-millisecond join: a cold runtime starts loading and this pass reports loading instead of waiting.
+      const descriptor=await runtime.prepare({scopeId:documentScopeId,signal,deadline:Math.min(deadline,Date.now()+250),budgetMs:1});
+      aborted();if(generation!==cacheGeneration)return out('unavailable');
+      if(!descriptor?.available)return out(['loading','warming'].includes(descriptor?.state)?'loading':String(descriptor?.reason||'unavailable'));
+      if(descriptor.modelId==='embeddinggemma-2-text-q4'&&descriptor.policyReady!==true)return out('unavailable');
+      const model=descriptor.modelFingerprint;if(typeof model!=='string'||!model.length||model.length>512)throw Error('semantic.invalid_model');
+      const gemma=descriptor.modelId==='embeddinggemma-2-text-q4';let token=null;
+      if(gemma){if(!codecProof)throw Error('semantic.untrusted_codec_result');token=codecProof.snapshot(model);if(token!==codecToken){clear();generation=cacheGeneration;codecToken=token;}}
+      const keys=docs.map((text,n)=>key(documentScopeId,model,['document',identities[n],text]));
+      const missing=[];for(let n=0;n<keys.length;n++)if(!documents.has(keys[n]))missing.push(n);
+      let status='ready',encoded=0;
+      for(const n of missing.slice(0,Math.max(0,Math.min(documentLimit,Math.floor(Number(maxEncodeDocuments)||0))))){
+        if(encoded && gapMs>0)await new Promise(resolve=>setTimeout(resolve,gapMs));
+        aborted();if(Date.now()>=deadline){status='timeout';break;}
+        const texts=typeof resolveTexts==='function'?await resolveTexts([n]):[docs[n]];aborted();
+        if(!Array.isArray(texts)||texts.length!==1||texts[0]!==null&&typeof texts[0]!=='string')throw Error('semantic.invalid_source');
+        if(generation!==cacheGeneration)return out('unavailable');
+        if(typeof texts[0]!=='string'||!texts[0].length||texts[0].length>8192){status='partial';continue;}
+        const result=await runtime.encode(texts,{role:'document',scopeId:documentScopeId,signal,priority,maxWaitMs,deadline:Math.min(deadline,Date.now()+2000),budgetMs:2000,beforeEncode});
+        aborted();if(generation!==cacheGeneration)return out('unavailable');
+        if(!result?.ok){if(['unavailable','disabled','timeout','overloaded'].includes(result?.reason)){status=result.reason==='overloaded'?'busy':result.reason;break;}throw Error('semantic.encode_failed');}
+        const validated=gemma?codecProof.verify(result,{texts,role:'document',scopeId:documentScopeId,modelFingerprint:model}):result;
+        if(validated.modelFingerprint!==model||!Array.isArray(validated.vectors)||validated.vectors.length!==1||!vector(validated.vectors[0])||gemma&&validated.vectors[0].length!==768)throw Error('semantic.invalid_vectors');
+        if(validated.truncated?.[0]){status='truncated';continue;}
+        documents.delete(keys[n]);documents.set(keys[n],{vector:validated.vectors[0].slice(),encodedText:texts[0],owner:typeof owners[n]==='string'?owners[n]:null});
+        while(documents.size>documentLimit)documents.delete(documents.keys().next().value);
+        encoded++;
+      }
+      if(generation!==cacheGeneration)return out('unavailable');
+      if(token){let current=null;try{current=codecProof.snapshot(model);}catch{current=null;}if(current!==token)return out('unavailable');}
+      const cached=keys.reduce((count,k)=>count+(documents.has(k)?1:0),0);
+      return out(status==='ready'&&cached<keys.length?'partial':status,{cached,encoded,modelFingerprint:model});
+    }
+    return Object.freeze({score,prime,clear,forget});
   }
 const SemanticWindowPolicy = (() => {
 // Unregistered research policy. Raw coarse rank is global to one complete

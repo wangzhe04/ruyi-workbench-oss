@@ -472,6 +472,7 @@ async function saveMemory(mem, cwd, opts = {}) {
   if (Buffer.byteLength(content, 'utf8') > 260 * 1024) return { ok: false, error: '记忆正文超过 256KB 上限(按 UTF-8 字节计,中文约 8 万字)' };   // 260KB=正文上限+frontmatter 余量,与读侧一致
   // 第25波 25.1: 收编 atomicWriteJson(载荷是 markdown 字符串,直接透传;获得 rename 重试 + 失败清 tmp)。
   memoryLibraryWriteGeneration++; try { await memoryBodyStore(dir, id).write(content); } finally { memoryLibraryWriteGeneration++; }
+  if (typeof MemorySemanticHooks !== 'undefined') MemorySemanticHooks.changed?.(cwd, memoryRetrievalKey({scope,id}));
   return { ok: true, memory: { id, scope, name, description, type, file: dest, createdAt, updatedAt, core, coreSummary, importance, reviewAfter, expiresAt } };
 }
 
@@ -493,6 +494,7 @@ async function deleteMemory(id, scope, cwd) {
       return { ok: false, unlinkFailed: true, error: `记忆文件删除失败(${code}):文件可能正被其它程序占用或没有删除权限,请关闭占用它的程序后重试` };
     }
   }
+  if (typeof MemorySemanticHooks !== 'undefined') MemorySemanticHooks.changed?.(cwd, memoryRetrievalKey({scope,id:safe}));
   await mutateMemoryUsageState(entries => { const key = scope === 'global' ? 'global:' + safe : 'project:' + projectKeyForCwd(cwd) + ':' + safe; if (!entries[key]) return false; delete entries[key]; });
   return { ok: true, deleted: safe, scope };
 }

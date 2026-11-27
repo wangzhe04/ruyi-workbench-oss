@@ -4,9 +4,9 @@
   "scanner": "dev-harness/module-dependency-graph.js",
   "summary": {
     "modules": 145,
-    "providedSymbols": 4462,
-    "requiredSymbols": 4404,
-    "edges": 972,
+    "providedSymbols": 4464,
+    "requiredSymbols": 4413,
+    "edges": 973,
     "forwardEdges": 67,
     "duplicateProvides": 0,
     "stronglyConnectedComponents": 1
@@ -8322,6 +8322,8 @@
       "note": "147: 已授权记忆候选的本地语义重排",
       "provides": [
         "MemorySemanticRecall",
+        "memoryHeaderPrewarm",
+        "memoryRetrievalScorer",
         "memorySemanticRecall",
         "memorySemanticRetrieval"
       ],
@@ -8355,6 +8357,13 @@
           ]
         },
         {
+          "provider": "01-config.js",
+          "symbol": "readConfig",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
           "provider": "01c-runtime-flags.js",
           "symbol": "MEMORY_SEND_SEMANTIC_BUDGET_MS",
           "kinds": [
@@ -8370,7 +8379,35 @@
         },
         {
           "provider": "06d-memory-domain.js",
+          "symbol": "loadMemoryRegistry",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryBodyAuthority",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryEntriesUnchanged",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
           "symbol": "memoryExplicitRetrievalText",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryIsExpired",
           "kinds": [
             "call"
           ]
@@ -8392,6 +8429,27 @@
         {
           "provider": "06d-memory-domain.js",
           "symbol": "memorySemanticBudgetSafe",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memorySnapshotToken",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "memoryStatBaseline",
+          "kinds": [
+            "call"
+          ]
+        },
+        {
+          "provider": "06d-memory-domain.js",
+          "symbol": "projectKeyForCwd",
           "kinds": [
             "call"
           ]
@@ -16683,6 +16741,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "MemoryCliHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "MemorySemanticHooks",
           "kinds": [
             "read"
           ]
@@ -39181,6 +39246,14 @@
     },
     {
       "from": "06hc-memory-semantic.js",
+      "to": "01-config.js",
+      "symbols": [
+        "readConfig"
+      ],
+      "direction": "backward"
+    },
+    {
+      "from": "06hc-memory-semantic.js",
       "to": "01c-runtime-flags.js",
       "symbols": [
         "MEMORY_SEND_SEMANTIC_BUDGET_MS",
@@ -39192,10 +39265,17 @@
       "from": "06hc-memory-semantic.js",
       "to": "06d-memory-domain.js",
       "symbols": [
+        "loadMemoryRegistry",
+        "memoryBodyAuthority",
+        "memoryEntriesUnchanged",
         "memoryExplicitRetrievalText",
+        "memoryIsExpired",
         "memoryRetrievalKey",
         "memoryRetrievalText",
         "memorySemanticBudgetSafe",
+        "memorySnapshotToken",
+        "memoryStatBaseline",
+        "projectKeyForCwd",
         "rankMemoriesForRecallDetailed",
         "rankRelevantMemoriesScored"
       ],
@@ -41306,6 +41386,7 @@
         "InternalMcpHooks",
         "MediaImageHooks",
         "MemoryCliHooks",
+        "MemorySemanticHooks",
         "MigrationHooks",
         "OVERLAY_ID",
         "ProxyModelHooks",

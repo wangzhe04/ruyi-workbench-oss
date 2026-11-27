@@ -46677,7 +46677,11 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
     const vector=value=>Array.isArray(value)&&value.length>0&&value.length<=8192&&value.every(Number.isFinite)&&value.some(n=>n!==0);
     const get=(map,k)=>{const v=map.get(k);if(v){map.delete(k);map.set(k,v);}return v;};
     function put(map,k,v,limit){map.delete(k);map.set(k,v.slice());while(map.size>limit)map.delete(map.keys().next().value);}
-    async function score(query,docs,{scopeId,signal,deadlineMs=1000,waitForCompletion=false,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored}={}) {
+    async function score(query,docs,{scopeId,signal,deadlineMs=1000,waitForCompletion=false,deadline:outerDeadline=Infinity,progressDeadline,identities=[],owners=[],maxEncodeDocuments=128,purpose='search',resolveTexts,beforeEncode,prepareCachedSources,policyContext,stored,documentScopeId}={}) {
+      // 152 L2: document vectors may live in a shared scope (memory headers are the same text in every session).
+      // The cache key still contains the exact identity and text, so only a caller holding that text can hit it.
+      // Query vectors, score evidence and the admission request stay bound to the per-request scopeId.
+      const docScope=typeof documentScopeId==='string'&&documentScopeId?documentScopeId:scopeId;
       let generation=cacheGeneration;
       const empty=status=>({status,scores:docs.map(()=>null),coverage:{cached:0,total:docs.length,complete:false}});
       if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return empty('unavailable');
@@ -46705,7 +46709,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(purpose==='automatic'&&!(typeof minScore==='number'&&Number.isFinite(minScore)))return empty('disabled');
       const model=descriptor.modelFingerprint;if(typeof model!=='string'||!model.length||model.length>512)throw Error('semantic.invalid_model');
       let requestCodecToken=null;if(descriptor.modelId==='embeddinggemma-2-text-q4'){if(!codecProof)throw Error('semantic.untrusted_codec_result');requestCodecToken=codecProof.snapshot(model);if(requestCodecToken!==codecToken){clear();generation=cacheGeneration;codecToken=requestCodecToken;}}
-      const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(scopeId,model,['document',identities[n],text]));
+      const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(docScope,model,['document',identities[n],text]));
       let q=get(queries,qkey),status='ready';const cachedDocuments=keys.map(k=>get(documents,k)||null),vectors=cachedDocuments.map(row=>row?.vector||null),encodedTexts=cachedDocuments.map(row=>row?.encodedText??null);
       // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。只给非 Gemma 模型用 ——
       // Gemma 的分数证据要绑原文(encodedTexts),持久层不存原文。读盘途中缓存被清(撤权、换模型)就当没读到。
@@ -46732,7 +46736,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         texts=texts.slice(0,encodedCount);
         const minimumBudgetMs=minimumBudget(role,texts.length);
         if(finishDeadline-Date.now()<minimumBudgetMs)return {ok:false,reason:'timeout'};
-        const encodeOptions={role,scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode};
+        const encodeOptions={role,scopeId:role==='document'?docScope:scopeId,signal,deadline:finishDeadline,minimumBudgetMs,beforeEncode,...(role==='query'?{priority:'query'}:{})};
         if(waitForSend)encodeOptions.budgetMs=8000;
         else if(finishDeadline>deadline)encodeOptions.budgetMs=finishDeadline-Date.now();
         let began=Date.now();
@@ -46759,7 +46763,7 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
         if(result?.ok)callMsPerText[role]=Math.min(costCap,Math.max(12,callMsPerText[role]*0.6+perText*0.4));
         else if(result?.reason==='timeout')callMsPerText[role]=Math.min(costCap,Math.max(callMsPerText[role]*1.5,perText));
         if(!result?.ok){if(['unavailable','disabled','timeout','overloaded'].includes(result?.reason))return result;throw Error('semantic.encode_failed');}
-        const validated=descriptor.modelId==='embeddinggemma-2-text-q4'?codecProof.verify(result,{texts,role,scopeId,modelFingerprint:model}):result;
+        const validated=descriptor.modelId==='embeddinggemma-2-text-q4'?codecProof.verify(result,{texts,role,scopeId:encodeOptions.scopeId,modelFingerprint:model}):result;
         if(validated.modelFingerprint!==model||!Array.isArray(validated.vectors)||validated.vectors.length!==texts.length||!validated.vectors.every(vector))throw Error('semantic.invalid_vectors');
         const dimension=validated.vectors[0].length;if(descriptor.modelId==='embeddinggemma-2-text-q4'&&dimension!==768)throw Error('semantic.invalid_vectors');if(validated.vectors.some(v=>v.length!==dimension)||q&&q.length!==dimension)throw Error('semantic.invalid_vectors');
         return {ok:true,modelFingerprint:validated.modelFingerprint,vectors:validated.vectors.map(v=>v.slice()),...(validated.truncated?{truncated:validated.truncated.slice()}:{}),encodedCount};
@@ -46825,7 +46829,49 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       if(descriptor.modelId==='embeddinggemma-2-text-q4')sealScoreEvidence(scored,{query,scopeId,modelFingerprint:model,docs,identities,queryVector:q,vectors,encodedTexts,stillCurrent:()=>generation===cacheGeneration&&codecProof.snapshot(model)===requestCodecToken});
       return scored;
     }
-    return Object.freeze({score,clear,forget});
+    // 152 L2: encode documents ahead of any query, into the same cache rows score() reads. Nothing is scored or
+    // disclosed here; resolveTexts/beforeEncode keep the caller's source checks before every single-text batch.
+    // Background callers do not queue behind foreground work (maxWaitMs:0) and come back later on 'busy'.
+    async function prime(docs,{documentScopeId,identities=[],owners=[],signal,deadline=Infinity,maxEncodeDocuments=512,resolveTexts,beforeEncode,priority='background',maxWaitMs=0,gapMs=0}={}){
+      let generation=cacheGeneration;
+      const aborted=()=>{if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;};
+      const out=(status,extra={})=>({status,total:Array.isArray(docs)?docs.length:0,cached:0,encoded:0,...extra});
+      if(!runtime||typeof runtime.prepare!=='function'||typeof runtime.encode!=='function')return out('unavailable');
+      if(typeof documentScopeId!=='string'||!documentScopeId||!Array.isArray(docs)||docs.length>documentLimit||docs.some(text=>typeof text!=='string'))throw Error('semantic.prime_invalid');
+      // A one-millisecond join: a cold runtime starts loading and this pass reports loading instead of waiting.
+      const descriptor=await runtime.prepare({scopeId:documentScopeId,signal,deadline:Math.min(deadline,Date.now()+250),budgetMs:1});
+      aborted();if(generation!==cacheGeneration)return out('unavailable');
+      if(!descriptor?.available)return out(['loading','warming'].includes(descriptor?.state)?'loading':String(descriptor?.reason||'unavailable'));
+      if(descriptor.modelId==='embeddinggemma-2-text-q4'&&descriptor.policyReady!==true)return out('unavailable');
+      const model=descriptor.modelFingerprint;if(typeof model!=='string'||!model.length||model.length>512)throw Error('semantic.invalid_model');
+      const gemma=descriptor.modelId==='embeddinggemma-2-text-q4';let token=null;
+      if(gemma){if(!codecProof)throw Error('semantic.untrusted_codec_result');token=codecProof.snapshot(model);if(token!==codecToken){clear();generation=cacheGeneration;codecToken=token;}}
+      const keys=docs.map((text,n)=>key(documentScopeId,model,['document',identities[n],text]));
+      const missing=[];for(let n=0;n<keys.length;n++)if(!documents.has(keys[n]))missing.push(n);
+      let status='ready',encoded=0;
+      for(const n of missing.slice(0,Math.max(0,Math.min(documentLimit,Math.floor(Number(maxEncodeDocuments)||0))))){
+        if(encoded && gapMs>0)await new Promise(resolve=>setTimeout(resolve,gapMs));
+        aborted();if(Date.now()>=deadline){status='timeout';break;}
+        const texts=typeof resolveTexts==='function'?await resolveTexts([n]):[docs[n]];aborted();
+        if(!Array.isArray(texts)||texts.length!==1||texts[0]!==null&&typeof texts[0]!=='string')throw Error('semantic.invalid_source');
+        if(generation!==cacheGeneration)return out('unavailable');
+        if(typeof texts[0]!=='string'||!texts[0].length||texts[0].length>8192){status='partial';continue;}
+        const result=await runtime.encode(texts,{role:'document',scopeId:documentScopeId,signal,priority,maxWaitMs,deadline:Math.min(deadline,Date.now()+2000),budgetMs:2000,beforeEncode});
+        aborted();if(generation!==cacheGeneration)return out('unavailable');
+        if(!result?.ok){if(['unavailable','disabled','timeout','overloaded'].includes(result?.reason)){status=result.reason==='overloaded'?'busy':result.reason;break;}throw Error('semantic.encode_failed');}
+        const validated=gemma?codecProof.verify(result,{texts,role:'document',scopeId:documentScopeId,modelFingerprint:model}):result;
+        if(validated.modelFingerprint!==model||!Array.isArray(validated.vectors)||validated.vectors.length!==1||!vector(validated.vectors[0])||gemma&&validated.vectors[0].length!==768)throw Error('semantic.invalid_vectors');
+        if(validated.truncated?.[0]){status='truncated';continue;}
+        documents.delete(keys[n]);documents.set(keys[n],{vector:validated.vectors[0].slice(),encodedText:texts[0],owner:typeof owners[n]==='string'?owners[n]:null});
+        while(documents.size>documentLimit)documents.delete(documents.keys().next().value);
+        encoded++;
+      }
+      if(generation!==cacheGeneration)return out('unavailable');
+      if(token){let current=null;try{current=codecProof.snapshot(model);}catch{current=null;}if(current!==token)return out('unavailable');}
+      const cached=keys.reduce((count,k)=>count+(documents.has(k)?1:0),0);
+      return out(status==='ready'&&cached<keys.length?'partial':status,{cached,encoded,modelFingerprint:model});
+    }
+    return Object.freeze({score,prime,clear,forget});
   }
 const SemanticWindowPolicy = (() => {
 // Unregistered research policy. Raw coarse rank is global to one complete
@@ -49869,6 +49915,7 @@ async function saveMemory(mem, cwd, opts = {}) {
   if (Buffer.byteLength(content, 'utf8') > 260 * 1024) return { ok: false, error: '记忆正文超过 256KB 上限(按 UTF-8 字节计,中文约 8 万字)' };   // 260KB=正文上限+frontmatter 余量,与读侧一致
   // 第25波 25.1: 收编 atomicWriteJson(载荷是 markdown 字符串,直接透传;获得 rename 重试 + 失败清 tmp)。
   memoryLibraryWriteGeneration++; try { await memoryBodyStore(dir, id).write(content); } finally { memoryLibraryWriteGeneration++; }
+  if (typeof MemorySemanticHooks !== 'undefined') MemorySemanticHooks.changed?.(cwd, memoryRetrievalKey({scope,id}));
   return { ok: true, memory: { id, scope, name, description, type, file: dest, createdAt, updatedAt, core, coreSummary, importance, reviewAfter, expiresAt } };
 }
 
@@ -49890,6 +49937,7 @@ async function deleteMemory(id, scope, cwd) {
       return { ok: false, unlinkFailed: true, error: `记忆文件删除失败(${code}):文件可能正被其它程序占用或没有删除权限,请关闭占用它的程序后重试` };
     }
   }
+  if (typeof MemorySemanticHooks !== 'undefined') MemorySemanticHooks.changed?.(cwd, memoryRetrievalKey({scope,id:safe}));
   await mutateMemoryUsageState(entries => { const key = scope === 'global' ? 'global:' + safe : 'project:' + projectKeyForCwd(cwd) + ':' + safe; if (!entries[key]) return false; delete entries[key]; });
   return { ok: true, deleted: safe, scope };
 }
@@ -52559,7 +52607,9 @@ const MemorySemanticRecall = (() => {
   // 调用方的回验回调经 SemanticFailurePolicy.guard 包过,它抛的(撤权、stale、取消、privacy、work_data)照常上抛。
   // 单文件 vm 夹具里没有 00-boot 时整体保守:不包、不降级(行为同修前)。
   const failures = typeof SemanticFailurePolicy !== 'undefined' ? SemanticFailurePolicy : { guard: fn => fn, degradable: () => false };
+  // 152 L1:发送前的自动召回从不无限等待。调用方给了期限就用它,没给就按默认软上限。
   const sendBudgetMs = () => typeof MEMORY_SEND_SEMANTIC_BUDGET_MS === 'number' ? MEMORY_SEND_SEMANTIC_BUDGET_MS : 400;
+  const HEADER_SCOPE = 'memory-headers', AUTOMATIC_SEMANTIC_ADDITIONS = false;
   const sendDeadline = context => Number.isFinite(context?.deadline) ? context.deadline : Date.now() + sendBudgetMs();
   function create(host) {
     const searchProgress = new Map();
@@ -52705,7 +52755,7 @@ const MemorySemanticRecall = (() => {
       let result;
       try {
         result = await host.score(query, texts, {
-          scopeId: context.scopeId, signal: context.signal, deadline: sendDeadline(context), waitForCompletion: true, maxEncodeDocuments: 16,
+          scopeId: context.scopeId, signal: context.signal, waitForCompletion: true, maxEncodeDocuments: 16, deadline: sendDeadline(context),
           // 每批编码之前的回验带上这一批待编码条目,宿主逐文件 stat 复核;批间 beforeEncode 只比令牌,末尾披露前再按披露集合 stat(150 号文 S2)。
           identities: selected.map(entry => [host.key(entry), entry.memoryVersion || '']), purpose: 'rerank', beforeEncode: () => context.check?.('finish'),
           // 复核 F2:每一批编码之前只 stat 这一批(≤4 条)的文件。
@@ -52724,13 +52774,70 @@ const MemorySemanticRecall = (() => {
       return { entries, baselineEntries: baseline.entries, rankingKeys: selected.map(entry => host.key(entry)), fillKeys: baseline.fillKeys,
         semantic: { status: 'reranked', mode: 'rerank-only', automaticCandidates: false, modelFingerprint: result.modelFingerprint, candidateCount: selected.length } };
     }
+    // 152 L2:发送时召回、显式检索与后台预编码共用同一份记忆头挑选与窗口编码身份,预编码出的向量正好是之后请求要查的那一行。
+    // 编码身份只含记忆键、版本、原文摘要与窗口坐标,与会话无关;文档向量落在共享的 HEADER_SCOPE 缓存里。
+    function headerSelection(registry, automatic) {
+      const fragmentLimit = automatic ? 512 : 128, charLimit = automatic ? 65536 : 16384, fragments = [], selected = [];
+      let omittedHeaders = 0, fragmentChars = 0;
+      for (const entry of registry.slice(0, 128)) {
+        const initialFragments = fragments.length, initialChars = fragmentChars;
+        const text = host.searchText ? host.searchText(entry) : host.text(entry); if (typeof text !== 'string' || text.length > 4096) continue;
+        let complete = true;
+        for (let start = 0; start < text.length;) {
+          let end = Math.min(text.length, start + 96); if (end < text.length && text.charCodeAt(end) >= 0xdc00 && text.charCodeAt(end) <= 0xdfff) end--;
+          if (fragments.length >= fragmentLimit || fragmentChars + end - start > charLimit) { complete = false; break; }
+          fragments.push({ entry, start, end, text: text.slice(start, end) }); fragmentChars += end - start;
+          if (end === text.length) break; start = end - 16; if (text.charCodeAt(start) >= 0xdc00 && text.charCodeAt(start) <= 0xdfff) start--;
+        }
+        if (automatic && !complete) { fragments.length = initialFragments; fragmentChars = initialChars; break; }
+        selected.push(entry);
+        if (!complete) omittedHeaders++;
+      }
+      omittedHeaders += registry.length - selected.length;
+      return { fragments, selected, omittedHeaders, fragmentLimit };
+    }
+    function headerRequest(selected, query, scopeId, maxRows) {
+      const request = SemanticAdmissionRequest.create({ query, scopeId, explicitMemory: true, identify: SemanticRetrieval.structuredIds,
+        normalize: text => text.normalize('NFKC').toLowerCase(), terms: retrievalTerms, maxRows }), fields = new Map(), owners = new Map();
+      try {
+        for (const entry of selected) {
+          const text = host.searchText ? host.searchText(entry) : host.text(entry); if (typeof text !== 'string' || text.length > 4096) continue;
+          const key = host.key(entry), revision = String(entry.memoryVersion || '');
+          const identity = { sourceId: JSON.stringify([scopeId, key]), field: 'memory.metadata', revision, epoch: scopeId, sourceRevision: crypto.createHash('sha256').update(text).digest('hex') };
+          const field = request.addField({ identity, text }, { kind: 'raw-metadata-v1', order: [key],
+            identityForWindow: window => ['memory-header-v1', key, revision, window.sourceRevision, window.start, window.end] });
+          fields.set(key, field); owners.set(identity.sourceId, entry);
+        }
+      } catch (error) { request.dispose(); throw error; }
+      return { request, fields, owners, entriesByField: new Map(selected.map(entry => [fields.get(host.key(entry)), entry])) };
+    }
+    const headerOwners = (request, input, entriesByField) => input.docs.map((_, n) => { const entry = entriesByField.get(request.fieldAt(n)); return entry ? host.key(entry) : null; });
+    function kickPrewarm(context, registry) { try { if (typeof host.prewarm === 'function' && typeof context?.cwd === 'string') host.prewarm(context.cwd, registry); } catch { /* 预编码只是提示 */ } }
+    // 152 L2:只编码不打分。与 search() 相同的挑选与编码身份;每一条编码之前 options.check 回验这一条的来源。
+    async function prime(registry, options = {}) {
+      const useGemma = typeof SemanticAdmissionRequest !== 'undefined' && typeof SemanticRuntimeTransportProof !== 'undefined' && SemanticRuntimeTransportProof.method() !== null;
+      if (typeof host.prime !== 'function' || !useGemma) return { status: 'unavailable', total: 0, cached: 0, encoded: 0 };
+      const { selected, fragmentLimit } = headerSelection(registry, true);
+      if (!selected.length) return { status: 'ready', total: 0, cached: 0, encoded: 0 };
+      const { request, entriesByField } = headerRequest(selected, 'memory header prewarm', HEADER_SCOPE, fragmentLimit);
+      try {
+        const input = request.inputs();
+        let sources = [];
+        return await host.prime(input.docs, { documentScopeId: HEADER_SCOPE, identities: input.identities, owners: headerOwners(request, input, entriesByField),
+          signal: options.signal, deadline: options.deadline, maxEncodeDocuments: fragmentLimit, gapMs: options.gapMs,
+          resolveTexts: async batch => { sources = batch.map(n => entriesByField.get(request.fieldAt(n))); await options.check?.(sources); return batch.map(n => input.docs[n]); },
+          beforeEncode: () => options.check?.(sources) });
+      } finally { request.dispose(); }
+    }
     function mergeAutomatic(baseline, admitted, scoreOf, limit) {
       const matches = baseline.entries.filter(entry => !baseline.fillKeys.has(host.key(entry)));
       const keys = new Set(matches.map(host.key));
       const best = Math.max(-Infinity, ...Array.from(admitted.values(), row => row.semanticScore));
       // Admission verifies the original header. On unattended sends also omit
       // marginal alternatives that trail the strongest admitted hit.
-      const additions = Array.from(admitted.values())
+      // 152 D1:SR2 未过、相对准入判据(152 Q1–Q3)过门之前,无人值守的发送只给已有关键词候选重排,不补纯语义命中。
+      // 显式检索不受影响。打开它只需改 AUTOMATIC_SEMANTIC_ADDITIONS,不改下面的判定。
+      const additions = !AUTOMATIC_SEMANTIC_ADDITIONS ? [] : Array.from(admitted.values())
         .filter(row => row.semanticScore >= best - 0.035 && !keys.has(host.key(row.entry)))
         .map(row => row.entry);
       const addedKeys = new Set(additions.map(host.key));
@@ -52748,7 +52855,7 @@ const MemorySemanticRecall = (() => {
       const result=(rows,status,extra={})=>{
         if (automaticBaseline) {
           const fallback = deferredRecall(status, 'existing-recall');
-          return { ...automaticBaseline, semantic: {status, mode:'hybrid-header-search', automaticCandidates:true,
+          return { ...automaticBaseline, semantic: {status, mode:AUTOMATIC_SEMANTIC_ADDITIONS?'hybrid-header-search':'rerank-only', automaticCandidates:AUTOMATIC_SEMANTIC_ADDITIONS,
             semanticOnlyMatches:0, ...extra, ...(fallback ? {fallback} : {})} };
         }
         const deferred = deferredRecall(status, rows.some(row=>row.semanticOnly) ? 'keywords-and-admitted-semantic' : 'keywords');
@@ -52767,31 +52874,14 @@ const MemorySemanticRecall = (() => {
       }
       // Full selected metadata is split before encoding; neither memory bodies
       // nor text-bearing identities enter this path. Coverage is explicit.
-      const fragments=[],selected=[];let omittedHeaders=0,fragmentChars=0;
-      for(const entry of registry.slice(0,128)){
-        const initialFragments=fragments.length,initialChars=fragmentChars;
-        const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;
-        let complete=true;
-        for(let start=0;start<text.length;){
-          let end=Math.min(text.length,start+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;
-          if(fragments.length>=128||fragmentChars+end-start>16384){complete=false;break;}
-          fragments.push({entry,start,end,text:text.slice(start,end)});fragmentChars+=end-start;
-          if(end===text.length)break;start=end-16;if(text.charCodeAt(start)>=0xdc00&&text.charCodeAt(start)<=0xdfff)start--;
-        }
-        if(automaticBaseline && !complete){ fragments.length=initialFragments; fragmentChars=initialChars; break; }
-        selected.push(entry);
-        if(!complete)omittedHeaders++;
-      }
-      omittedHeaders+=registry.length-selected.length;
-      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-128-eligible-headers',headerLimit:128,fragmentLimit:128,
+      const {fragments,selected,omittedHeaders,fragmentLimit}=headerSelection(registry,!!automaticBaseline);
+      const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-128-eligible-headers',headerLimit:128,fragmentLimit,
         candidateHeaders:registry.length,selectedHeaders:selected.length,fragments:fragments.length,omittedHeaders,headerComplete:omittedHeaders===0,
         encodedFragments:0,admissionEvaluated:false,complete:false};
       if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
       {
-        const deadline=automaticBaseline ? sendDeadline(context) : Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
+        const deadline=automaticBaseline ? sendDeadline(context) : Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,{request,fields,owners,entriesByField}=headerRequest(selected,query,scopeId,fragmentLimit);
         try{
-          for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
-          const entriesByField=new Map(selected.map(entry=>[fields.get(host.key(entry)),entry]));
           const input=request.inputs();let scored;
           const checkSources = () => context.check?.('finish', automaticBaseline ? undefined : selected);
           let encodingSources;
@@ -52802,7 +52892,7 @@ const MemorySemanticRecall = (() => {
           };
           try {
             scored = await host.score(query, input.docs, {
-              scopeId, signal:context.signal, deadline, maxEncodeDocuments:128, identities:input.identities,
+              scopeId, documentScopeId:HEADER_SCOPE, owners:headerOwners(request,input,entriesByField), signal:context.signal, deadline, maxEncodeDocuments:automaticBaseline?0:128, identities:input.identities,
               policyContext:input.policyContext, purpose:'search',
               beforeEncode:()=>context.check?.('finish', automaticBaseline ? encodingSources : selected),
               ...(automaticBaseline ? {resolveTexts:resolveBatch, waitForCompletion:true} : {}),
@@ -52812,7 +52902,7 @@ const MemorySemanticRecall = (() => {
             await context.check?.('finish'); return result(baseline,'unavailable',{coverage});
           }
           await context.check?.('finish');
-          if (automaticBaseline && scored.status !== 'ready') return fallback(scored.status);
+          if (automaticBaseline && scored.status !== 'ready') { kickPrewarm(context, selected); return fallback(scored.status); }
           const known=SemanticRetrieval.hasScoreEvidence(scored);
           if (!known && ['ready','partial'].includes(scored.status) && scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)
             throw Error('semantic.score_evidence_invalid');
@@ -52841,7 +52931,7 @@ const MemorySemanticRecall = (() => {
               bestByKey.set(key,{entry,shared:0,semanticOnly:true,semanticScore:score});
           }
           if (automaticBaseline) {
-            if (!known || !decision.complete) return fallback('partial');
+            if (!known || !decision.complete) { kickPrewarm(context, selected); return fallback('partial'); }
             const scores = new Map();
             for (let n=0; n<input.docs.length; n++) {
               const field=request.fieldAt(n), score=scored.scores[n];
@@ -52850,7 +52940,7 @@ const MemorySemanticRecall = (() => {
             await context.check?.('finish'); request.read();
             const merged = mergeAutomatic(automaticBaseline, bestByKey, entry=>scores.get(fields.get(host.key(entry))) ?? -2, limit);
             if (host.budgetSafe && !host.budgetSafe(merged.entries, config)) return fallback('budget');
-            return { ...merged, semantic:{status:'reranked',mode:'hybrid-header-search',automaticCandidates:true,
+            return { ...merged, semantic:{status:'reranked',mode:AUTOMATIC_SEMANTIC_ADDITIONS?'hybrid-header-search':'rerank-only',automaticCandidates:AUTOMATIC_SEMANTIC_ADDITIONS,
               modelFingerprint:scored.modelFingerprint,admissionPolicy:decision.policyId,candidateCount:merged.rankingKeys.length,
               semanticOnlyMatches:merged.semanticOnlyMatches,coverage:{...coverage,encodedFragments:scored.coverage.cached,
               admissionEvaluated:true,complete:decision.complete&&coverage.headerComplete}} };
@@ -52860,7 +52950,7 @@ const MemorySemanticRecall = (() => {
         }finally{request.dispose();}
       }
     }
-    return Object.freeze({ rank, search, clear:()=>{progressGeneration++;searchProgress.clear();} });
+    return Object.freeze({ rank, search, prime, clear:()=>{progressGeneration++;searchProgress.clear();} });
   }
   return Object.freeze({ create });
 })();
@@ -52876,15 +52966,79 @@ const memorySemanticRecall = MemorySemanticRecall.create({
   descriptor:()=>typeof SemanticRuntimeHooks.descriptor === 'function' ? SemanticRuntimeHooks.descriptor() : null,
   // Retry a failed worker through its existing cooldown.
   warm:()=>{ if (typeof SemanticRuntimeHooks.prewarm !== 'function') return; const task = SemanticRuntimeHooks.prewarm(); if (task && typeof task.catch === 'function') task.catch(() => {}); },
-  score: (query, texts, options) => {
-    if (!memorySemanticRetrieval) {
-      memorySemanticRetrieval = SemanticRetrieval.create(SemanticRuntimeHooks);
-      SemanticRuntimeHooks.registerCache?.(memorySemanticRecall.clear);
-    }
-    return memorySemanticRetrieval.score(query, texts, options);
-  },
+  score: (query, texts, options) => memoryRetrievalScorer().score(query, texts, options),
+  prime: (docs, options) => memoryRetrievalScorer().prime(docs, options),
+  prewarm: (cwd, entries) => memoryHeaderPrewarm.schedule(cwd, entries),
 });
-Object.assign(MemorySemanticHooks, { rank: (...args) => memorySemanticRecall.rank(...args), search: (...args) => memorySemanticRecall.search(...args), clear: () => { memorySemanticRecall.clear(); memorySemanticRetrieval?.clear(); } });
+function memoryRetrievalScorer() {
+  if (!memorySemanticRetrieval) {
+    memorySemanticRetrieval = SemanticRetrieval.create(SemanticRuntimeHooks);
+    SemanticRuntimeHooks.registerCache?.(memorySemanticRecall.clear);
+  }
+  return memorySemanticRetrieval;
+}
+// 152 L2:记忆头向量的后台预编码。发送时召回因向量没齐而退回关键词基线时被踢一下;按项目单飞,
+// 忙就稍后再来(后台优先级、不在 worker 租约上排队)。每编一条之前核对库与配置没变,变了就按新库重来。
+// 只把向量放进进程内缓存(与请求内编码同一行),不打分、不披露;语义关闭或库读不出(含工作数据锁定)时收工。
+const memoryHeaderPrewarm = (() => {
+  const running = new Map(), RETRY_MS = { busy: 400, timeout: 400, loading: 2000, partial: 2000 }, MAX_PASSES = 60;
+  const stale = Object.freeze({ memoryHeaderPrewarmStale: true });
+  // entries:发送路径刚挑出的那一份(已按会话排除、核心与原生 CLI 过滤)。没给时按库里未过期的条目。
+  async function pass(cwd, entries) {
+    const token = await memorySnapshotToken(cwd, { usage: false });
+    const config = await readConfig().catch(() => null);
+    if (!config || config.semanticRetrievalV1 === false || !memoryVectorRecallEnabled(config)) return null;
+    let registry;
+    try { registry = await loadMemoryRegistry(cwd); } catch { return null; }
+    const now = Date.now(), stats = memoryStatBaseline(registry), authority = registry.authority;
+    if (typeof authority !== 'string' && registry.length) return null;
+    if (Array.isArray(entries) && entries.length) {
+      // 只编仍在库里、版本未变的那几条;库在此之后再变由 check 截住。
+      const live = new Map(registry.map(entry => [memoryRetrievalKey(entry), entry]));
+      registry = entries.map(entry => live.get(memoryRetrievalKey(entry))).filter(entry => entry && !memoryIsExpired(entry, now));
+    } else registry = registry.filter(entry => !memoryIsExpired(entry, now));
+    const check = async (batch = []) => {
+      const current = await memorySnapshotToken(cwd, { usage: false });
+      if (current.library !== token.library || current.config !== token.config || batch.some(entry => memoryIsExpired(entry, Date.now()))) throw stale;
+      if (current.configTrusted === false) {
+        const live = await readConfig();
+        if (live.semanticRetrievalV1 === false || !memoryVectorRecallEnabled(live)) throw stale;
+      }
+      if (authority && await memoryBodyAuthority() !== authority || !await memoryEntriesUnchanged(batch, stats)) throw stale;
+    };
+    let result;
+    try { result = await memorySemanticRecall.prime(registry, { check, gapMs: 50, deadline: Date.now() + 120000 }); }
+    catch (error) { if (error === stale) return 0; throw error; }
+    return result.status === 'ready' ? null : Object.hasOwn(RETRY_MS, result.status) ? RETRY_MS[result.status] : null;
+  }
+  function schedule(cwd, entries, debounce = false) {
+    if (typeof cwd !== 'string') return;
+    const key = cwd ? projectKeyForCwd(cwd) : '', current = running.get(key), list = Array.isArray(entries) ? entries.slice(0, 128) : null;
+    if (current) {
+      current.again = true;
+      if (list) current.entries = list;
+      if (current.timer && current.debouncing) {
+        if (debounce) current.timer.refresh?.();
+        else { clearTimeout(current.timer); current.debouncing = false; current.timer = setTimeout(current.step, 0); current.timer.unref?.(); }
+      }
+      return;
+    }
+    const state = { again: false, passes: 0, entries: list, debouncing: debounce, timer: null, step: null };
+    running.set(key, state);
+    const step = state.step = async () => {
+      state.timer = null; state.debouncing = false;
+      let delay = null;
+      try { delay = await pass(cwd, state.entries); } catch { delay = null; }
+      state.passes++;
+      if (state.again) { state.again = false; if (delay === null) delay = 0; }
+      if (delay === null || state.passes >= MAX_PASSES) { running.delete(key); return; }
+      const timer = setTimeout(step, delay); timer.unref?.();
+    };
+    state.timer = setTimeout(step, debounce ? 2000 : 0); state.timer.unref?.();
+  }
+  return Object.freeze({ schedule, pending: () => running.size });
+})();
+Object.assign(MemorySemanticHooks, { changed: (cwd, owner) => { memorySemanticRetrieval?.forget(owner); if (SemanticRuntimeTransportProof.method() !== null) memoryHeaderPrewarm.schedule(cwd || '', null, true); }, prewarmGlobal: () => memoryHeaderPrewarm.schedule('', null, true), rank: (...args) => memorySemanticRecall.rank(...args), search: (...args) => memorySemanticRecall.search(...args), clear: () => { memorySemanticRecall.clear(); memorySemanticRetrieval?.clear(); } });
 if(typeof SemanticPolicyConsumers!=='undefined')SemanticPolicyConsumers.add('memory');
 
 // 第26波b: buildMissionPromptSection(mission, engine) —— <mission-ledger> 围栏,注入目标/里程碑进度/约束,
@@ -84959,7 +85113,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   config = await readConfig();
   // Fixed public warm input is encoded by the resident transport itself. No
   // user query/cache is involved, and HTTP/UI readiness does not await loading.
-  if (typeof SemanticRuntimeHooks.prewarm === 'function') setImmediate(() => { void SemanticRuntimeHooks.prewarm().catch(() => {}); });
+  if (typeof SemanticRuntimeHooks.prewarm === 'function') setImmediate(() => { void SemanticRuntimeHooks.prewarm().then(result => { if (result?.available) MemorySemanticHooks.prewarmGlobal?.(); }).catch(() => {}); });
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
   if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。

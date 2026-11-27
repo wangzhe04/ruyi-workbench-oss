@@ -2057,7 +2057,7 @@ async function startServerInner(opts, bindHost = resolveBindHost(opts), maintena
   config = await readConfig();
   // Fixed public warm input is encoded by the resident transport itself. No
   // user query/cache is involved, and HTTP/UI readiness does not await loading.
-  if (typeof SemanticRuntimeHooks.prewarm === 'function') setImmediate(() => { void SemanticRuntimeHooks.prewarm().catch(() => {}); });
+  if (typeof SemanticRuntimeHooks.prewarm === 'function') setImmediate(() => { void SemanticRuntimeHooks.prewarm().then(result => { if (result?.available) MemorySemanticHooks.prewarmGlobal?.(); }).catch(() => {}); });
   logEvent({ kind: 'server_start', port, launchMode: LAUNCH_MODE, version: VERSION });
   if (typeof ExternalBotHooks.start === 'function') ExternalBotHooks.start();
   // 122-§2.5:启动探针一律排在 listen 之后的 setImmediate 里(挪家详情见上面 autoImport 前那段注释)。
