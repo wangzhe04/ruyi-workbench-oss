@@ -197,6 +197,27 @@ function rewriteSameSize(file, from, to) {
       try { const out = await list('credential approval'); code = out.ok ? 'ok' : 'refused'; } catch (error) { code = error.code; } onEncode = null;
       ok(fired && code === 'work_data_key.absent' && docsAfter(at) === 0, `E2 显式检索:编码期间钥匙失效 → work_data 错误上抛,之后 0 段文档进编码器(${code}, 之后编码 ${docsAfter(at)} 段)`);
     } finally { a.setAuthority(realAuthority); onEncode = null; fs.writeFileSync(configFile, JSON.stringify(config)); }
+    // [L1] Exercise the automatic Gemma selection path with a cold document cache.
+    // The synthetic codec handles queries. Any foreground document call records the regression.
+    const baseline = await preflight('bulk record', { ...config, semanticRetrievalV1: false });
+    let foregroundDocuments = 0, foregroundQueries = 0;
+    a.setRuntime({ encode: async (texts, options) => {
+      if (options.role === 'document' && options.priority !== 'background') foregroundDocuments += texts.length;
+      if (options.role === 'query') foregroundQueries++;
+      return encode(texts, options);
+    } });
+    delete process.env.RUYI_DISABLE_SEMANTIC;
+    try {
+      const began = Date.now();
+      const cold = await preflight('bulk record');
+      const elapsed = Date.now() - began;
+      const receipt = cold.result.status.semantic;
+      ok(foregroundQueries === 1 && foregroundDocuments === 0 && elapsed <= 500,
+        `L1a cold send costs ${elapsed} ms, queries ${foregroundQueries}, foreground documents ${foregroundDocuments}`);
+      ok(receipt?.fallback?.method === 'existing-recall' && receipt.fallback.reason === receipt.status
+        && JSON.stringify(cold.result.entries.map(e => e.id)) === JSON.stringify(baseline.result.entries.map(e => e.id)),
+        `L1b cold send returns the keyword baseline and its fallback receipt (${receipt?.status})`);
+    } finally { process.env.RUYI_DISABLE_SEMANTIC = '1'; }
     a.activeChildren.delete(session.id);
   } catch (error) {
     t.fail('fatal: ' + (error && error.stack || error));

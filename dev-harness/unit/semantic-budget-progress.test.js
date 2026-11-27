@@ -119,29 +119,30 @@ test('cost hints must be synchronous finite milliseconds in range, and cannot su
   assert.equal(hints, 0, 'the source guard retains precedence over cost scheduling');
 });
 
-test('send preflight limits initial preparation but waits through worker contention and all batches', async () => {
+test('send preflight can join a contended query before its deadline without encoding cold documents', async () => {
   const clock = virtualClock();
   const timers = (fn, ms) => clock.delay(ms).then(fn);
   const retrieval = vm.runInNewContext(source + '\nSemanticRetrieval;', { require, Buffer, Date: clock.Date, setTimeout: timers });
-  let attempts = 0, queryCount = 0, documentCount = 0;
+  let attempts = 0;
   const scorer = retrieval.create({
     prepare: async options => {
       assert.equal(options.budgetMs, 250);
-      await clock.delay(200);
+      await clock.delay(180);
       return prepared;
     },
     encode: async (texts, options) => {
-      if (++attempts <= 14) return { ok: false, reason: 'overloaded' };
-      if (options.role === 'query') queryCount++;
-      else documentCount += texts.length;
-      await clock.delay(1300);
+      assert.equal(options.role, 'query');
+      if (++attempts === 1) return { ok: false, reason: 'overloaded' };
+      await clock.delay(50);
       return { ok: true, modelFingerprint: prepared.modelFingerprint, vectors: texts.map(() => vector(0)) };
     },
   });
-  const result = await scorer.score('question', Array.from({ length: 9 }, (_, i) => 'memory ' + i),
-    { scopeId: 'send', purpose: 'rerank', waitForCompletion: true });
-  assert.equal(result.status, 'ready');
-  assert.equal(result.coverage.complete, true);
-  assert.equal(queryCount, 1);
-  assert.equal(documentCount, 9);
+  const deadline = clock.now() + 400;
+  const result = await scorer.score('question', ['memory'], {
+    scopeId: 'send', purpose: 'search', waitForCompletion: true, deadline, maxEncodeDocuments: 0,
+  });
+  assert.equal(attempts, 2);
+  assert.equal(result.status, 'partial');
+  assert.equal(result.coverage.cached, 0);
+  assert.ok(clock.now() <= deadline);
 });

@@ -1,23 +1,26 @@
 'use strict';
 const {test}=require('node:test'),a=require('node:assert/strict'),fs=require('node:fs'),path=require('node:path'),vm=require('node:vm'),crypto=require('node:crypto'),{functionBlock,constBlock}=require('../lib/source-slice');
 const source=name=>fs.readFileSync(path.resolve(__dirname,'../../ruyi-workbench/app/src',name),'utf8');
-function setup(){const fakeToken=Object.freeze({});const c=vm.createContext({require,Buffer,Date,WeakRef,crypto,MemorySemanticHooks:{},SemanticRuntimeTransportProof:Object.freeze({snapshot:()=>fakeToken,verify:result=>({...result,vectors:result.vectors.map(v=>v.slice()),truncated:result.truncated?.slice()}) ,method:()=>fakeToken,isMethod:value=>value===fakeToken,lifecycle:()=>fakeToken})}),retrieval=source('06h-retrieval-index.js');vm.runInContext([constBlock(source('00-boot.js'),'SemanticFailurePolicy'),source('06h9-semantic-policy.js'),source('06ha-semantic-retrieval.js'),constBlock(retrieval,'RETRIEVAL_TEXT_CAP'),functionBlock(retrieval,'retrievalTerms'),source('06hc-memory-semantic.js'),functionBlock(source('10-context-governance.js'),'observationWindowAdmission')].join('\n'),c);const model=vm.runInContext('SemanticWindowPolicy.CONTRACT',c),calls=[];c.testRuntime={descriptor:()=>({modelId:model.modelId}),prepare:async()=>({available:true,policyReady:true,modelId:model.modelId,modelFingerprint:model.modelFingerprint,retrievalThresholds:{search:.70,automatic:null}}),encode:async(texts,opts)=>{calls.push({role:opts.role,texts:[...texts]});await opts.beforeEncode?.();return {ok:true,modelFingerprint:model.modelFingerprint,vectors:texts.map(text=>{const score=opts.role==='query'?1:/needle fact/.test(text)?.99:/accepted/.test(text)?.9:.1;return[score,Math.sqrt(1-score*score),...Array(766).fill(0)];})};}};const api=vm.runInContext('const scorer=SemanticRetrieval.create(testRuntime);let observationSemanticRetrieval=scorer;({MemorySemanticRecall,observationWindowAdmission,SemanticRetrieval,score:scorer.score});',c);return{c,api,calls,model};}
+function setup(){const fakeToken=Object.freeze({});const c=vm.createContext({require,Buffer,Date,WeakRef,crypto,MemorySemanticHooks:{},SemanticRuntimeTransportProof:Object.freeze({snapshot:()=>fakeToken,verify:result=>({...result,vectors:result.vectors.map(v=>v.slice()),truncated:result.truncated?.slice()}) ,method:()=>fakeToken,isMethod:value=>value===fakeToken,lifecycle:()=>fakeToken})}),retrieval=source('06h-retrieval-index.js');vm.runInContext([constBlock(source('00-boot.js'),'SemanticFailurePolicy'),source('06h9-semantic-policy.js'),source('06ha-semantic-retrieval.js'),constBlock(retrieval,'RETRIEVAL_TEXT_CAP'),functionBlock(retrieval,'retrievalTerms'),source('06hc-memory-semantic.js'),functionBlock(source('10-context-governance.js'),'observationWindowAdmission')].join('\n'),c);const model=vm.runInContext('SemanticWindowPolicy.CONTRACT',c),calls=[];c.testRuntime={descriptor:()=>({modelId:model.modelId}),prepare:async()=>({available:true,policyReady:true,modelId:model.modelId,modelFingerprint:model.modelFingerprint,retrievalThresholds:{search:.70,automatic:null}}),encode:async(texts,opts)=>{calls.push({role:opts.role,texts:[...texts]});await opts.beforeEncode?.();return {ok:true,modelFingerprint:model.modelFingerprint,vectors:texts.map(text=>{const score=opts.role==='query'?1:/needle fact/.test(text)?.99:/accepted/.test(text)?.9:.1;return[score,Math.sqrt(1-score*score),...Array(766).fill(0)];})};}};const api=vm.runInContext('const scorer=SemanticRetrieval.create(testRuntime);let observationSemanticRetrieval=scorer;({MemorySemanticRecall,observationWindowAdmission,SemanticRetrieval,prime:scorer.prime,score:scorer.score});',c);return{c,api,calls,model};}
 function memory(f,entries){return f.api.MemorySemanticRecall.create({fallback:()=>({entries,fillKeys:new Set()}),enabled:()=>true,budgetSafe:()=>true,lexical:(_r,q)=>entries.map(entry=>({entry,shared:entry.text.includes('needle')?1:0,score:1})),key:entry=>entry.id,text:entry=>entry.text,searchText:entry=>entry.text,descriptor:f.c.testRuntime.descriptor,score:f.api.score});}
 const context=()=>({scopeId:'scope',check:async()=>{}});
 test('actual memory Gemma2 global strongK bypass preserves lexical and never refills semantic winner',async()=>{const f=setup(),entries=[{id:'strong',memoryVersion:'1',text:'needle fact'},{id:'other',memoryVersion:'1',text:'accepted other text'}],r=await memory(f,entries).search(entries,'needle fact',5,{},context());a.deepEqual(Array.from(r.matched,e=>e.id),['strong']);a.equal(r.semantic.coverage.complete,true);a.equal(r.semantic.admissionPolicy,'embeddinggemma2-memory-distinct-k3-cos070-v1');});
 test('actual memory weak header is independently admitted, rejected sibling not retained as match',async()=>{const f=setup(),entries=[{id:'good',memoryVersion:'1',text:'accepted needle subject'},{id:'bad',memoryVersion:'1',text:'needle unrelated'}],r=await memory(f,entries).search(entries,'needle fact',5,{},context());a.deepEqual(Array.from(r.matched,e=>e.id),['good']);a.equal(r.matches.has('bad'),false);a.equal(r.semantic.coverage.complete,true);});
 test('actual memory authority denial after prepare preserves original falsy reason and sends no document',async()=>{const f=setup(),entries=[{id:'one',memoryVersion:'1',text:'accepted needle subject'}];let count=0,caught=Symbol();try{await memory(f,entries).search(entries,'needle fact',5,{}, {scopeId:'scope',check:async()=>{if(++count===2)throw 0;}});}catch(e){caught=e;}a.equal(caught,0);a.equal(f.calls.length,0);});
-test('send preflight unions admitted semantic headers with keyword hits and promotes a rule fill just once',async()=>{
+test('152 D1: send preflight reranks keyword hits by Gemma score but does not promote a semantic-only header',async()=>{
   const f=setup(), entries=['needle subject','accepted needle guide','accepted different wording','unrelated'].map((text,i)=>({id:'m'+i,text}));
-  const rank=f.api.MemorySemanticRecall.create({
+  const recall=f.api.MemorySemanticRecall.create({
     fallback:()=>({entries:[entries[0],entries[1],entries[2]],fillKeys:new Set(['m2'])}),
     enabled:()=>true,budgetSafe:()=>true,lexical:()=>entries.slice(0,2).map(entry=>({entry,shared:1,score:1})),
-    key:entry=>entry.id,text:entry=>entry.text,score:f.api.score
-  }).rank;
-  const r=await rank(entries,'needle fact',3,{},context());
-  a.deepEqual(Array.from(r.entries,e=>e.id),['m1','m2','m0']);
-  a.equal(r.fillKeys.has('m2'),false);a.equal(r.semantic.semanticOnlyMatches,1);
-  a.equal(r.semantic.automaticCandidates,true);
+    key:entry=>entry.id,text:entry=>entry.text,score:f.api.score,prime:f.api.prime
+  });
+  a.equal((await recall.prime(entries)).status,'ready');
+  const r=await recall.rank(entries,'needle fact',3,{},context());
+  // 9c0e1d8f promoted the admitted rule fill m2 to a match (['m1','m2','m0'], semanticOnlyMatches 1). Until a relative
+  // admission rule passes a frozen set (152 Q1–Q3), unattended sends keep m2 as a fill and only reorder m0/m1.
+  a.deepEqual(Array.from(r.entries,e=>e.id),['m1','m0','m2']);
+  a.equal(r.fillKeys.has('m2'),true);a.equal(r.semantic.semanticOnlyMatches,0);
+  a.equal(r.semantic.automaticCandidates,false);
   a.equal(r.semantic.coverage.complete,true);
 });
 function observationArgs(f,fragments,extra={}){return{scopeId:'observation:scope',deadline:Date.now()+1000,poolComplete:true,check:async()=>{},fieldText:row=>row.full,identity:row=>({sourceId:row.id,field:'tool.content',revision:'r',epoch:'e',sourceRevision:'sr'}),coordinates:row=>[row.start,row.start+row.text.length],order:row=>[row.id],identities:fragments.map(row=>[row.id,row.start]),...extra};}
@@ -68,7 +71,11 @@ test('send-time discovery keeps keyword fallback while warming and checks the so
   const fallback=await cold.rank(entries,'question',8,{},context());
   a.equal(fallback.semantic.status,'loading');a.equal(fallback.entries.length,0);
   const denied=Error('source revoked');
-  await a.rejects(f.api.MemorySemanticRecall.create(host).rank(entries,'question',8,{},{
+  // Cache the header first. A cached vector still requires a live source check before use.
+  const memory=f.api.MemorySemanticRecall.create({...host,prime:f.api.prime});
+  a.equal((await memory.prime(entries)).status,'ready');
+  f.calls.length=0;
+  await a.rejects(memory.rank(entries,'question',8,{},{
     scopeId:'scope',check:async(_phase,watched)=>{if(watched?.includes(entries[0]))throw denied;},
   }),error=>error===denied);
   a.equal(f.calls.some(call=>call.role==='document'),false);
