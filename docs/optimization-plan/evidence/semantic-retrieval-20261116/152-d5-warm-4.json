@@ -1,0 +1,633 @@
+{
+  "serverSha256": "93796dfbda0490bcccd110895778cfe8fcd377882a6f289c49d7cc2a270b6473",
+  "availableParallelism": 2,
+  "model": "sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73",
+  "scope": "128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms",
+  "cold": {
+    "query": "西红柿",
+    "status": "partial",
+    "elapsedMs": 156.85869999999977,
+    "checks": 9,
+    "checksMs": 9.204500000000735,
+    "evaluateMs": 0,
+    "queryMs": 84.53709999999865,
+    "checkPhases": {
+      "start": {
+        "calls": 1,
+        "ms": 3.8900000000003274
+      },
+      "finish": {
+        "calls": 7,
+        "ms": 4.285200000000259
+      },
+      "disclosure": {
+        "calls": 1,
+        "ms": 1.0293000000001484
+      }
+    },
+    "queryEvents": [
+      {
+        "kind": "estimate",
+        "minimumBudgetMs": 150,
+        "remainingMs": 376
+      },
+      {
+        "kind": "sent",
+        "remainingMs": 374
+      },
+      {
+        "kind": "reply",
+        "roundTripMs": 82,
+        "workerMs": 81.0349000000001,
+        "ok": true
+      }
+    ],
+    "otherMs": 63.11710000000039,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0,
+    "parentCpuMicros": {
+      "user": 125000,
+      "system": 0
+    },
+    "softTimeouts": 0
+  },
+  "prewarmMs": 21858,
+  "warm": [
+    {
+      "query": "heart attack",
+      "status": "reranked",
+      "elapsedMs": 148.98919999999998,
+      "checks": 13,
+      "checksMs": 28.520200000006298,
+      "evaluateMs": 9.666400000001886,
+      "queryMs": 83.07890000000043,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 3.136000000002241
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.9078000000044995
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.8783000000003085
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.97979999999734
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.9794000000001688
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.6389000000017404
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 141,
+          "remainingMs": 388
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 386
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 81,
+          "workerMs": 80.26219999999739,
+          "ok": true
+        }
+      ],
+      "otherMs": 27.723699999991368,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 62000,
+        "system": 47000
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "paid time off",
+      "status": "reranked",
+      "elapsedMs": 141.9938000000002,
+      "checks": 13,
+      "checksMs": 27.90060000000085,
+      "evaluateMs": 5.227300000002288,
+      "queryMs": 84.15919999999824,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 3.3267999999989115
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.152200000004086
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5506999999997788
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.20499999999811
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 1.1530999999995402
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5128000000004249
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 134,
+          "remainingMs": 388
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 385
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 81,
+          "workerMs": 80.18180000000211,
+          "ok": true
+        }
+      ],
+      "otherMs": 24.70669999999882,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 63000,
+        "system": 47000
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "骑脚踏车",
+      "status": "reranked",
+      "elapsedMs": 165.4274000000005,
+      "checks": 13,
+      "checksMs": 39.51910000000862,
+      "evaluateMs": 5.179499999994732,
+      "queryMs": 89.12569999999687,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 15.345900000000256
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.901400000002468
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5126000000018394
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.116100000002916
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.6612999999997555
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.9818000000013853
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 130,
+          "remainingMs": 376
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 374
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 87,
+          "workerMs": 85.84879999999976,
+          "ok": true
+        }
+      ],
+      "otherMs": 31.603100000000268,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 62000,
+        "system": 78000
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "bicycle",
+      "status": "reranked",
+      "elapsedMs": 134.44190000000162,
+      "checks": 13,
+      "checksMs": 26.944699999996374,
+      "evaluateMs": 4.746799999997165,
+      "queryMs": 77.93059999999969,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.5429999999978463
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 5.029499999996915
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.6261000000013155
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 17.227100000000064
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.9827000000004773
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5362999999997555
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 131,
+          "remainingMs": 390
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 389
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 76,
+          "workerMs": 75.01780000000144,
+          "ok": true
+        }
+      ],
+      "otherMs": 24.8198000000084,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 32000,
+        "system": 0
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "tomato",
+      "status": "reranked",
+      "elapsedMs": 142.3112000000001,
+      "checks": 13,
+      "checksMs": 27.50209999999788,
+      "evaluateMs": 4.280699999999342,
+      "queryMs": 79.00280000000566,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 3.652799999999843
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 3.835799999997107
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5122000000010303
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 18.36319999999978
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.5950000000011642
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5430999999989581
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 126,
+          "remainingMs": 390
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 388
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 77,
+          "workerMs": 76.17729999999938,
+          "ok": true
+        }
+      ],
+      "otherMs": 31.525599999997212,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 62000,
+        "system": 16000
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "心肌梗死",
+      "status": "reranked",
+      "elapsedMs": 144.90380000000005,
+      "checks": 13,
+      "checksMs": 27.054500000005646,
+      "evaluateMs": 4.13039999999819,
+      "queryMs": 86.98089999999502,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.8388000000013562
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.1516000000046915
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.6582999999991443
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 17.915400000001682
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.7714999999989232
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.7188999999998487
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 123,
+          "remainingMs": 389
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 388
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 85,
+          "workerMs": 83.96229999999923,
+          "ok": true
+        }
+      ],
+      "otherMs": 26.738000000001193,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 31000,
+        "system": 47000
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "annual leave",
+      "status": "reranked",
+      "elapsedMs": 153.39849999999933,
+      "checks": 13,
+      "checksMs": 39.51460000000225,
+      "evaluateMs": 4.388299999998708,
+      "queryMs": 82.16379999999845,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 2.7158999999992375
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 5.989000000001397
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 14.330799999999726
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 15.496900000001915
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.5460999999995693
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.43590000000040163
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 126,
+          "remainingMs": 390
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 388
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 80,
+          "workerMs": 78.99779999999737,
+          "ok": true
+        }
+      ],
+      "otherMs": 27.33179999999993,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 79000,
+        "system": 78000
+      },
+      "softTimeouts": 0
+    },
+    {
+      "query": "how to bake sourdough bread",
+      "status": "reranked",
+      "elapsedMs": 157.02530000000115,
+      "checks": 13,
+      "checksMs": 32.608900000002905,
+      "evaluateMs": 3.7435000000004948,
+      "queryMs": 92.93369999999777,
+      "checkPhases": {
+        "start": {
+          "calls": 1,
+          "ms": 8.742500000000291
+        },
+        "finish": {
+          "calls": 7,
+          "ms": 4.262500000004366
+        },
+        "policy-start": {
+          "calls": 1,
+          "ms": 0.5678999999981897
+        },
+        "header-batch": {
+          "calls": 2,
+          "ms": 17.880700000001525
+        },
+        "policy-finish": {
+          "calls": 1,
+          "ms": 0.5686999999998079
+        },
+        "disclosure": {
+          "calls": 1,
+          "ms": 0.5865999999987253
+        }
+      },
+      "queryEvents": [
+        {
+          "kind": "estimate",
+          "minimumBudgetMs": 125,
+          "remainingMs": 383
+        },
+        {
+          "kind": "sent",
+          "remainingMs": 381
+        },
+        {
+          "kind": "reply",
+          "roundTripMs": 90,
+          "workerMs": 89.71939999999813,
+          "ok": true
+        }
+      ],
+      "otherMs": 27.739199999999983,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0,
+      "parentCpuMicros": {
+        "user": 46000,
+        "system": 78000
+      },
+      "softTimeouts": 0
+    }
+  ],
+  "secondSession": {
+    "query": "heart attack",
+    "status": "reranked",
+    "elapsedMs": 139.5584000000017,
+    "checks": 13,
+    "checksMs": 25.70100000000457,
+    "evaluateMs": 4.149399999998423,
+    "queryMs": 81.384399999999,
+    "checkPhases": {
+      "start": {
+        "calls": 1,
+        "ms": 2.584599999998318
+      },
+      "finish": {
+        "calls": 7,
+        "ms": 4.2885000000023865
+      },
+      "policy-start": {
+        "calls": 1,
+        "ms": 0.5927000000010594
+      },
+      "header-batch": {
+        "calls": 2,
+        "ms": 16.825199999999313
+      },
+      "policy-finish": {
+        "calls": 1,
+        "ms": 0.8831000000027416
+      },
+      "disclosure": {
+        "calls": 1,
+        "ms": 0.5269000000007509
+      }
+    },
+    "queryEvents": [
+      {
+        "kind": "estimate",
+        "minimumBudgetMs": 130,
+        "remainingMs": 390
+      },
+      {
+        "kind": "sent",
+        "remainingMs": 388
+      },
+      {
+        "kind": "reply",
+        "roundTripMs": 79,
+        "workerMs": 78.36579999999958,
+        "ok": true
+      }
+    ],
+    "otherMs": 28.323599999999715,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0,
+    "parentCpuMicros": {
+      "user": 47000,
+      "system": 62000
+    },
+    "softTimeouts": 0
+  },
+  "summary": {
+    "elapsedMs": {
+      "median": 146.94650000000001,
+      "p95": 165.4274000000005
+    },
+    "queryMs": {
+      "median": 83.61904999999933,
+      "p95": 92.93369999999777
+    },
+    "checksMs": {
+      "median": 28.210400000003574,
+      "p95": 39.51910000000862
+    },
+    "checks": {
+      "median": 13,
+      "p95": 13
+    },
+    "evaluateMs": {
+      "median": 4.5675499999979365,
+      "p95": 9.666400000001886
+    },
+    "otherMs": {
+      "median": 27.52774999999565,
+      "p95": 31.603100000000268
+    }
+  }
+}

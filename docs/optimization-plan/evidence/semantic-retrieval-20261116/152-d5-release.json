@@ -1,0 +1,71 @@
+{
+  "schema": 1,
+  "implementationCommit": "37a731ee",
+  "platform": "Windows x64",
+  "profile": {
+    "lockSha256": "4d8a3a8a0671140d0a7cec346ca00fe933a9fc10f8bbd14cda598123053963a8",
+    "model": "sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73",
+    "space": "sha256:e761ff886bb020cf113fd75b6ce37d0a9f3ec1bd9824db788597d6d8830e8f64"
+  },
+  "package": {
+    "bytes": 1171964790,
+    "sha256": "25caf497dbd9f94ca10fdae78b1c04ce7e5c3103e2124e1acfcb648d5b4f8227",
+    "exe": "6ebda60d3f7b62b8cf4ad754e03a2ccb72eabc6e6f5f1c3c18914cf5702a16c6",
+    "portable": "55e9ce2831808533f0c558001763334e4dfb7f72e56b42ac57bac73e5ce18002",
+    "server": "93796dfbda0490bcccd110895778cfe8fcd377882a6f289c49d7cc2a270b6473"
+  },
+  "windowsLifetime": {
+    "directNode": {
+      "graceful": {
+        "state": "ready",
+        "exit": 0,
+        "remaining": [],
+        "privateHomes": 0,
+        "originalHomeRemoved": true,
+        "afterSha256": "aaf4c021db8a12f37939aa4a6c1cda56e5ad5ac0698877e9a6df063baa1fd409"
+      },
+      "ctrl-c": {
+        "state": "ready",
+        "exit": 0,
+        "remaining": [],
+        "privateHomes": 0,
+        "originalHomeRemoved": true,
+        "afterSha256": "2ac94858877a8953de975c3ee6c665df993fce9c69c51c2120318443dabf96f5"
+      }
+    },
+    "packagedExe": {
+      "passed": 2,
+      "failed": 0,
+      "receiptSha256": "01826dd81b9bb2dc265d8ebbf4d5a80a6f9806808bc978057f73f3f80548d6d3"
+    },
+    "desktopIdleSemantic": {
+      "passed": 5,
+      "failed": 0,
+      "receiptSha256": "b07f17661915250b92f94b7ddbe0ec952a13d48dec955c17bad74ca6795c1120"
+    }
+  },
+  "relocatedSearch": {
+    "node": {
+      "passed": 42,
+      "failed": 0,
+      "receiptSha256": "eee1b6739304c304efa4f435ceb9ac48e21ec853c98bfd4cb4f89444b12d61c2"
+    },
+    "exe": {
+      "passed": 42,
+      "failed": 0,
+      "receiptSha256": "eee1b6739304c304efa4f435ceb9ac48e21ec853c98bfd4cb4f89444b12d61c2"
+    }
+  },
+  "observedFailures": {
+    "directCliColdStart": {
+      "status": "unavailable",
+      "rerun": "same frozen profile passed both modes",
+      "originalPhase": "unobserved"
+    },
+    "invalidExplicitProfile": {
+      "entry": "bundled Node",
+      "failedSemanticAssertions": 4,
+      "defaultProfileRerun": "42 passed; explicit development override removed"
+    }
+  }
+}

@@ -1,0 +1,4557 @@
+{
+  "mode": "quality-warm",
+  "serverSha256": "93796dfbda0490bcccd110895778cfe8fcd377882a6f289c49d7cc2a270b6473",
+  "samples": [
+    {
+      "ms": 2665.029800000004,
+      "resultDigest": "f1ca7de208dac1406a82eb4a8dcafbd09884a799cdfa84d7baccbedd342cdb23",
+      "encodeMs": [
+        76.57239999999001
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 2678.2932999999903,
+      "resultDigest": "7e2610b0dd33ac25adc5b743dfbc517e81bddb9b4e2b4f8500bd7b2bef020c97",
+      "encodeMs": [
+        108.60369999999239
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 2355.0274999999965,
+      "resultDigest": "5565d033241b2ede156aa2a0105d8ff3c79ef93243f948bf8d2295b77d6ec59f",
+      "encodeMs": [
+        81.08079999999609
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 2618.5153999999893,
+      "resultDigest": "4c79185ef26dc7a2ea90f3f15dcab5ea96b57e29fdeb8d7e57f721dcb73344ad",
+      "encodeMs": [
+        143.7055999999866
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 2674.303899999999,
+      "resultDigest": "1e0b6711d8c4a02040c046c2c228a4814d5573ec772b35dbcbb1285a2283c4e4",
+      "encodeMs": [
+        89.0219999999972
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 2633.6217999999935,
+      "resultDigest": "37935ec58530c37cb283ea0cb3bd353cd3a4ff47f83fe255581e01997c21ea61",
+      "encodeMs": [
+        158.49259999999776
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 2795.1601000000082,
+      "resultDigest": "11759d8df15527fc6a2de1ad78ed325d0142c4c6e699b824da3412d7f87503cd",
+      "encodeMs": [
+        108.98629999998957
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 2896.7004000000015,
+      "resultDigest": "11759d8df15527fc6a2de1ad78ed325d0142c4c6e699b824da3412d7f87503cd",
+      "encodeMs": [
+        73.70639999999548
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 2614.3954999999987,
+      "resultDigest": "2e5dc18340e3f1b2d06fe0adea642657a0f7e1252cabe3ae3426ec5e2279f4c5",
+      "encodeMs": [
+        107.74629999999888
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 3015.3464999999997,
+      "resultDigest": "87ba8f3b47c55ee2cfc2d7bbb8bd1d0ce840f5e441ef2803c9d40353bdb63fd2",
+      "encodeMs": [
+        146.43429999999353
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 2723.7543999999907,
+      "resultDigest": "fae7711f7abe762ff58df9d292fbfafdfb517bda908915e9114c7bb0c92c5831",
+      "encodeMs": [
+        114.57849999998871
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 2962.953199999989,
+      "resultDigest": "fae7711f7abe762ff58df9d292fbfafdfb517bda908915e9114c7bb0c92c5831",
+      "encodeMs": [
+        90.90780000001541
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1721.6111000000092,
+      "resultDigest": "9bb372a1175388cd7eddc3feed459290bd0fc4257d3b2debea2b27f4f754c8ca",
+      "encodeMs": [
+        79.40640000000712
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1692.0239000000001,
+      "resultDigest": "18337347b038bd42d32cfcff0208d0be22baeac1d310ef09247660c6a66212f0",
+      "encodeMs": [
+        83.87020000000484
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 1593.0613000000012,
+      "resultDigest": "d940e8c625b994d5f96e4d0bea60639aa0276cdb5f9e02e0a1bbc00fee25b830",
+      "encodeMs": [
+        76.22890000001644
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1572.0578999999852,
+      "resultDigest": "4dd4f6a53eb3ab110db1edc0fb2fdee58435e6cf78b9738c1565f2af911135c8",
+      "encodeMs": [
+        77.76350000000093
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1520.0430000000051,
+      "resultDigest": "97ca7ec5e224c5aeea9872b469e40a9c2a2339a15bd5f1c10c08241d2c5435c3",
+      "encodeMs": [
+        80.03839999999036
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1563.815499999997,
+      "resultDigest": "9c34dff3cd80d7edf8a2d6bbce2ee3353018a4f3250d96b5dbee33f0457e5288",
+      "encodeMs": [
+        77.32889999999315
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 1509.0334999999905,
+      "resultDigest": "3315a0d12dc904f6241d16ea0068d0ecf3273ad9a6e4f6fbcf31989e566fa976",
+      "encodeMs": [
+        85.91559999997844
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1486.823000000004,
+      "resultDigest": "5a760e1f24495e41a767574ab0949678ef1a47c1f05123531c3237171697ceb3",
+      "encodeMs": [
+        91.4028999999864
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1417.6428000000014,
+      "resultDigest": "4615338e65f57eefe8969e15663a9613b163b9f030df1af010aef224a5386c6b",
+      "encodeMs": [
+        69.6244000000006
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1471.0779999999795,
+      "resultDigest": "0fc0d9f81f1c8c09fcdcec008eb0417763790548eff5c57ea0930610c3979029",
+      "encodeMs": [
+        71.82679999998072
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1505.5693000000028,
+      "resultDigest": "5ee717b3f5e76fc701adeea2dad45ac4c0655eb3306553bca24362fa9485ac86",
+      "encodeMs": [
+        90.46609999999055
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1481.6322999999975,
+      "resultDigest": "5ee717b3f5e76fc701adeea2dad45ac4c0655eb3306553bca24362fa9485ac86",
+      "encodeMs": [
+        82.30260000002454
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1705.1466000000073,
+      "resultDigest": "f34fa20dc7602d7f35af0d87756176c25fd2a37f4d24347bce6dfc9522e23d59",
+      "encodeMs": [
+        74.84780000001774
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1440.6489000000001,
+      "resultDigest": "9c114b03cb84f7aefc68c1b93dd70f28898211ca2cc54e202856a86cccdb1d6b",
+      "encodeMs": [
+        68.96480000001611
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1536.8598000000056,
+      "resultDigest": "2b9f63483219cc8a7e13ca063306108abc01bf07a8ecf3569ac4a0dc36c3363f",
+      "encodeMs": [
+        96.57150000002002
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1342.7572999999975,
+      "resultDigest": "71de6f26754f1ef8d80a71cc3f912473e951b8f42fc53f6babca52861978e947",
+      "encodeMs": [
+        69.7609999999986
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1417.8800000000047,
+      "resultDigest": "640166503c2ed9b9b90292d664c1675f35c139adda0b04b0b9338e1fdadd4e92",
+      "encodeMs": [
+        72.7323000000033
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1454.4979999999923,
+      "resultDigest": "76e8168d4ecc41e17991596c92563af6eca158d0f123679bd45d80fdb86be904",
+      "encodeMs": [
+        82.08430000001681
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 0
+    },
+    {
+      "ms": 1422.8393000000215,
+      "resultDigest": "d7dc8aa80179da150950e486ec09c287f39bf774b404199716ab3db58bf479c7",
+      "encodeMs": [
+        73.19960000002175
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1445.0769999999902,
+      "resultDigest": "d7dc8aa80179da150950e486ec09c287f39bf774b404199716ab3db58bf479c7",
+      "encodeMs": [
+        77.5228000000061
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1461.3984000000055,
+      "resultDigest": "906c0146693dcd6f14b629a72d463a09040a76841aa5c86c60c5174dbd1a4ac4",
+      "encodeMs": [
+        84.69349999999395
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1366.0150999999896,
+      "resultDigest": "906c0146693dcd6f14b629a72d463a09040a76841aa5c86c60c5174dbd1a4ac4",
+      "encodeMs": [
+        72.3463000000047
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1430.5431000000099,
+      "resultDigest": "e901ffb675957ebf382e6196556b9d47ee1e5bdcefdb7ca7db99c06f7c2bec64",
+      "encodeMs": [
+        82.33619999999064
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1443.5062000000034,
+      "resultDigest": "d47ec385b180e9b9069548ff9909c9dc44d3e3b6844c144e898ed6a7cff0fa7c",
+      "encodeMs": [
+        76.6657000000123
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 1406.4946000000054,
+      "resultDigest": "a651663ffe95aa5ee4f05989799d9dc8102d9debe7228911469a8dfded1194bd",
+      "encodeMs": [
+        91.83719999997993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1453.2286000000022,
+      "resultDigest": "cec8c8d67aa30da0c7f1d3d120e0b3c91584735e2d9910bfdd552fff518ae926",
+      "encodeMs": [
+        74.71470000001136
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1350.3760000000184,
+      "resultDigest": "304bb160030cbfb399fc75f1c2d73e3c599431527826385b716c63985c69cd31",
+      "encodeMs": [
+        76.57039999999688
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1592.1251999999804,
+      "resultDigest": "8263153dff6591facbc0dbc1dcad7c2836f256cafa25ef5486c366e818f0e9cb",
+      "encodeMs": [
+        83.0679999999993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1402.4137000000046,
+      "resultDigest": "cd96c2b87692602584d8239615d33b4332bb51ac7e488e47eb52a7696b0e20c5",
+      "encodeMs": [
+        94.38139999998384
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1558.876099999994,
+      "resultDigest": "2e8aae5499e5d4986c12984ec36164e0307236fcab1874d93013b98d4cbaca7c",
+      "encodeMs": [
+        69.34659999998985
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 1331.4297000000079,
+      "resultDigest": "97183695e51a9ec41ae934e151f0598f131184b2b2f540da1d4d6f0a39335cba",
+      "encodeMs": [
+        73.78029999998398
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1327.43710000001,
+      "resultDigest": "83384378e8fe125da37cfaa8002d22bc0c8194a815fa25cfca336994ecd2ae8e",
+      "encodeMs": [
+        73.9890000000014
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 1316.7002999999968,
+      "resultDigest": "b3df109b3f40352e30e4713ab4349bc1fc3e353329a948e1ab16fa42d5091f3b",
+      "encodeMs": [
+        90.99309999999241
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1268.4216000000015,
+      "resultDigest": "43bb72e004c7db03267b06deaedec71e6baf4d639c6bda834faf32a2bd74dcdf",
+      "encodeMs": [
+        80.84949999998207
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1361.5106999999844,
+      "resultDigest": "6a08ffac5a393fe857e9d4b53bad7692f94d581d62107eb4e2b8dd3420f54579",
+      "encodeMs": [
+        83.55389999999898
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1335.2517999999982,
+      "resultDigest": "284941825058f6354e61b01c0d86126f924d0cf439b43cd983591b7064f26f19",
+      "encodeMs": [
+        80.8114999999816
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1409.9662000000244,
+      "resultDigest": "bf6f649fac5ae19457d7912f8e7452565836f0408125aa1a39108505e4b7ad20",
+      "encodeMs": [
+        75.73180000000866
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1287.2557999999844,
+      "resultDigest": "efdc28d7f6248b5d5adc239739d1dc3a83296e1b7244f8ab2d57776a6708e94a",
+      "encodeMs": [
+        70.52600000001257
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 1
+    },
+    {
+      "ms": 1281.789699999994,
+      "resultDigest": "781fededa0045ebfebb56203f7cb509876304f3cbd2949096678bf6da0049452",
+      "encodeMs": [
+        63.80710000000545
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1322.260099999985,
+      "resultDigest": "cdd3ee37a5d9c83e890db4a22ba41ffb715b9cf32d095b92a80bd029bac047c8",
+      "encodeMs": [
+        68.3065999999817
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 1297.452099999995,
+      "resultDigest": "56605e055d7d3e212287b0b2c36ab3ea0213f0820ebca93233c45d8e23ed3aa0",
+      "encodeMs": [
+        72.35639999998966
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1398.898199999996,
+      "resultDigest": "e8ec13c8fc45825e25a06d049a897986ea70f96bfc68d7774981d96072d373fa",
+      "encodeMs": [
+        67.22510000001057
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 1377.4554000000062,
+      "resultDigest": "9263ad7568ceb019e4dec4a54cefd8a2c546eda3d613cf0a27e48d9092e303e0",
+      "encodeMs": [
+        82.61540000000969
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1297.5380000000005,
+      "resultDigest": "236f008782aab12d8e1bc54a5833540dae6e53450a5e817e0c4e844a2a26880c",
+      "encodeMs": [
+        72.73060000000987
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1278.7973000000056,
+      "resultDigest": "3b88dfb29ed9708c431d6727e586d02e816fa589b918e5fc7a791134e8b74b20",
+      "encodeMs": [
+        75.89509999999427
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1274.0009999999893,
+      "resultDigest": "66b25344cf13220db5c6f338a737cd411e06a718d09bb384c98087e8fdfc6fb5",
+      "encodeMs": [
+        74.9600999999966
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 1289.858200000017,
+      "resultDigest": "3ce008401b05ec90ce11b676e203e4a225d89b1ef96c7c27572bd7efcd906a18",
+      "encodeMs": [
+        64.71839999998338
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1304.7262000000046,
+      "resultDigest": "7187b0069abd3f2c6626f4d7001109dd66a82fa77bd12ff445f7e17da499bfc1",
+      "encodeMs": [
+        73.09779999998864
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1357.3184000000183,
+      "resultDigest": "040a3257a6da90ef3ebd3b599aa7b1ebf10fce2c9dfda6e3713bcc22eb540cad",
+      "encodeMs": [
+        67.76780000000144
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1269.4720000000088,
+      "resultDigest": "bdbbffe914edab3c117cade501e73d11616625ebd01bffcc6725859210a07a44",
+      "encodeMs": [
+        69.86259999999311
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1420.346900000004,
+      "resultDigest": "6b9f077b555a2bd293e0be57b75bdb7fbe26eb2044dad9f3ac087d2b6d73fde9",
+      "encodeMs": [
+        67.7554999999993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1339.3641000000061,
+      "resultDigest": "6b9f077b555a2bd293e0be57b75bdb7fbe26eb2044dad9f3ac087d2b6d73fde9",
+      "encodeMs": [
+        71.6423000000068
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1397.1463999999978,
+      "resultDigest": "f520c9f621a70b8f5262c6b6c41042497914cca28ab4bd79618cc96820584a59",
+      "encodeMs": [
+        77.57680000000983
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1448.5660999999964,
+      "resultDigest": "9180762ef9c2db0706873bfe3b74f89425dab533460bde95c3ed2fb1798d1f1a",
+      "encodeMs": [
+        67.91339999999036
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 1289.7825000000012,
+      "resultDigest": "4e8a2efaaa92beaf41a096199c199da78502a37155f029d65e311b9881a13751",
+      "encodeMs": [
+        75.38730000000214
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1332.7324999999837,
+      "resultDigest": "e7afd5ba6d90b15150afe5932a6d1f62ae0a4b603b77ae3a47dcd9164c8c4f99",
+      "encodeMs": [
+        80.25400000001537
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 1328.7147000000114,
+      "resultDigest": "4201ae9903ccdf4207c6ef0aa812270e5f58d1e578399067dc672b060998e2c7",
+      "encodeMs": [
+        67.12790000002133
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1303.5985999999975,
+      "resultDigest": "ed5dd7d64f5a22d3b08f94311231a5ec9c257dbc8e2fb680b01d127690f32bf3",
+      "encodeMs": [
+        62.89900000000489
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 0
+    },
+    {
+      "ms": 1285.0013000000035,
+      "resultDigest": "1affc68e3dc62da852877bb1fc6e941474da62d179c27b3eb79fcf15dd0b14ba",
+      "encodeMs": [
+        71.2563000000082
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1269.336099999986,
+      "resultDigest": "1affc68e3dc62da852877bb1fc6e941474da62d179c27b3eb79fcf15dd0b14ba",
+      "encodeMs": [
+        72.44610000000102
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1237.0227000000014,
+      "resultDigest": "e901ffb675957ebf382e6196556b9d47ee1e5bdcefdb7ca7db99c06f7c2bec64",
+      "encodeMs": [
+        72.38099999999395
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1240.285899999988,
+      "resultDigest": "abef9593259c3d353175f1b8ff0a1dbda096059dab0edcb00e753414fc50531d",
+      "encodeMs": [
+        71.08130000001984
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 1
+    },
+    {
+      "ms": 1275.9084000000148,
+      "resultDigest": "b3df109b3f40352e30e4713ab4349bc1fc3e353329a948e1ab16fa42d5091f3b",
+      "encodeMs": [
+        82.28620000000228
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1435.2583000000159,
+      "resultDigest": "d9f330e3dd70f6633a32882d34c4e1536bb56cd5692d504a7c5d4efecafcc78f",
+      "encodeMs": [
+        99.74460000000545
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1280.1270999999833,
+      "resultDigest": "7303165ee9fcacaa97d6a89048cb1ec4336b412f8d397346205add98d38b7506",
+      "encodeMs": [
+        65.20690000001923
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1295.4155000000028,
+      "resultDigest": "9e731eae6fa368d75838c2efd469eefba05447abb4f52dae840207f1e1eb57de",
+      "encodeMs": [
+        74.72620000000461
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 1311.8544999999867,
+      "resultDigest": "ea2b30716dd9ce88ccdd5d72167c1d67e6925b05c611798a10c6decaebdd76bf",
+      "encodeMs": [
+        69.6135999999824
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1234.6404000000039,
+      "resultDigest": "897961ecd1f32e454f5dc278870db63ed4cc7ea22b150a71dc49ced9e20700f1",
+      "encodeMs": [
+        65.65140000000247
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1193.718200000003,
+      "resultDigest": "a668434732309a26a15ba5e93df003100a860765e44bf059e7f44b6bed2ec04d",
+      "encodeMs": [
+        68.61620000001858
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1198.0795999999973,
+      "resultDigest": "4de4eba646feee0b313940590c7496a0024023058e3dead592d7c7f195d40002",
+      "encodeMs": [
+        76.83929999999236
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 1277.5525999999954,
+      "resultDigest": "3a4e7fcb0955c52e824579f5cacdf3f75701b1934e29b1fc7f3c611c94f78b49",
+      "encodeMs": [
+        74.28310000000056
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1262.8901999999944,
+      "resultDigest": "65a76c3b5290f53dcbadc113ec7c8b0701c33aa36824cbd1696d2c253181ae99",
+      "encodeMs": [
+        74.238400000002
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1328.1931999999797,
+      "resultDigest": "c51a9c9d53c10b02e1f4e32b2a10905dac79b0d8c02e3226183c40720b101fbd",
+      "encodeMs": [
+        67.5792000000074
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1227.6933999999892,
+      "resultDigest": "c51a9c9d53c10b02e1f4e32b2a10905dac79b0d8c02e3226183c40720b101fbd",
+      "encodeMs": [
+        74.90219999998226
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1401.4474000000046,
+      "resultDigest": "562abcb790cf9b60cbcca44df701d7dcfc3af2eab7d7f758cbe913db96c3c5cc",
+      "encodeMs": [
+        70.88889999999083
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1521.6925000000047,
+      "resultDigest": "562abcb790cf9b60cbcca44df701d7dcfc3af2eab7d7f758cbe913db96c3c5cc",
+      "encodeMs": [
+        79.82640000001993
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1650.5780999999843,
+      "resultDigest": "2a8a317f3343e73276d96ac5b7c4da82b29a009415ff57f3d5ffecfe08b1e93d",
+      "encodeMs": [
+        85.20160000000033
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1533.0604000000167,
+      "resultDigest": "2a8a317f3343e73276d96ac5b7c4da82b29a009415ff57f3d5ffecfe08b1e93d",
+      "encodeMs": [
+        85.40759999997681
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1619.1402999999991,
+      "resultDigest": "48fda9711d4f84acd335df97d9753d02fa5b6a1246dcfdb87ece3b6bba965c67",
+      "encodeMs": [
+        85.61690000002272
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1815.5207999999984,
+      "resultDigest": "26ddfaf34896d979e4b2c5f0773030d15d5f52fff2af20ad5e54e55c6ebdbadf",
+      "encodeMs": [
+        82.402700000006
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 5,
+      "rank": 2
+    },
+    {
+      "ms": 2363.204400000017,
+      "resultDigest": "fd37e717d33b9d2a5fa58891e7e7e032b78190b2389d8d897ba9213b21186664",
+      "encodeMs": [
+        173.69110000002547
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1957.7695999999996,
+      "resultDigest": "b4c7e924e0d2eef3df1725eb637b3ca008e29de3d0ae1c892dabb1918ceafb7a",
+      "encodeMs": [
+        102.02689999999711
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1499.8408000000054,
+      "resultDigest": "5565d033241b2ede156aa2a0105d8ff3c79ef93243f948bf8d2295b77d6ec59f",
+      "encodeMs": [
+        88.17740000001504
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "zh-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1543.1753000000026,
+      "resultDigest": "655fcef1b82775934814b08b1a89fae213a91dc5bd746855e434d083e6f2a6ae",
+      "encodeMs": [
+        76.39660000000731
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "en-en",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 698.1965999999957,
+      "resultDigest": "3ceb2184c4e18ad32f2bce58ffbd370bcefa27f21942ab20f0edb6480c6cd46c",
+      "encodeMs": [
+        69.99550000001909
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 11,
+      "cached": 11,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 757.1661000000022,
+      "resultDigest": "1779f645a41a88b34fd652f626803d7f436c262c06013564fcc0332e882f56d2",
+      "encodeMs": [
+        87.74189999999362
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 712.6491999999853,
+      "resultDigest": "c0ee2f69107ada20cf51543a45368a7328eea3858705563946eba5808272ad9c",
+      "encodeMs": [
+        55.21270000000368
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 743.3355999999912,
+      "resultDigest": "c12c0eb0451e549f53f7c5fb862ec0283dc902d918485a3c2eda1256fb46a602",
+      "encodeMs": [
+        67.26399999999558
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 689.1141999999818,
+      "resultDigest": "27920ddbbbf4a0534a199369fec3560979c750b6eafc173a45aec9653c075ec7",
+      "encodeMs": [
+        63.73680000001332
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 718.1839000000036,
+      "resultDigest": "ab05670c0c1b2645f7e8b2398542dfd0a1edd4ba09f2b679fbce905ad33d6557",
+      "encodeMs": [
+        60.1302999999898
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 793.5687000000034,
+      "resultDigest": "70b4554ea382a67cd4e03514b4d0da12a4af8df1108bafae47f0a94a8d4f103a",
+      "encodeMs": [
+        66.87749999997322
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 712.1852000000072,
+      "resultDigest": "ae935cb43a8975d8f86260f89b590c89d0fafa44453f3a8ceab35ae0150e998a",
+      "encodeMs": [
+        60.478000000002794
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 753.472700000013,
+      "resultDigest": "0261177578fff4c9e679a1342dcae2eee009919732b0ca6f847a6b939e755abb",
+      "encodeMs": [
+        61.43390000000363
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 785.2728000000061,
+      "resultDigest": "fd6d28da5d7fffce85401b1888caa992ace95433cf665e2453e00fd048966f9e",
+      "encodeMs": [
+        78.4200000000128
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 12,
+      "cached": 12,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 746.4775999999838,
+      "resultDigest": "fede97b9b01e1bbea1cdc5b96c5d786fdf009e73ad8e4c71424dbbf60e7ed961",
+      "encodeMs": [
+        68.57850000000326
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 700.0381000000052,
+      "resultDigest": "6333c2dbcfa793ad82d8749d4e4361e51ed30d636e59382af7ba1ce4cc226f25",
+      "encodeMs": [
+        55.417099999962375
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 1,
+      "cached": 1,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "exact-entity",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1465.278099999996,
+      "resultDigest": "5565d033241b2ede156aa2a0105d8ff3c79ef93243f948bf8d2295b77d6ec59f",
+      "encodeMs": [
+        93.36619999998948
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1312.018299999996,
+      "resultDigest": "1e0b6711d8c4a02040c046c2c228a4814d5573ec772b35dbcbb1285a2283c4e4",
+      "encodeMs": [
+        74.24320000002626
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1511.4953000000096,
+      "resultDigest": "398d13499dc3b3c920accb53604e300a2271b4b3e50e66ace5cc5d07facd0686",
+      "encodeMs": [
+        67.20039999997243
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1396.7714999999735,
+      "resultDigest": "97ca7ec5e224c5aeea9872b469e40a9c2a2339a15bd5f1c10c08241d2c5435c3",
+      "encodeMs": [
+        82.06560000003083
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1581.3793999999762,
+      "resultDigest": "1371521f146ab3292f9d38b9bbfbe0e7a094e691a40cfe1903b445a59550ae5a",
+      "encodeMs": [
+        82.52939999999944
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1897.2555000000284,
+      "resultDigest": "d7dc8aa80179da150950e486ec09c287f39bf774b404199716ab3db58bf479c7",
+      "encodeMs": [
+        106.8021000000299
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1744.965599999996,
+      "resultDigest": "9a683716f5b606e02877659380a79249603e1c545b06f7982616fe810bec6223",
+      "encodeMs": [
+        95.14600000000792
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 1
+    },
+    {
+      "ms": 1825.778500000015,
+      "resultDigest": "6ec02103fba713e80924b386ba988e25c2fc35275b6ce26f345396d810d46d49",
+      "encodeMs": [
+        97.21869999996852
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 4,
+      "rank": 2
+    },
+    {
+      "ms": 2339.923299999966,
+      "resultDigest": "6b9f077b555a2bd293e0be57b75bdb7fbe26eb2044dad9f3ac087d2b6d73fde9",
+      "encodeMs": [
+        267.48179999995045
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1716.493199999968,
+      "resultDigest": "79ef4b90aa360770f75130f675e025ccec209f4b128ed2cadd27c5ec86a4533d",
+      "encodeMs": [
+        79.37249999999767
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1716.429300000018,
+      "resultDigest": "ca3c577d24c7c073b692c84b80bd10bfd376ff183e6f4cad14a181d26fb69c53",
+      "encodeMs": [
+        82.62720000004629
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1596.4269000000204,
+      "resultDigest": "9e37687f4a5d8e126c4ac125352e4619f9d02f9481fbb7b2f3aff84bb356483e",
+      "encodeMs": [
+        91.56260000000475
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "correction",
+      "kind": "positive",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 1563.1160000000382,
+      "resultDigest": "f1ca7de208dac1406a82eb4a8dcafbd09884a799cdfa84d7baccbedd342cdb23",
+      "encodeMs": [
+        87.96000000002095
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1611.607799999998,
+      "resultDigest": "11759d8df15527fc6a2de1ad78ed325d0142c4c6e699b824da3412d7f87503cd",
+      "encodeMs": [
+        89.81520000001183
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1560.3013999999966,
+      "resultDigest": "fae7711f7abe762ff58df9d292fbfafdfb517bda908915e9114c7bb0c92c5831",
+      "encodeMs": [
+        98.18869999999879
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1587.1403999999748,
+      "resultDigest": "d940e8c625b994d5f96e4d0bea60639aa0276cdb5f9e02e0a1bbc00fee25b830",
+      "encodeMs": [
+        91.59529999998631
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1503.8550999999861,
+      "resultDigest": "71de6f26754f1ef8d80a71cc3f912473e951b8f42fc53f6babca52861978e947",
+      "encodeMs": [
+        92.42369999998482
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1381.7138999999734,
+      "resultDigest": "906c0146693dcd6f14b629a72d463a09040a76841aa5c86c60c5174dbd1a4ac4",
+      "encodeMs": [
+        80.41180000000168
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1294.587499999965,
+      "resultDigest": "5caa6ec5f8714131e9a067facb57ec64b25d26c8d87903b46644e89b79911ea8",
+      "encodeMs": [
+        66.32539999997243
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1273.284800000023,
+      "resultDigest": "284941825058f6354e61b01c0d86126f924d0cf439b43cd983591b7064f26f19",
+      "encodeMs": [
+        74.82990000001155
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-zh",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1278.0239999999758,
+      "resultDigest": "bf6f649fac5ae19457d7912f8e7452565836f0408125aa1a39108505e4b7ad20",
+      "encodeMs": [
+        69.16690000001108
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1280.9855000000098,
+      "resultDigest": "236f008782aab12d8e1bc54a5833540dae6e53450a5e817e0c4e844a2a26880c",
+      "encodeMs": [
+        65.20339999999851
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1284.4873999999836,
+      "resultDigest": "040a3257a6da90ef3ebd3b599aa7b1ebf10fce2c9dfda6e3713bcc22eb540cad",
+      "encodeMs": [
+        68.85109999997076
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1255.6349000000046,
+      "resultDigest": "d940e8c625b994d5f96e4d0bea60639aa0276cdb5f9e02e0a1bbc00fee25b830",
+      "encodeMs": [
+        75.64110000000801
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1376.7388999999966,
+      "resultDigest": "e901ffb675957ebf382e6196556b9d47ee1e5bdcefdb7ca7db99c06f7c2bec64",
+      "encodeMs": [
+        68.58260000002338
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1348.0049,
+      "resultDigest": "ea2b30716dd9ce88ccdd5d72167c1d67e6925b05c611798a10c6decaebdd76bf",
+      "encodeMs": [
+        76.88860000000568
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1257.5946000000113,
+      "resultDigest": "d2f5688c6a89e2765e031d9d62f3a92c4b125034699e732828719d4d5256f87c",
+      "encodeMs": [
+        65.11690000002272
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1263.446100000001,
+      "resultDigest": "fd37e717d33b9d2a5fa58891e7e7e032b78190b2389d8d897ba9213b21186664",
+      "encodeMs": [
+        78.88250000000698
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-to-en",
+      "kind": "positive",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1305.0482000000193,
+      "resultDigest": "6d9c43e1d3f7ca341790a26006ed03869f89ce7f942e35658d06866173408261",
+      "encodeMs": [
+        73.15710000001127
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1222.8908999999985,
+      "resultDigest": "cfff8576e6a7144c45672d88bfbb575a25c2f47220fb1ab0bef3b56a32d47576",
+      "encodeMs": [
+        76.25239999999758
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1328.5417000000016,
+      "resultDigest": "d940e8c625b994d5f96e4d0bea60639aa0276cdb5f9e02e0a1bbc00fee25b830",
+      "encodeMs": [
+        59.724900000030175
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1241.7593000000343,
+      "resultDigest": "97ca7ec5e224c5aeea9872b469e40a9c2a2339a15bd5f1c10c08241d2c5435c3",
+      "encodeMs": [
+        65.94919999997364
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1351.2908999999636,
+      "resultDigest": "fe6ed8a513461fcf5379b7583768bbcac64fa9baaac9dc6d1396098bec7202c4",
+      "encodeMs": [
+        75.19310000003316
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1280.8781000000308,
+      "resultDigest": "8263153dff6591facbc0dbc1dcad7c2836f256cafa25ef5486c366e818f0e9cb",
+      "encodeMs": [
+        73.82760000001872
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1201.903900000034,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        61.02090000000317
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1208.7704999999842,
+      "resultDigest": "3b88dfb29ed9708c431d6727e586d02e816fa589b918e5fc7a791134e8b74b20",
+      "encodeMs": [
+        60.66239999997197
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1354.3658999999752,
+      "resultDigest": "fe0cb1e654725959a76223aecba6474301d1786e759bda74b913549ce8e99ab8",
+      "encodeMs": [
+        65.09149999998044
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 2,
+      "rank": 2
+    },
+    {
+      "ms": 1268.4204000000027,
+      "resultDigest": "76837934db98b968ba24441afb935c86e32615fc781adb878cfb7fa4e8341ee8",
+      "encodeMs": [
+        67.40039999998407
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 2,
+      "rank": 1
+    },
+    {
+      "ms": 1252.3691000000108,
+      "resultDigest": "a668434732309a26a15ba5e93df003100a860765e44bf059e7f44b6bed2ec04d",
+      "encodeMs": [
+        70.82380000001285
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1293.796399999992,
+      "resultDigest": "4e2ada97ac526469448fef5b71fbb6091645e1bf6e27880e7c040eb739d67e04",
+      "encodeMs": [
+        68.28100000001723
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-field",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 1288.4098999999696,
+      "resultDigest": "5565d033241b2ede156aa2a0105d8ff3c79ef93243f948bf8d2295b77d6ec59f",
+      "encodeMs": [
+        78.18979999999283
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1256.2902999999933,
+      "resultDigest": "bfbaca3c2747d2caf4706c924723ee10941ac9d257570f68b29411cfc58df4a0",
+      "encodeMs": [
+        71.80780000000959
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1208.8209999999963,
+      "resultDigest": "3315a0d12dc904f6241d16ea0068d0ecf3273ad9a6e4f6fbcf31989e566fa976",
+      "encodeMs": [
+        74.95150000002468
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1220.3291000000318,
+      "resultDigest": "4615338e65f57eefe8969e15663a9613b163b9f030df1af010aef224a5386c6b",
+      "encodeMs": [
+        77.84799999999814
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1318.5032999999821,
+      "resultDigest": "1371521f146ab3292f9d38b9bbfbe0e7a094e691a40cfe1903b445a59550ae5a",
+      "encodeMs": [
+        71.78409999998985
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1292.4263999999966,
+      "resultDigest": "43bb72e004c7db03267b06deaedec71e6baf4d639c6bda834faf32a2bd74dcdf",
+      "encodeMs": [
+        73.58809999999357
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1294.882500000007,
+      "resultDigest": "c3aee9929ff0d3ace3fc453ef1608e4353f5daa12edaf3e0ca97ba2a70510398",
+      "encodeMs": [
+        65.62430000002496
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 1257.778500000015,
+      "resultDigest": "3ce008401b05ec90ce11b676e203e4a225d89b1ef96c7c27572bd7efcd906a18",
+      "encodeMs": [
+        69.43280000000959
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1383.7534999999916,
+      "resultDigest": "043c5e110164e5f48ba63bc7b165ee81ab3232f30b056e13e2a6d4d9b80ff92a",
+      "encodeMs": [
+        73.02419999998529
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 1316.5536999999895,
+      "resultDigest": "7303165ee9fcacaa97d6a89048cb1ec4336b412f8d397346205add98d38b7506",
+      "encodeMs": [
+        63.60779999999795
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1256.5583999999799,
+      "resultDigest": "0b7fcf537903d3a62fc9fa455fe737710a827911ff68db3091380cdbc560b7a8",
+      "encodeMs": [
+        68.60359999997308
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 1,
+      "rank": 1
+    },
+    {
+      "ms": 1286.7876999999862,
+      "resultDigest": "9371552b6d87889086f711014f5309e4207100fc53e1c175afabbb896cb91f4d",
+      "encodeMs": [
+        67.59010000003036
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "near-topic",
+      "kind": "missing-number",
+      "hits": 3,
+      "rank": 2
+    },
+    {
+      "ms": 418.6556999999448,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 467.79510000004666,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 430.32279999996535,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 418.7139999999781,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 415.1454000000376,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 420.37079999997513,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 442.0756999999867,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 414.2829999999958,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 466.5720999999903,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 491.5509000000311,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 425.46450000000186,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 414.125400000019,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "empty",
+      "coverage": "partial",
+      "fragments": 0,
+      "cached": 0,
+      "group": "negative-entity",
+      "kind": "entity-mismatch",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1313.7801999999792,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.83539999998175
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1278.5252999999793,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        77.79399999999441
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1205.9833000000217,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        69.83419999998296
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1183.7892999999458,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.51980000000913
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1273.8678000000073,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.91379999998026
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1200.7160999999614,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.3696999999811
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1224.4717999999993,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.77960000000894
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1289.9022000000114,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.71380000002682
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1295.6832999999751,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.61349999997765
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1280.0338999999803,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        76.50209999998333
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1211.3350999999675,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        68.625800000038
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1202.7588000000105,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        64.41969999996945
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1239.6644000000088,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.36540000000969
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1261.0487999999896,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        71.59519999998156
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1265.7477000000072,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        65.96809999999823
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1391.2722999999532,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        90.86680000001797
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1291.0051000000094,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        76.07260000001406
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1246.0058999999892,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.11040000000503
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1214.851800000004,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        71.92169999994803
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1242.4784999999683,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        68.16759999998612
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1213.6234000000404,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.58830000000307
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1288.4019000000553,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        71.27120000001742
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1277.3550999999861,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        69.2560999999987
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1345.5924999999697,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        69.58360000001267
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1222.372399999993,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        71.21710000000894
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1311.1559000000125,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.80349999997998
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1251.435300000012,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.8401999999769
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1195.8092000000179,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.21379999996861
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1197.893700000015,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.35379999998258
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1251.1383999999962,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        76.52679999999236
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1225.4911999999895,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.16920000000391
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1388.9238999999943,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        66.16300000000047
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1251.8353999999817,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        77.73220000002766
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1318.6040999999968,
+      "resultDigest": "a304dd90e1e28889c739bcefe174cf118448b46c853a31b5fa3e0d8af5e5368f",
+      "encodeMs": [
+        78.11119999998482
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1252.1745000000228,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        76.53260000003502
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1216.5763000000152,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.51350000000093
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1286.9372999999905,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.73570000001928
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1286.4578000000329,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.53579999995418
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1240.0556000000215,
+      "resultDigest": "a1a8ecaf3b8d8b962c342b8d5d2080c38159bd2ef7babb4c2205af6a490326e9",
+      "encodeMs": [
+        68.18799999996554
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1397.2458999999799,
+      "resultDigest": "a6e447c5b3d8960ced578ec8d9bf7d02a98ce9423c988ba37f7debe31d733e94",
+      "encodeMs": [
+        72.2329000000027
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1261.5286000000197,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.89079999999376
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1257.3256999999867,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        71.97019999998156
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1284.8171999999904,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.04979999997886
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1235.9515999999712,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.23509999999078
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1207.3545999999624,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        77.06119999999646
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1281.778500000015,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.66599999996834
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1277.7373999999836,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.62979999999516
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1276.5256999999983,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.28330000001006
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1292.140699999989,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.46139999997104
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1284.837600000028,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.27520000003278
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1340.4597999999532,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.24559999996563
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1216.7224999999744,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.99719999998342
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1236.17359999998,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.92379999998957
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1276.654600000009,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.67050000000745
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1251.4895000000251,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        69.47080000001006
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1284.8381999999983,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.82529999996768
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1297.9867000000086,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.7326999999932
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1265.7964999999967,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.4660000000149
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1333.499300000025,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.66219999996247
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1202.9284000000334,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        66.02369999996154
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1212.131400000013,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.2603999999701
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1252.8001999999979,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.28919999999925
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1302.1523999999627,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        76.06659999996191
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1317.260799999989,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.59729999996489
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1332.7702000000281,
+      "resultDigest": "36f538ab3a6f9992f4b9fc9a5158dc74a2fa9abbd851aacec72958e5f8fafaf2",
+      "encodeMs": [
+        76.1535000000149
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1272.3143999999738,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.52980000001844
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1361.3576000000467,
+      "resultDigest": "5a6bea64766a96e2494c85a3481166e2627d01e7f88eeeed52c0cb9bd559ff5e",
+      "encodeMs": [
+        81.60339999996359
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 2,
+      "rank": 0
+    },
+    {
+      "ms": 1271.700300000026,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        69.07020000001648
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1218.3044000000227,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.1465999999782
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1269.6500000000233,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.98430000001099
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1295.801299999992,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        77.2778999999864
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1297.0312999999733,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        79.3972000000067
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1287.3425999999745,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.60110000002896
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1360.271299999964,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        67.83079999999609
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1365.0150999999605,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.83629999996629
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1225.8311000000103,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        63.11290000000736
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1210.8216999999713,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        66.4319999999716
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1250.662100000016,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        77.64089999999851
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1283.9327000000048,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        78.461500000034
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1310.1217999999644,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        70.48450000002049
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "negative-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1309.7872999999672,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        76.18339999997988
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1241.425500000012,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        64.31830000004265
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1296.764599999995,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        75.90019999997457
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1313.794600000023,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        83.05569999996806
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1215.5880999999936,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.29320000001462
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1235.11109999998,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.99009999999544
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1320.375,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.7565000000177
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1339.7180999999982,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        68.11820000002626
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1372.5041999999667,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        89.25329999998212
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1281.4597000000067,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.70819999999367
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1343.2631000000401,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        86.1196999999811
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1244.4253000000026,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        73.82300000003306
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1249.886200000008,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        74.33460000000196
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1282.701000000001,
+      "resultDigest": "c7ce8fe13bc430c92d5e1ecceddf61423ca81fe086eb563c84c9840b43759da0",
+      "encodeMs": [
+        71.42180000001099
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    },
+    {
+      "ms": 1299.234199999948,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        72.1655000000028
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 0,
+      "rank": 0
+    },
+    {
+      "ms": 1327.542999999947,
+      "resultDigest": "fae7711f7abe762ff58df9d292fbfafdfb517bda908915e9114c7bb0c92c5831",
+      "encodeMs": [
+        83.05280000000494
+      ],
+      "status": "ready",
+      "coverage": "complete",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1",
+      "group": "mixed-ood",
+      "kind": "ood",
+      "hits": 1,
+      "rank": 0
+    }
+  ],
+  "encryptedSource": true,
+  "privacy": "enhanced",
+  "model": "sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73",
+  "coldReadyMs": 15628.7491,
+  "fixtureSha256": "63a03095d788dbf4cb0275037145cb6584cb971501f42ccd9999456d55e89dc3",
+  "indexBuildMs": 4595.564300000002,
+  "prewarm": [
+    {
+      "ms": 3444.584600000002,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [
+        48.51139999999941
+      ],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 5,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2792.1261000000013,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 12,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 3063.982200000002,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 20,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2988.6417,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 27,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2881.8081999999995,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 39,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 3051.865700000002,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 51,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2924.495299999995,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 60,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 3009.2839999999997,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 72,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2706.425000000003,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 79,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 3273.1509000000005,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 93,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2792.5803000000014,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 106,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2890.2613000000056,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 119,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 3042.693699999996,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 132,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2865.2297000000035,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 143,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2912.7473000000027,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 156,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2974.1401999999944,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 170,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2943.6443,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 184,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2874.169200000004,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 197,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2854.4169999999867,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 211,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2999.2788,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 225,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2854.858800000002,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 239,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2887.656600000002,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 252,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2974.8322999999946,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 264,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2848.6126000000077,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 278,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2997.220199999996,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 292,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2983.9242000000086,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 306,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2923.3303000000014,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 320,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    },
+    {
+      "ms": 2266.318800000008,
+      "resultDigest": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945",
+      "encodeMs": [],
+      "status": "timeout",
+      "coverage": "partial",
+      "fragments": 324,
+      "cached": 324,
+      "policy": "embeddinggemma2-global-eligible-k1-cos070-window-v1"
+    }
+  ],
+  "prewarmMs": 82023.76950000001,
+  "runtime": {
+    "starts": 1,
+    "stops": 0,
+    "faultRetries": 0,
+    "queryTexts": 257,
+    "documentTexts": 324
+  },
+  "completed": true
+}

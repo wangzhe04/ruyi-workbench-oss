@@ -1,0 +1,190 @@
+{
+  "schema": 1,
+  "sharedHost": true,
+  "profile": "release-profile",
+  "model": "sha256:1e27f73137a2b2a0b92582d1755352952bcd296da4648d6c99017ca110d56e73",
+  "lock": "4d8a3a8a0671140d0a7cec346ca00fe933a9fc10f8bbd14cda598123053963a8",
+  "serverSha256": "93796dfbda0490bcccd110895778cfe8fcd377882a6f289c49d7cc2a270b6473",
+  "affinity": [
+    {
+      "pid": 32900,
+      "mask": "4095",
+      "cpuCount": 12
+    },
+    {
+      "pid": 13628,
+      "mask": "4095",
+      "cpuCount": 12
+    }
+  ],
+  "counterWindow": "First to last completed OS snapshot per phase; excludes warm-up and edges during which the simultaneous process counters were not yet observed.",
+  "beforeFirstObservation": {
+    "encodesAfterPhaseDispatch": 2,
+    "roles": [
+      "document",
+      "document"
+    ],
+    "lastReplyAlreadyReceived": 1795776030061
+  },
+  "phases": [
+    {
+      "name": "initial-idle",
+      "spanSeconds": 67.826,
+      "first": "2026-11-27T10:40:30.2149444Z",
+      "last": "2026-11-27T10:41:38.0403106Z",
+      "samples": 14,
+      "encodeRequests": 0,
+      "roles": [
+        {
+          "role": "service",
+          "pid": 32900,
+          "created": "134402496167497750",
+          "cpuSeconds": 0.2344,
+          "corePercent": 0.35,
+          "workingMiB": [
+            95.9,
+            112.35
+          ],
+          "privateMiB": [
+            90.88,
+            108.76
+          ]
+        },
+        {
+          "role": "model",
+          "pid": 13628,
+          "created": "134402496229611805",
+          "cpuSeconds": 0.2969,
+          "corePercent": 0.44,
+          "workingMiB": [
+            297.58,
+            380.81
+          ],
+          "privateMiB": [
+            294.23,
+            412.73
+          ]
+        }
+      ]
+    },
+    {
+      "name": "serial-load",
+      "spanSeconds": 181.749,
+      "first": "2026-11-27T10:41:38.7603400Z",
+      "last": "2026-11-27T10:44:40.5099386Z",
+      "samples": 36,
+      "encodeRequests": 250,
+      "roles": [
+        {
+          "role": "service",
+          "pid": 32900,
+          "created": "134402496167497750",
+          "cpuSeconds": 10.25,
+          "corePercent": 5.64,
+          "workingMiB": [
+            97.85,
+            160.24
+          ],
+          "privateMiB": [
+            93,
+            168.37
+          ]
+        },
+        {
+          "role": "model",
+          "pid": 13628,
+          "created": "134402496229611805",
+          "cpuSeconds": 92.8438,
+          "corePercent": 51.08,
+          "workingMiB": [
+            297.58,
+            306.82
+          ],
+          "privateMiB": [
+            294.23,
+            296.63
+          ]
+        }
+      ]
+    },
+    {
+      "name": "recovery-idle",
+      "spanSeconds": 67.185,
+      "first": "2026-11-27T10:44:41.1968277Z",
+      "last": "2026-11-27T10:45:48.3810068Z",
+      "samples": 14,
+      "encodeRequests": 0,
+      "roles": [
+        {
+          "role": "service",
+          "pid": 32900,
+          "created": "134402496167497750",
+          "cpuSeconds": 0.0938,
+          "corePercent": 0.14,
+          "workingMiB": [
+            159.54,
+            159.93
+          ],
+          "privateMiB": [
+            166.84,
+            167.12
+          ]
+        },
+        {
+          "role": "model",
+          "pid": 13628,
+          "created": "134402496229611805",
+          "cpuSeconds": 0,
+          "corePercent": 0,
+          "workingMiB": [
+            306.82,
+            306.96
+          ],
+          "privateMiB": [
+            296.63,
+            296.7
+          ]
+        }
+      ]
+    }
+  ],
+  "queries": 249,
+  "pairedRealQueryAndTarget": 249,
+  "additionalDocumentEncodes": 1,
+  "distinctWorkerVectors": 249,
+  "httpMs": {
+    "n": 249,
+    "min": 85.56100000000151,
+    "p50": 162.45169999997597,
+    "p95": 259.47279999998864,
+    "max": 395.72269999999844
+  },
+  "workerIpcMs": {
+    "n": 249,
+    "min": 41.164099999994505,
+    "p50": 52.62280000001192,
+    "p95": 70.1140000000014,
+    "max": 110.48660000000382
+  },
+  "corpus": "one synthetic session, two committed messages, three eligible candidate fragments reported by the source HTTP API",
+  "shutdown": {
+    "code": 0,
+    "signal": null,
+    "stdoutEnd": true,
+    "stderrEnd": true,
+    "originalsRemaining": 0,
+    "modelHomeRemoved": true
+  },
+  "sha256": {
+    "run.cjs": "1ceb45e9ec21020768f2a4baa7a94c5f69bfa822c33cb152d5b94d74c8e97254",
+    "probe.cjs": "7a613fe707fa5551724ee6714d4a1b24d08493d903edab53d2bb2714c53a5648",
+    "sample.ps1": "49f7d006205430101ac9abed55874cde638c9d2eb57a17892d8ac8788b3895e1",
+    "audit.cjs": "3f3efbd9f737cc68a65f915b561b70520ed94ce3768de59989785685f64c26de",
+    "affinity.json": "56cac1a73735b72c1d0628973dbb9cb09a06710c4048daf77c6fde5a8bdb839d",
+    "samples.jsonl": "c390617b2ed18bf3d9be674e6dd9d126602b65abf2901a5bd57ea33704744975",
+    "wire.jsonl": "26e2de8fde1395606ef217df1b5c2bb3d19aa80127ad04230c101bc44cae1886",
+    "queries.jsonl": "7067991a39538bcde3971cd1f7a7885d12c6f308ec5964d535017cd3c84654d6",
+    "summary.json": "a642d0f4150119ed80a1d32bf17287051753fbf32024ecc912e9415076c31ec8"
+  },
+  "sourceReceiptSha256": "2ce31f45e5815a754bb5330230b3092f060acfd7d3900bf661d292f09f9af25c"
+}
