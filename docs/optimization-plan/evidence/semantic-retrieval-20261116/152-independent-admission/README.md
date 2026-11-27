@@ -55,3 +55,5 @@
 | 模型运行指纹 | `9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e` |
 | 仓外先封存的预测 | `2a2b440a12ec91f1460f5b8ebb9288876699d7a4325c51c8d4fdc427a7e5f80c` |
 | 仓内聚合结果 | `f602eeebf01e550afec6a404fc1f225aaa2e897cd92f5f85a57ac6200d998be5` |
+
+执行时的量具字节保存在提交 `ff6376dc` 的 `dev-harness/semantic/independent-admission-once.cjs`，对应上表摘要。现行副本仅删除了文件末尾的一个空行，SHA-256 为 `4820db3cc9c7f4f688813f1639af6b15d1a354ba5c9565eb7dffd1e93a3d1aba`。
