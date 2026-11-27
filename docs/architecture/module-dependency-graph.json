@@ -5,7 +5,7 @@
   "summary": {
     "modules": 145,
     "providedSymbols": 4464,
-    "requiredSymbols": 4413,
+    "requiredSymbols": 4414,
     "edges": 973,
     "forwardEdges": 67,
     "duplicateProvides": 0,
@@ -851,6 +851,13 @@
         {
           "provider": "00-boot.js",
           "symbol": "SemanticRuntimeHooks",
+          "kinds": [
+            "read"
+          ]
+        },
+        {
+          "provider": "00-boot.js",
+          "symbol": "SessionFullTextHooks",
           "kinds": [
             "read"
           ]
@@ -36887,6 +36894,7 @@
         "RUYI_EVENTS",
         "SKILL_ID_RE",
         "SemanticRuntimeHooks",
+        "SessionFullTextHooks",
         "StringDecoder",
         "URL",
         "VERSION",

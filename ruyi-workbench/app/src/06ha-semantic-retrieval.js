@@ -95,10 +95,23 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       let requestCodecToken=null;if(descriptor.modelId==='embeddinggemma-2-text-q4'){if(!codecProof)throw Error('semantic.untrusted_codec_result');requestCodecToken=codecProof.snapshot(model);if(requestCodecToken!==codecToken){clear();generation=cacheGeneration;codecToken=requestCodecToken;}}
       const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(docScope,model,['document',identities[n],text]));
       let q=get(queries,qkey),status='ready';const cachedDocuments=keys.map(k=>get(documents,k)||null),vectors=cachedDocuments.map(row=>row?.vector||null),encodedTexts=cachedDocuments.map(row=>row?.encodedText??null);
-      // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。只给非 Gemma 模型用 ——
-      // Gemma 的分数证据要绑原文(encodedTexts),持久层不存原文。读盘途中缓存被清(撤权、换模型)就当没读到。
-      if(typeof stored==='function'&&descriptor.modelId!=='embeddinggemma-2-text-q4'&&vectors.some(v=>!v)){const lookup=await stored(model);if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
-        if(typeof lookup==='function')for(let n=0;n<vectors.length;n++)if(!vectors[n]){const v=lookup(n);if(v&&v.length>0&&v.length<=8192)vectors[n]=v;}}
+      // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。读盘途中缓存被清(撤权、换模型)就当没读到。
+      // 152 L4:Gemma 的分数证据要绑原文(encodedTexts)。持久层存的是原文片段的 sha256;这里经 resolveTexts(调用方的来源回读与回验)
+      // 取回原文,摘要相符才把向量连同原文放进缓存行,与现场编码出的行同形。取不到、摘要不符、超期的行照常现场编码。
+      if(typeof stored==='function'&&vectors.some(v=>!v)){const lookup=await stored(model);if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
+        if(typeof lookup==='function'&&descriptor.modelId!=='embeddinggemma-2-text-q4'){for(let n=0;n<vectors.length;n++)if(!vectors[n]){const v=lookup(n);if(v&&v.length>0&&v.length<=8192)vectors[n]=v;}}
+        else if(typeof lookup==='function'&&typeof resolveTexts==='function'){
+          const pending=[];for(let n=0;n<vectors.length;n++)if(!vectors[n]){const row=lookup(n);if(row&&typeof row.digest==='string'&&row.vector&&row.vector.length===768)pending.push([n,row]);}
+          const backfillUntil=finishDeadline-(q?0:minimumBudget('query',1)+50);
+          for(let at=0;at<pending.length&&Date.now()<backfillUntil;at+=128){
+            const chunk=pending.slice(at,at+128),texts=await resolveTexts(chunk.map(([n])=>n),{signal,deadline:finishDeadline});
+            if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
+            if(!Array.isArray(texts)||texts.length!==chunk.length||texts.some(text=>text!==null&&typeof text!=='string'))throw Error('semantic.invalid_source');
+            chunk.forEach(([n,row],i)=>{const text=texts[i];if(typeof text!=='string'||!text.length||text.length>8192||crypto.createHash('sha256').update(text).digest('hex')!==row.digest)return;
+              const v=Array.from(row.vector);if(!vector(v))return;const cachedRow={vector:v,encodedText:text,owner:typeof owners[n]==='string'?owners[n]:null};
+              vectors[n]=v.slice();encodedTexts[n]=text;cachedDocuments[n]=cachedRow;documents.delete(keys[n]);documents.set(keys[n],{...cachedRow,vector:v.slice()});while(documents.size>documentLimit)documents.delete(documents.keys().next().value);});
+          }
+        }}
       // If one measured encode exceeds the usual grace, reserve its measured
       // cost for this request. The source owner keeps time for final validation.
       const needsDocuments=cachedDocuments.some(row=>!row);

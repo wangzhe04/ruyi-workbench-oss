@@ -6460,6 +6460,9 @@ function configEmitWritten(config) {
   invalidateConfigReads(); // Publication invalidates readers which started during the physical write.
   if (typeof config?.credentialEncryptionV1 === 'boolean') lastGoodCredentialEncryptionV1 = config.credentialEncryptionV1;
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
+  if (config?.semanticRetrievalV1 === false && lastGoodConfig?.semanticRetrievalV1 !== false && typeof SessionFullTextHooks !== 'undefined') {
+    SessionFullTextHooks.semanticDisabled?.();
+  }
   lastGoodConfig = cloneConfigSnapshot(config);
   RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true), permissionMode: String(config && config.permissionMode || 'default') });
 }
@@ -46711,10 +46714,23 @@ function readScoreEvidence(result,{query,scopeId,modelFingerprint}){const p=scor
       let requestCodecToken=null;if(descriptor.modelId==='embeddinggemma-2-text-q4'){if(!codecProof)throw Error('semantic.untrusted_codec_result');requestCodecToken=codecProof.snapshot(model);if(requestCodecToken!==codecToken){clear();generation=cacheGeneration;codecToken=requestCodecToken;}}
       const qkey=key(scopeId,model,['query',query]),keys=docs.map((text,n)=>key(docScope,model,['document',identities[n],text]));
       let q=get(queries,qkey),status='ready';const cachedDocuments=keys.map(k=>get(documents,k)||null),vectors=cachedDocuments.map(row=>row?.vector||null),encodedTexts=cachedDocuments.map(row=>row?.encodedText??null);
-      // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。只给非 Gemma 模型用 ——
-      // Gemma 的分数证据要绑原文(encodedTexts),持久层不存原文。读盘途中缓存被清(撤权、换模型)就当没读到。
-      if(typeof stored==='function'&&descriptor.modelId!=='embeddinggemma-2-text-q4'&&vectors.some(v=>!v)){const lookup=await stored(model);if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
-        if(typeof lookup==='function')for(let n=0;n<vectors.length;n++)if(!vectors[n]){const v=lookup(n);if(v&&v.length>0&&v.length<=8192)vectors[n]=v;}}
+      // 151 阶段 4A(150 S14):调用方的持久向量(按模型指纹 + 片段来源 identity 落盘,后台编码)。读盘途中缓存被清(撤权、换模型)就当没读到。
+      // 152 L4:Gemma 的分数证据要绑原文(encodedTexts)。持久层存的是原文片段的 sha256;这里经 resolveTexts(调用方的来源回读与回验)
+      // 取回原文,摘要相符才把向量连同原文放进缓存行,与现场编码出的行同形。取不到、摘要不符、超期的行照常现场编码。
+      if(typeof stored==='function'&&vectors.some(v=>!v)){const lookup=await stored(model);if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
+        if(typeof lookup==='function'&&descriptor.modelId!=='embeddinggemma-2-text-q4'){for(let n=0;n<vectors.length;n++)if(!vectors[n]){const v=lookup(n);if(v&&v.length>0&&v.length<=8192)vectors[n]=v;}}
+        else if(typeof lookup==='function'&&typeof resolveTexts==='function'){
+          const pending=[];for(let n=0;n<vectors.length;n++)if(!vectors[n]){const row=lookup(n);if(row&&typeof row.digest==='string'&&row.vector&&row.vector.length===768)pending.push([n,row]);}
+          const backfillUntil=finishDeadline-(q?0:minimumBudget('query',1)+50);
+          for(let at=0;at<pending.length&&Date.now()<backfillUntil;at+=128){
+            const chunk=pending.slice(at,at+128),texts=await resolveTexts(chunk.map(([n])=>n),{signal,deadline:finishDeadline});
+            if(signal?.aborted)throw signal.reason===undefined?Error('semantic.aborted'):signal.reason;if(generation!==cacheGeneration)return empty('unavailable');
+            if(!Array.isArray(texts)||texts.length!==chunk.length||texts.some(text=>text!==null&&typeof text!=='string'))throw Error('semantic.invalid_source');
+            chunk.forEach(([n,row],i)=>{const text=texts[i];if(typeof text!=='string'||!text.length||text.length>8192||crypto.createHash('sha256').update(text).digest('hex')!==row.digest)return;
+              const v=Array.from(row.vector);if(!vector(v))return;const cachedRow={vector:v,encodedText:text,owner:typeof owners[n]==='string'?owners[n]:null};
+              vectors[n]=v.slice();encodedTexts[n]=text;cachedDocuments[n]=cachedRow;documents.delete(keys[n]);documents.set(keys[n],{...cachedRow,vector:v.slice()});while(documents.size>documentLimit)documents.delete(documents.keys().next().value);});
+          }
+        }}
       // If one measured encode exceeds the usual grace, reserve its measured
       // cost for this request. The source owner keeps time for final validation.
       const needsDocuments=cachedDocuments.some(row=>!row);
@@ -119408,7 +119424,7 @@ const SessionFullTextIndex = ((io,p,c) => {
   const FORMAT=3,SCHEMA=1,CHARS=4096,OVERLAP=256,SHARD_BYTES=256*1024,MANIFEST_BYTES=4*1024*1024;
   const PREPARE_SLICE_MS=1500;
   // 151 阶段 4A(150 S6/S7/S14/U5):后台增量建索引、持久向量、短查询语义噪声。
-  const VECTOR_FILE='vectors.json',VECTOR_SCHEMA=1,VECTOR_BYTES=8*1024*1024,VECTOR_ENTRIES=3584,VECTOR_MEMORY_BYTES=96*1024*1024,SEMANTIC_ROWS=4096,SEMANTIC_ROWS_PERSISTED=32768;
+  const VECTOR_FILE='vectors.json',VECTOR_SCHEMA=2,VECTOR_BYTES=8*1024*1024,VECTOR_ENTRIES=3584,VECTOR_MEMORY_BYTES=96*1024*1024,SEMANTIC_ROWS=4096,SEMANTIC_ROWS_PERSISTED=32768;
   const SHORT_QUERY_GRAPHEMES=4,SHORT_QUERY_SEMANTIC_MIN=0.7;
   const BACKGROUND_SLICE_MS=200,BACKGROUND_GAP_MS=40,BACKGROUND_BUSY_RETRY_MS=300,BACKGROUND_SESSION_BUDGET_MS=30000,BACKGROUND_MAX_BUDGET_MS=240000,BACKGROUND_SKIP_RETRY_MS=60000,BACKGROUND_ENCODE_BATCH=8,BACKGROUND_SCOPE='session-index-background',BACKGROUND_QUIET_MS=1500,BACKGROUND_MAX_YIELDS=2,BACKGROUND_BUSY_SLICE_EVERY_MS=3000,BACKGROUND_ENCODE_BATCH_MS=150,BACKGROUND_ENCODE_GAP_MS=50,BACKGROUND_BUSY_YIELD_MS=25;
   const LITTLE_ENDIAN=require('node:os').endianness()==='LE';
@@ -119710,13 +119726,19 @@ const SessionFullTextIndex = ((io,p,c) => {
     const vectorStoreEnabled=host.vectors===true,vectorMemory=new Map();let vectorMemoryBytes=0,vectorGeneration=0;
     const vectorClear=()=>{vectorGeneration++;vectorMemory.clear();vectorMemoryBytes=0;};
     const vectorEvict=sid=>{const entry=vectorMemory.get(sid);if(!entry)return;vectorMemory.delete(sid);vectorMemoryBytes-=entry.bytes;};
-    const vectorPut=(sid,model,entries)=>{vectorEvict(sid);let bytes=256;for(const vector of entries.values())bytes+=vector.byteLength+96;vectorMemory.set(sid,{model,entries,bytes});vectorMemoryBytes+=bytes;
+    const vectorPut=(sid,model,entries)=>{vectorEvict(sid);let bytes=256;for(const vector of entries.values())bytes+=vector.byteLength+176;vectorMemory.set(sid,{model,entries,bytes});vectorMemoryBytes+=bytes;
       while(vectorMemoryBytes>VECTOR_MEMORY_BYTES&&vectorMemory.size>1)vectorEvict(vectorMemory.keys().next().value);};
     const vectorGet=(sid,model,key)=>{const entry=vectorMemory.get(sid);if(!entry||entry.model!==model)return null;return entry.entries.get(key)||null;};
+    // 152 L4:落盘向量对应原文片段的 sha256(schema 2)。Gemma 请求只用带摘要、且回读原文后摘要相符的向量。
+    const vectorDigest=(sid,model,key)=>{const entry=vectorMemory.get(sid);if(!entry||entry.model!==model)return null;return entry.entries.texts?.get(key)||null;};
+    const VECTOR_SHAPES=new Set(['dims,entries,model,schema,sessionId','dims,entries,model,schema,sessionId,texts']);
     function decodeVectors(value,sid,model){
-      if(!value||keys(value)!=='dims,entries,model,schema,sessionId'||value.schema!==VECTOR_SCHEMA||value.sessionId!==sid||typeof value.model!=='string'||!value.model.length||value.model.length>512||!Number.isSafeInteger(value.dims)||value.dims<1||value.dims>8192||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return null;
+      // schema 1(无原文摘要)照旧可读;对 Gemma 不算数(请求侧要摘要,后台按 schema 2 重编),其他模型的旧向量照常保留。
+      if(!value||!VECTOR_SHAPES.has(keys(value))||![1,VECTOR_SCHEMA].includes(value.schema)||(value.schema===VECTOR_SCHEMA)!==Object.hasOwn(value,'texts')||value.sessionId!==sid||typeof value.model!=='string'||!value.model.length||value.model.length>512||!Number.isSafeInteger(value.dims)||value.dims<1||value.dims>8192||!value.entries||typeof value.entries!=='object'||Array.isArray(value.entries))return null;
       const out=new Map();if(value.model!==model)return out;const rows=Object.entries(value.entries);if(rows.length>VECTOR_ENTRIES)return null;
-      for(const [key,text]of rows){if(!HEX.test(key))return null;const vector=unpackVector(text,value.dims);if(!vector)return null;out.set(key,vector);}return out;
+      for(const [key,text]of rows){if(!HEX.test(key))return null;const vector=unpackVector(text,value.dims);if(!vector)return null;out.set(key,vector);}
+      out.texts=new Map();if(value.schema===VECTOR_SCHEMA){if(!value.texts||typeof value.texts!=='object'||Array.isArray(value.texts))return null;for(const [key,sha]of Object.entries(value.texts)){if(!out.has(key)||!HEX.test(sha))return null;out.texts.set(key,sha);}}
+      return out;
     }
     // 回读失败(坏件、缺钥匙、被删)一律当「没有向量」:语义只少几个候选,词法与披露不受影响;撤权/暂停照常上抛。
     async function vectorLoad(sids,model,check=checkPaused){
@@ -119730,10 +119752,11 @@ const SessionFullTextIndex = ((io,p,c) => {
     function windowKeysOf(sid,row){const windowHash=digest({text:row.text,ranges:row.ranges}),out=[];for(const {at,next}of semanticWindows(row.text)){const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,next-1).to;out.push(windowVectorKey(sid,row.messageOrdinal,row.source,row.contentRevision,row.canonicalStart,at,start,end,windowHash));}return out;}
     // 4A 复审 F2:按新一代窗口键裁剪向量文件;读不出(坏件、缺钥匙)就整份删掉,裁空也删。
     async function pruneVectors(sid,keep,policy){vectorEvict(sid);let value;try{value=await read(sid,VECTOR_FILE,VECTOR_BYTES);}catch(error){if(error?.code==='session_fulltext.paused')throw error;value=undefined;}
-      if(value===null)return;const shaped=!!value&&keys(value)==='dims,entries,model,schema,sessionId'&&value.sessionId===sid&&!!value.entries&&typeof value.entries==='object'&&!Array.isArray(value.entries);
+      if(value===null)return;const shaped=!!value&&VECTOR_SHAPES.has(keys(value))&&value.sessionId===sid&&!!value.entries&&typeof value.entries==='object'&&!Array.isArray(value.entries);
       const kept=shaped?Object.fromEntries(Object.entries(value.entries).filter(([key])=>keep.has(key))):{};
       if(!shaped||!Object.keys(kept).length){await removeOwned(sid,[VECTOR_FILE]);return;}if(Object.keys(kept).length===Object.keys(value.entries).length)return;
-      await write(sid,VECTOR_FILE,{...value,entries:kept},VECTOR_BYTES,policy);}
+      const texts=value.texts&&typeof value.texts==='object'&&!Array.isArray(value.texts)?{texts:Object.fromEntries(Object.entries(value.texts).filter(([key])=>Object.hasOwn(kept,key)))}:{};
+      await write(sid,VECTOR_FILE,{...value,entries:kept,...texts},VECTOR_BYTES,policy);}
     const beginMutation=()=>{mutationSerial++;mutationActive++;return()=>{mutationActive--;mutationSerial++;};};
     const mutationState=()=>({serial:mutationSerial,active:mutationActive});
     const run=work=>{
@@ -120011,7 +120034,7 @@ const SessionFullTextIndex = ((io,p,c) => {
       const needed=Math.max(1,Math.ceil(terms.length/2)),cap=Math.min(50,Math.max(1,Math.floor(Number(limit)||20))),candidateLimit=4096,candidates=[],semanticRows=[],manifests=new Map();
       // 150 S14:有持久向量(非 Gemma 研究路径)时语义候选不再按会话 id 截在 4096 行;Gemma 的整池证明仍是 4096 行。
       // 150 U5:短查询(去空白后 ≤4 个字素)语义只给词法命中重排,纯语义命中要过 0.7。
-      const gemmaMethod=typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.isMethod(options.method),vectorsOn=vectorStoreEnabled&&!!semantic&&!gemmaMethod,semanticRowCap=vectorsOn?SEMANTIC_ROWS_PERSISTED:SEMANTIC_ROWS;
+      const gemmaMethod=typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.isMethod(options.method),vectorsOn=vectorStoreEnabled&&!!semantic&&!gemmaMethod,storedOn=vectorStoreEnabled&&!!semantic,semanticRowCap=vectorsOn?SEMANTIC_ROWS_PERSISTED:SEMANTIC_ROWS;
       const deferEncoding=vectorsOn&&options.deferDocumentEncoding===true,shortQuery=[...segmenter.segment(phrase.replace(/\s+/g,''))].length<=SHORT_QUERY_GRAPHEMES;
       let fragmentCount=0,entityTruncated=false,lexicalTruncated=false,lexicalPartial=false,shortQueryFiltered=0;
       const semanticTotals=new Map(),semanticEvidence=new Map(),metadataTotals=new Map(),metadataEvidence=new Map(),sourceKeyOf=row=>JSON.stringify([row.sessionId,row.messageOrdinal,row.source,row.contentRevision]);
@@ -120170,7 +120193,7 @@ const SessionFullTextIndex = ((io,p,c) => {
         // Read only into request-local staging while a new query vector is in flight.
         // The normal source-resolution path adopts each proof under its live guards.
         const prefetchBodies=async()=>{
-          try{await readBodies([...bodyRows.keys()],part=>prefetchedBodies.set(part.sid,part));}
+          try{await readBodies([...bodyRows.keys()].filter(sid=>!loadedSources.has(sid)),part=>prefetchedBodies.set(part.sid,part));}
           catch(error){if(error!==sourceExpired)throw error;}
         };
         const resolveTexts=async indices=>{
@@ -120203,12 +120226,13 @@ const SessionFullTextIndex = ((io,p,c) => {
         // 只编查询,文档向量全靠后台;模型还没就绪就不在请求里等它(标 loading、后台预热)。
         // 4A 复审建议:请求里回读向量受语义期限约束,读不完的这一发当没有(读到的已进缓存,下一发接着用)。
         const storedVectors=async model=>{const sids=[...new Set(semanticRows.filter(row=>!row.metadata).map(row=>row.hit.row.sessionId))];try{await vectorLoad(sids,model,()=>{check();if(Date.now()>=semanticDeadline)throw sourceExpired;});}catch(error){if(error!==sourceExpired)throw error;}
-          return n=>{const row=semanticRows[n];if(!row||row.metadata)return null;const h=row.hit;return vectorGet(h.row.sessionId,model,windowVectorKey(h.row.sessionId,h.row.messageOrdinal,h.row.source,h.row.contentRevision,h.canonicalStart,h.at,h.start,h.end,h.windowHash));};};
+          return n=>{const row=semanticRows[n];if(!row||row.metadata)return null;const h=row.hit,sid=h.row.sessionId,key=windowVectorKey(sid,h.row.messageOrdinal,h.row.source,h.row.contentRevision,h.canonicalStart,h.at,h.start,h.end,h.windowHash),vector=vectorGet(sid,model,key);
+            if(!vector||!gemmaMethod)return vector;const sha=vectorDigest(sid,model,key);return sha?{vector,digest:sha}:null;};};
         const semanticCold=deferEncoding&&typeof host.semanticReady==='function'&&host.semanticReady()!==true;
         if(semanticCold){try{host.semanticWarm?.();}catch{}semanticState={status:'loading',scores:semanticRows.map(()=>null),coverage:{cached:0,total:semanticRows.length,complete:false}};}
         else try{
           const texts=semanticRows.map(row=>row.text);
-          const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(gemmaMethod&&bodyRows.size&&!metadataRows.length&&[...bodyRows.keys()].every(sid=>manifests.get(sid)?.attachments===0)?{prepareCachedSources:semanticFailures.guard(prefetchBodies)}:{}),...(vectorsOn?{stored:semanticFailures.guard(storedVectors)}:{})};
+          const scoreOptions={scopeId:access.scopeId,identities:semanticRows.map(row=>row.identity),owners:semanticRows.map(row=>row.metadata?row.metadata.sid:row.hit.row.sessionId),maxEncodeDocuments:deferEncoding?Math.min(64,metadataRows.length):128,resolveTexts:semanticFailures.guard(budgetedResolve),beforeEncode:semanticFailures.guard(beforeEncode),policyContext,signal:options.signal,...(gemmaMethod&&bodyRows.size&&!metadataRows.length&&[...bodyRows.keys()].every(sid=>manifests.get(sid)?.attachments===0)?{prepareCachedSources:semanticFailures.guard(prefetchBodies)}:{}),...(storedOn?{stored:semanticFailures.guard(storedVectors)}:{})};
           const continuationDeadline=Math.min(semanticDeadline+2000,(options.deadline??Infinity)-1000);
           const allowProgress=gemmaMethod&&!isPaused()&&Number.isFinite(options.deadline);
           let sliceDeadline=semanticDeadline;
@@ -120442,7 +120466,8 @@ const SessionFullTextIndex = ((io,p,c) => {
       const work=(async()=>{
         if(isPaused()){st.state='paused';return {again:false};}
         let policy;try{policy=await host.backgroundPolicy();}catch{return {again:true,delay:BACKGROUND_BUSY_RETRY_MS};}
-        if(!policy||policy.index!==true){st.state='disabled';st.priority.clear();st.encodePriority.clear();return {again:false};}
+        const purgeDisabled=policy?.semantic===false&&vectorStoreEnabled&&!st.vectorsPurged;
+        if(!policy||policy.index!==true&&!purgeDisabled){st.state='disabled';st.priority.clear();st.encodePriority.clear();return {again:false};}
         if(policy.semantic!==true||!vectorStoreEnabled||!host.encoder)st.encodePriority.clear();
         if(!st.urgent){if(priorityReaders>0)return {again:true,delay:200};const quiet=lastPriorityRelease+BACKGROUND_QUIET_MS-Date.now();if(quiet>0)return {again:true,delay:quiet};}
         if(policy.semantic===true)st.vectorsPurged=false;
@@ -120523,35 +120548,36 @@ const SessionFullTextIndex = ((io,p,c) => {
     }
     // 后台编码一条会话还缺的窗口。原文只按 shard 行的 contentRevision 从正文现读(整行摘要相同 = 建索引时的同一段正文),
     // 不读附件派生正文(那一路仍在请求内按附件策略回读)。返回 done / partial(片用完或有读租约,下一片接着编)/ skip / stop。
-    async function encodeSession(sid,model,sliceEnd,sequence){
+    const vectorCapacity=dims=>Math.max(1,Math.min(VECTOR_ENTRIES,Math.floor((VECTOR_BYTES-4096)/(Math.ceil(dims*4/3)*4+230))));
+    async function encodeSession(sid,model,sliceEnd,sequence,needDigest=false){
       const st=backgroundState,value=await currentManifest(sid);if(!value||value===malformedManifest||!compatible(value))return 'skip';
       if(typeof host.backgroundEligible==='function'&&await host.backgroundEligible(sid)!==true)return 'skip';
       const epoch=await host.epoch(sid);if(!HEX.test(epoch||'')||epoch!==value.epoch)return 'skip';
-      const windows=[];
+      const limit=needDigest?vectorCapacity(768):VECTOR_ENTRIES,windows=[];
       for(const ref of value.shards){checkPaused();const shard=await read(sid,value.generation+'.'+ref.ordinal+'.json',SHARD_BYTES);
         if(!shard||hash(JSON.stringify(shard))!==ref.sha256||shard.sessionId!==sid||shard.generation!==value.generation||!Array.isArray(shard.rows))return 'skip';
         for(const row of shard.rows){if(typeof row?.text!=='string'||!rangesValid(row)||!integer(row.messageOrdinal)||typeof row.source!=='string'||!HEX.test(row.contentRevision||''))return 'skip';if(/^attachments\./.test(row.source))continue;
           const windowHash=digest({text:row.text,ranges:row.ranges});
-          for(const {at,next}of semanticWindows(row.text)){if(windows.length>=VECTOR_ENTRIES)break;const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,next-1).to;
+          for(const {at,next}of semanticWindows(row.text)){if(windows.length>=limit)break;const start=rangeAt(row.ranges,at).from,end=rangeAt(row.ranges,next-1).to;
             windows.push({key:windowVectorKey(sid,row.messageOrdinal,row.source,row.contentRevision,row.canonicalStart,at,start,end,windowHash),ordinal:row.messageOrdinal,source:row.source,revision:row.contentRevision,start,end});}}}
       await vectorLoad([sid],model);const existing=vectorMemory.get(sid)?.model===model?vectorMemory.get(sid).entries:new Map(),wanted=new Set(windows.map(row=>row.key));
-      const missing=windows.filter(row=>!existing.has(row.key));if(!missing.length&&[...existing.keys()].every(key=>wanted.has(key)))return 'done';
+      const existingTexts=existing.texts||new Map(),missing=windows.filter(row=>!existing.has(row.key)||needDigest&&!existingTexts.has(row.key));if(!missing.length&&[...existing.keys()].every(key=>wanted.has(key)))return 'done';
       const byOrdinal=new Map();for(const row of missing){const list=byOrdinal.get(row.ordinal);if(list)list.push(row);else byOrdinal.set(row.ordinal,[row]);}
       const originals=new Map();
       const proof=await host.scan(sid,async(row,ordinal)=>{checkPaused();const wantedRows=byOrdinal.get(ordinal);if(!wantedRows||host.noise(row))return;const revision=digest(row);
         for(const part of sources(row))for(const item of wantedRows)if(item.source===part.field&&item.revision===revision&&item.end<=part.text.length)originals.set(item.key,part.text.slice(item.start,item.end));},{check:checkPaused});
       if(!proof||proof.epoch!==epoch||host.sourceSequence(sid)!==sequence)return 'skip';
       const revoked=async()=>{const policy=await backgroundRevoked();if(policy.semantic!==true)throw encodeRevoked;if(host.sourceSequence(sid)!==sequence)throw fail('source_changed');};
-      const todo=missing.filter(row=>{const text=originals.get(row.key);return typeof text==='string'&&text.length>0&&text.length<=8192;}),fresh=new Map();let outcome='done',dims=null;
+      const todo=missing.filter(row=>{const text=originals.get(row.key);return typeof text==='string'&&text.length>0&&text.length<=8192;}),fresh=new Map(),freshTexts=new Map();let outcome='done',dims=null;
       for(let offset=0;offset<todo.length;){
         if(fresh.size&&(Date.now()>=sliceEnd||readers>0&&!st.urgent)||yieldRequested()||priorityReaders>0&&!st.urgent){outcome='partial';break;}
         await revoked();
         let count=Math.min(BACKGROUND_ENCODE_BATCH,todo.length-offset);const estimate=n=>typeof host.encoder.estimateEncodingBudget==='function'?host.encoder.estimateEncodingBudget('document',n):n*40;/* 4A 二审 (e):后台一批至多约 150 ms(运行时同一时刻只编一批,前台的查询/记忆重排不被长批挡成 overloaded) */while(count>1&&estimate(count)>BACKGROUND_ENCODE_BATCH_MS)count--;
         const batch=todo.slice(offset,offset+count),texts=batch.map(row=>originals.get(row.key));
-        const result=await host.encoder.encode(texts,{role:'document',scopeId:BACKGROUND_SCOPE,deadline:Date.now()+1000,minimumBudgetMs:Math.min(900,Math.max(1,estimate(count))),beforeEncode:async()=>{checkPaused();if(host.sourceSequence(sid)!==sequence)throw fail('source_changed');}});
+        const result=await host.encoder.encode(texts,{role:'document',scopeId:BACKGROUND_SCOPE,priority:'background',maxWaitMs:0,deadline:Date.now()+1000,minimumBudgetMs:Math.min(900,Math.max(1,estimate(count))),beforeEncode:async()=>{checkPaused();if(host.sourceSequence(sid)!==sequence)throw fail('source_changed');}});
         if(!result?.ok){st.encode.stall=String(result?.reason||'unavailable');outcome=fresh.size?'partial':'stop';break;}
         if(result.modelFingerprint!==model||!Array.isArray(result.vectors)||result.vectors.length!==texts.length){st.encode.stall='model_changed';return 'stop';}
-        batch.forEach((row,n)=>{const vector=result.vectors[n];if(result.truncated?.[n]||!Array.isArray(vector)||!vector.length||vector.length>8192||!vector.every(Number.isFinite)||!vector.some(x=>x!==0))return;if(dims===null)dims=vector.length;if(vector.length===dims)fresh.set(row.key,Float32Array.from(vector));});
+        batch.forEach((row,n)=>{const vector=result.vectors[n];if(result.truncated?.[n]||!Array.isArray(vector)||!vector.length||vector.length>8192||!vector.every(Number.isFinite)||!vector.some(x=>x!==0))return;if(dims===null)dims=vector.length;if(vector.length===dims){fresh.set(row.key,Float32Array.from(vector));freshTexts.set(row.key,hash(texts[n]));}});
         offset+=count;
         // 4A 二审 (e):批与批之间空出 50 ms,前台(查询编码、记忆重排)每 25 ms 一次的重试能插进来。
         if(offset<todo.length)await pauseBriefly(BACKGROUND_ENCODE_GAP_MS);
@@ -120559,9 +120585,10 @@ const SessionFullTextIndex = ((io,p,c) => {
       if(!fresh.size&&outcome!=='done')return outcome;
       for(const vector of existing.values()){if(dims===null)dims=vector.length;break;}
       // 单文件容量按维度折算条数(base64 文本 + 键),超出的窗口不落盘(该会话语义覆盖记为部分)。
-      const fit=dims?Math.max(1,Math.min(VECTOR_ENTRIES,Math.floor((VECTOR_BYTES-4096)/(Math.ceil(dims*4/3)*4+80)))):0,next=new Map();for(const row of windows){if(next.size>=fit)break;const vector=fresh.get(row.key)||existing.get(row.key);if(vector&&vector.length===dims)next.set(row.key,vector);}
+      const fit=dims?vectorCapacity(dims):0,next=new Map();next.texts=new Map();
+      for(const row of windows){if(next.size>=fit)break;const sha=freshTexts.get(row.key)||existingTexts.get(row.key),vector=fresh.get(row.key)||existing.get(row.key);if(vector&&vector.length===dims&&(sha||!needDigest)){next.set(row.key,vector);if(sha)next.texts.set(row.key,sha);}}
       await revoked();if(await host.epoch(sid)!==epoch)return 'skip';
-      const record={schema:VECTOR_SCHEMA,sessionId:sid,model,dims:dims||1,entries:Object.fromEntries([...next].map(([key,vector])=>[key,packVector(vector)]))},policy=await host.enabled();
+      const record={schema:VECTOR_SCHEMA,sessionId:sid,model,dims:dims||1,entries:Object.fromEntries([...next].map(([key,vector])=>[key,packVector(vector)])),texts:Object.fromEntries(next.texts)},policy=await host.enabled();
       const written=await exclusive(async()=>{await revoked();const current=await currentManifest(sid);if(current===malformedManifest||current?.generation!==value.generation)return false;
         if(next.size)await write(sid,VECTOR_FILE,record,VECTOR_BYTES,policy,checkPaused);else await removeOwned(sid,[VECTOR_FILE],checkPaused);return true;});
       if(!written)return 'skip';
@@ -120576,20 +120603,23 @@ const SessionFullTextIndex = ((io,p,c) => {
       if(descriptor===undefined){try{descriptor=await host.encoder.prepare({scopeId:BACKGROUND_SCOPE,deadline:Date.now()+1000});}catch{descriptor=null;}checkPaused();}
       else if(descriptor?.available!==true){try{const task=host.encoder.prewarm?.();if(task&&typeof task.catch==='function')task.catch(()=>{});}catch{}}
       // 运行时还在加载:2 s 后再看;起不来/已关:30 s 后再试(运行时自己有故障退避);Gemma 研究路径不落持久向量。
-      if(descriptor?.modelId==='embeddinggemma-2-text-q4'){encode.done=true;encode.serial=serial;st.encodePriority.clear();st.state='idle';return {again:false};}
       if(descriptor?.available!==true||typeof descriptor.modelFingerprint!=='string'||!descriptor.modelFingerprint){const loading=['loading','warming','cold','starting'].includes(descriptor?.state);encode.stall=String(descriptor?.reason||descriptor?.state||'unavailable');st.encodePriority.clear();st.state='idle';return {again:true,delay:loading?2000:30000,retryLater:true};}
       const model=descriptor.modelFingerprint;if(encode.model!==model){encode.model=model;encode.cursor=0;st.encoded.clear();}
       if(encode.cursor===0)encode.passSerial=serial;
-      st.state='encoding';const sliceEnd=Date.now()+BACKGROUND_SLICE_MS;
+      // 152 L4:每次 encodeSession 都要重读清单与分片、扫一遍正文、整份重写 vectors.json;片长按实测批成本放宽到 8 批,
+      // 让一次扫描摊到多条窗口上。批间让路(读租约、点名读、yieldRequested)不变,前台最多等一条窗口。
+      const batchCost=typeof host.encoder.estimateEncodingBudget==='function'?Number(host.encoder.estimateEncodingBudget('document',1)):NaN;
+      st.state='encoding';const sliceEnd=Date.now()+(Number.isFinite(batchCost)?Math.max(BACKGROUND_SLICE_MS,Math.min(2000,Math.ceil(batchCost*8))):BACKGROUND_SLICE_MS);
       try{
         const catalog=await bgCatalog();if(!Array.isArray(catalog)||catalog.some(sid=>!valid(sid)))throw fail('catalog_invalid');
         const present=new Set(catalog);
         // 一条会话编一段:done/skip 记账(sequence + 模型),partial 下一片接着编,stop(运行时忙/不可用)整片收工稍后再来。
         const one=async sid=>{const sequence=host.sourceSequence(sid),mark=st.encoded.get(sid);if(mark&&mark.sequence===sequence&&mark.model===model)return 'done';
-          let outcome;try{outcome=await encodeSession(sid,model,sliceEnd,sequence);}catch(error){if(error?.code==='session_fulltext.paused'||error===encodeRevoked)throw error;outcome='skip';}
+          let outcome;try{outcome=await encodeSession(sid,model,sliceEnd,sequence,descriptor?.modelId==='embeddinggemma-2-text-q4');}catch(error){if(error?.code==='session_fulltext.paused'||error===encodeRevoked)throw error;outcome='skip';}
           if(outcome==='done'||outcome==='skip')st.encoded.set(sid,{sequence,model});return outcome;};
         // 请求点名的几条(刚建完索引的)先编。
-        for(const sid of [...st.encodePriority]){checkPaused();if(!present.has(sid)){st.encodePriority.delete(sid);continue;}const outcome=await one(sid);
+        // 152 L4:点名编码同样让给在飞的读租约(与下面目录循环一致)。修前请求建完索引就把会话点名,后台与这次请求同时编同一批窗口、争同一个 worker。
+        for(const sid of [...st.encodePriority]){checkPaused();if(!present.has(sid)){st.encodePriority.delete(sid);continue;}if(readers>0&&!st.urgent)return {again:false,idleWait:(st.again=true)};const outcome=await one(sid);
           if(outcome==='stop'){st.encodePriority.clear();st.state='idle';return {again:true,delay:2000,retryLater:true};}if(outcome!=='partial')st.encodePriority.delete(sid);if(Date.now()>=sliceEnd||outcome==='partial')return {again:true,delay:BACKGROUND_GAP_MS};}
         while(encode.cursor<catalog.length){checkPaused();if(readers>0&&!st.urgent)return {again:false,idleWait:(st.again=true)};if(st.priority.size)return {again:true,delay:0};if(yieldRequested())return {again:true,delay:BACKGROUND_BUSY_RETRY_MS};if(!st.urgent&&typeof host.idle==='function'&&host.idle()!==true)return {again:true,delay:BACKGROUND_BUSY_RETRY_MS};
           const outcome=await one(catalog[encode.cursor]);
@@ -120996,6 +121026,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     }
     return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work,null,true),
       withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work,null,tool==='threads_search'),withObservation:(ctx,work)=>{if(!ctx?.session?.id||!observationMainReadAllowed(ctx))throw fail('model_scope_required');return enter('observation',config=>host.modelAuthority(ctx,'observation_recall',config),null,work,ctx.session.id);},search,metadata,publicMetadata,usesSourceBoundMethod:()=>!!current().method,searchEvidenceActive:()=>!!current().relatedMetadata,finish,emitUI,scope,
+      semanticDisabled:()=>index.backgroundKick(),
       retireSession:id=>index.invalidate(id,true)});
   }
   return Object.freeze({create});
@@ -121027,6 +121058,7 @@ function getSessionFullTextConsumers() {
   return sessionFullTextConsumers;
 }
 Object.assign(SessionFullTextHooks,{
+  semanticDisabled:()=>getSessionFullTextConsumers().semanticDisabled(),
   withUI:(req,res,filter,work)=>getSessionFullTextConsumers().withUI(req,res,filter,work),
   withModel:(ctx,tool,filter,work)=>getSessionFullTextConsumers().withModel(ctx,tool,filter,work),
   withObservation:(ctx,work)=>getSessionFullTextConsumers().withObservation(ctx,work),

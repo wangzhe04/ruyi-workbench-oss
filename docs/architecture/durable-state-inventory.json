@@ -519,7 +519,7 @@
       "pattern": "<data>/sessions/_fulltext-index-v1/<safe-session-id>/vectors.json",
       "owner": "13ap-session-fulltext-index.js",
       "anchor": "const VECTOR_FILE=",
-      "schema": "object / Store schema1; payload schema1 {sessionId, model fingerprint, dims, entries: window key -> base64 float32}",
+      "schema": "object / Store schema1; payload schema2 {sessionId, model fingerprint, dims, entries: window key -> base64 float32, texts: window key -> sha256 of the original window text} (schema1 without texts still read; its vectors are not used by the Gemma method and are re-encoded)",
       "writePrimitive": "WorkDataStore.createText chunked atomic write (background encoder, exclusive with search read leases); purpose search-index / sessions / fulltext-index:<sid>:vectors",
       "corruption": "invalid shape, model mismatch or authenticated carrier failure is read as no vectors (lexical and disclosure unaffected); rewritten by the background encoder",
       "capacity": "8MiB logical file (<=3584 windows); in-process decoded cache <=96MiB LRU",

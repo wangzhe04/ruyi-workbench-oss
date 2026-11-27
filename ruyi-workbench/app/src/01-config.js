@@ -2280,6 +2280,9 @@ function configEmitWritten(config) {
   invalidateConfigReads(); // Publication invalidates readers which started during the physical write.
   if (typeof config?.credentialEncryptionV1 === 'boolean') lastGoodCredentialEncryptionV1 = config.credentialEncryptionV1;
   if (typeof PrivacyCore !== 'undefined') PrivacyCore.configHooks.configurePrivacy?.(config);
+  if (config?.semanticRetrievalV1 === false && lastGoodConfig?.semanticRetrievalV1 !== false && typeof SessionFullTextHooks !== 'undefined') {
+    SessionFullTextHooks.semanticDisabled?.();
+  }
   lastGoodConfig = cloneConfigSnapshot(config);
   RUYI_EVENTS.emit('config.written', { schedulerEnabledV1: !!(config && config.schedulerEnabledV1 === true), permissionMode: String(config && config.permissionMode || 'default') });
 }

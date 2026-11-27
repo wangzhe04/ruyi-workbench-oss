@@ -224,6 +224,7 @@ const SessionFullTextConsumers = ((c, AsyncLocalStorage) => {
     }
     return Object.freeze({withUI:(req,res,filter,work)=>enter('ui',config=>host.uiAuthority(req,res,config),filter,work,null,true),
       withModel:(ctx,tool,filter,work)=>enter('model',config=>host.modelAuthority(ctx,tool,config),filter,work,null,tool==='threads_search'),withObservation:(ctx,work)=>{if(!ctx?.session?.id||!observationMainReadAllowed(ctx))throw fail('model_scope_required');return enter('observation',config=>host.modelAuthority(ctx,'observation_recall',config),null,work,ctx.session.id);},search,metadata,publicMetadata,usesSourceBoundMethod:()=>!!current().method,searchEvidenceActive:()=>!!current().relatedMetadata,finish,emitUI,scope,
+      semanticDisabled:()=>index.backgroundKick(),
       retireSession:id=>index.invalidate(id,true)});
   }
   return Object.freeze({create});
@@ -255,6 +256,7 @@ function getSessionFullTextConsumers() {
   return sessionFullTextConsumers;
 }
 Object.assign(SessionFullTextHooks,{
+  semanticDisabled:()=>getSessionFullTextConsumers().semanticDisabled(),
   withUI:(req,res,filter,work)=>getSessionFullTextConsumers().withUI(req,res,filter,work),
   withModel:(ctx,tool,filter,work)=>getSessionFullTextConsumers().withModel(ctx,tool,filter,work),
   withObservation:(ctx,work)=>getSessionFullTextConsumers().withObservation(ctx,work),
