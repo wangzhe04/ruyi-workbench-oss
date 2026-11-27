@@ -27,7 +27,7 @@ async function phase(kind, directory, sessionCount, perSession) {
   const ports = m.exports.measure, runtime = ports.SemanticRuntimeHooks;
   const root = path.join(directory, 'dataset');
   const f = await fixture({ directory: root, enabled: true, master: createHash('sha256').update('synthetic L4 fixture key').digest() });
-  const report = { node: process.version, serverSha256: digest(bytes), pid: process.pid };
+  const report = { node: process.version, serverSha256: digest(bytes), pid: process.pid, availableParallelism: os.availableParallelism() };
   try {
     const started = performance.now(), until = Date.now() + 60000;
     let ready;
@@ -76,11 +76,14 @@ async function phase(kind, directory, sessionCount, perSession) {
       report.queries = [];
       for (let i = 0; i < 20; i++) {
         const q = 'Which ' + topics[i % 10] + ' tasks need ' + (i < 10 ? 'inspection' : 'additional review') + '?';
+        const workerBefore = runtime.stats().backend;
         const then = performance.now(), docsBefore = docTexts, queriesBefore = queryTexts, scansBefore = scans;
         const r = await index.search(q, null, 5, { method: ports.SemanticRuntimeTransportProof.method(), deferDocumentEncoding: true,
           deadline: Date.now() + 15000 });
+        const workerAfter = runtime.stats().backend;
         report.queries.push({ query: q, ms: Math.round(performance.now() - then), status: r.semantic.status,
           coverage: r.semantic.coverage, candidates: r.semantic.candidateFragments, cached: r.semantic.cachedFragments,
+          workerDocumentTexts: workerAfter.documentTexts - workerBefore.documentTexts, workerQueryTexts: workerAfter.queryTexts - workerBefore.queryTexts,
           policy: r.semantic.admission?.policyId, docTexts: docTexts - docsBefore, queryTexts: queryTexts - queriesBefore, scans: scans - scansBefore });
       }
     }
@@ -105,7 +108,7 @@ async function main() {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'gemma-stored-restart-'));
   try {
     const report = { generatedAt: new Date().toISOString(), sessions: Number(sessions), messagesPerSession: Number(rows), encrypted: true,
-      measurement: 'Full-text session search with the real worker, encrypted synthetic source and owned index. Two fresh Node processes, warm model before queries, no CPU affinity limit.' };
+      measurement: 'Full-text session search with the real worker, encrypted synthetic source and owned index. Two fresh Node processes with recorded available parallelism; warm model before queries.' };
     for (const kind of ['build', 'restart']) {
       const proc = spawnSync(process.execPath, [__filename, '--phase', kind, dir, sessions, rows], { stdio: 'inherit', windowsHide: true });
       if (proc.error) throw proc.error;

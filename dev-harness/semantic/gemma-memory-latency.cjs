@@ -9,7 +9,7 @@ const reference = require('../../docs/optimization-plan/evidence/semantic-retrie
 const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 const frame = new AsyncLocalStorage();
 const hash = data => crypto.createHash('sha256').update(data).digest('hex');
-async function measure(key, work) {
+async function measure(key, work, phase) {
   const parent = frame.getStore();
   if (!parent) return work();
   const current = { totals: parent.totals, childMs: 0 };
@@ -18,7 +18,14 @@ async function measure(key, work) {
   finally {
     const elapsed = performance.now() - start;
     current.totals[key] += elapsed - current.childMs;
-    if (key === 'checksMs') current.totals.checks++;
+    if (key === 'checksMs') {
+      current.totals.checks++;
+      if (phase) {
+        const bucket = current.totals.checkPhases[phase] ||= { calls:0, ms:0 };
+        bucket.calls++;
+        bucket.ms += elapsed - current.childMs;
+      }
+    }
     parent.childMs += elapsed;
   }
 }
@@ -31,15 +38,34 @@ async function main() {
   const mod = new Module(server, module);
   mod.filename = server; mod.paths = Module._nodeModulePaths(path.dirname(server)); mod.measure = measure;
   // Instrument only the isolated compiled module; do not change the on-disk artifact.
+  const splitChecks = process.argv.includes('--check-phases');
   let code = source;
+  if (splitChecks) {
+    // Tag the original callback without adding an await, another timer, or any I/O.
+    const tags = [
+      ["() => context.check?.('finish', automaticBaseline ? undefined : selected)",
+       "event => context.check?.('finish', automaticBaseline ? undefined : selected, 'policy-' + event.phase)"],
+      ["context.check?.('finish',automaticBaseline && entry ? [entry] : selected)",
+       "context.check?.('finish',automaticBaseline && entry ? [entry] : selected, 'field')"],
+      ["disclosed => check('finish', disclosed)", "disclosed => check('finish', disclosed, 'disclosure')"]
+    ];
+    for (const [from, to] of tags) {
+      assert.equal(code.split(from).length, 2);
+      code = code.replace(from, to);
+    }
+  }
   for (const [from, to] of [
-    ['const check = async (phase, watch) => {','const check = (...args) => module.measure("checksMs", () => checkImpl(...args)); const checkImpl = async (phase, watch) => {'],
+    ['const check = async (phase, watch) => {','const check = (...args) => module.measure("checksMs", () => checkImpl(...args), ' + (splitChecks ? '(args[2] || args[0])' : 'null') + '); const checkImpl = async (phase, watch) => {'],
     ['const decision = await request.evaluate(known ? scored : null, {','const evaluate = (...args) => module.measure("evaluateMs", () => request.evaluate(...args)); const decision = await evaluate(known ? scored : null, {']
   ]) { assert.equal(code.split(from).length, 2); code = code.replace(from, to); }
   mod._compile(code + '\nmodule.exports.bench = {resolveMemoryPreflight, SemanticRuntimeHooks, memoryProjectDir, pending:()=>typeof memoryHeaderPrewarm!=="undefined" && memoryHeaderPrewarm.pending()};', server);
   const srv = mod.exports, api = srv.bench, runtime = api.SemanticRuntimeHooks;
   const encode = runtime.encode;
-  runtime.encode = (texts, opts) => opts.role === 'query' ? measure('queryMs', () => encode(texts, opts)) : encode(texts, opts);
+  let foregroundDocuments = 0;
+  runtime.encode = (texts, opts) => {
+    if (opts.role === 'document' && frame.getStore() && opts.priority !== 'background') foregroundDocuments += texts.length;
+    return opts.role === 'query' ? measure('queryMs', () => encode(texts, opts)) : encode(texts, opts);
+  };
   try {
     const cwd = path.join(home, 'project'); fs.mkdirSync(cwd);
     const dir = api.memoryProjectDir(cwd); fs.mkdirSync(dir, { recursive: true });
@@ -57,12 +83,13 @@ async function main() {
     } while (!runtime.descriptor().available && Date.now()<readyUntil);
     assert.equal(runtime.descriptor().available,true,JSON.stringify(runtime.descriptor()));
     const sample = async (query, session) => {
-      const before = runtime.stats().backend, t = { checks:0, checksMs:0, evaluateMs:0, queryMs:0 };
+      const foregroundBefore = foregroundDocuments;
+      const before = runtime.stats().backend, t = { checks:0, checksMs:0, evaluateMs:0, queryMs:0, ...(splitChecks ? {checkPhases:{}} : {}) };
       const start = performance.now();
       const result = await frame.run({ totals:t, childMs:0 },()=>api.resolveMemoryPreflight(session,cwd,query,null,config));
       const elapsedMs = performance.now()-start, after = runtime.stats().backend;
       return { query, status:result.status.semantic.status, elapsedMs,...t, otherMs:elapsedMs-t.checksMs-t.evaluateMs-t.queryMs,
-        documentTexts:after.documentTexts-before.documentTexts, kills:after.kills-before.kills };
+        documentTexts:after.documentTexts-before.documentTexts, foregroundDocumentTexts:foregroundDocuments-foregroundBefore, kills:after.kills-before.kills };
     };
     const cold = await sample(reference.queries[0],sessions[0]);
     const waitStart = Date.now();
@@ -77,7 +104,7 @@ async function main() {
       const sorted = warm.map(row=>row[key]).sort((a,b)=>a-b);
       summary[key] = { median:(sorted[3]+sorted[4])/2,p95:sorted[7] };
     }
-    const report = { serverSha256:hash(source),model:runtime.descriptor().modelFingerprint,scope:'128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms',cold,prewarmMs,warm,secondSession,summary };
+    const report = { serverSha256:hash(source),availableParallelism:os.availableParallelism(),model:runtime.descriptor().modelFingerprint,scope:'128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms',cold,prewarmMs,warm,secondSession,summary };
     fs.writeFileSync(process.argv[3], JSON.stringify(report,null,2)+'\n');
     console.log(JSON.stringify({ cold,prewarmMs,secondSession,summary }));
   } finally { await runtime.shutdown(); fs.rmSync(home,{recursive:true,force:true}); }
