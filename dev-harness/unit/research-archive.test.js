@@ -154,7 +154,7 @@ function undeclaredSemanticNames(names, declared, ignoredPatterns) {
 }
 
 test('④e the research directory holds exactly the declared not-archived files, nothing grows back', () => {
-  const declared = new Set(manifest.notArchived.map(row => row.path));
+  const declared = new Set([...manifest.notArchived.map(row => row.path), ...KEPT_CONFIG.keys()]);
   const ignored = ignoredBlindPatterns();
   assert.ok(ignored.length >= 1, '.gitignore still names the local blind material');
   const names = semanticFileNames(path.join(HARNESS, 'semantic'));

@@ -43,6 +43,10 @@ const KEPT_CONFIG = new Map([
   ['dev-harness/semantic/.rgignore', '保留:声明 acceptance* 为盲测材料、让普通文本搜索跳过,与留在原处的盲测件同去留'],
   ['dev-harness/semantic/refresh-license-lock.cjs', '产品维护脚本:刷新 semantic-runtime/licenses 的许可证锁;只依赖产品的 models.lock.json 与 licenses/,licenses/NOTICE.md 按原路径指向它'],
   ['dev-harness/semantic/download-candidates.cjs', '产品维护脚本:按 models.lock.json 下载模型资产并用产品 verify.cjs 校验;只依赖产品文件,semantic-runtime/README.md 按原路径指向它'],
+  // Maintained evaluation entry points added after the historical archive was frozen.
+  ...['gemma-session-timeout.cjs', 'sr2-encoder-comparison.cjs', 'sr2-product-evaluation.cjs', 'sr2-product-summary.cjs',
+    'admission-dev-corpus.cjs', 'admission-replay.cjs', 'gemma-library-counts.cjs', 'gemma-memory-latency.cjs',
+    'gemma-stored-restart.cjs'].map(file => ['dev-harness/semantic/' + file, 'Current offline evaluation harness']),
 ]);
 
 function parseArgs(argv) {
