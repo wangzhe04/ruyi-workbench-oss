@@ -1,5 +1,4 @@
-// Semantic memory headers: automatic recall only reranks existing candidates;
-// explicit list(query) may discover additional eligible headers after admission.
+// Both automatic and explicit recall use authenticated memory headers for Gemma admission.
 const MemorySemanticRecall = (() => {
   function deferredRecall(status, method) {
     return ['loading','overloaded','timeout','partial','unavailable','truncated'].includes(status)
@@ -124,8 +123,13 @@ const MemorySemanticRecall = (() => {
           ...(key && !complete && nextOffset<registry.length && scored.status!=='disabled' ? {canContinue:true,continuation:'repeat-same-query-and-scope'} : {})}});
     }
     async function rank(registry, query, limit, config, context = {}) {
-      context = { ...context, check: failures.guard(context.check) };
       const baseline = host.fallback(registry, query, limit, config);
+      if (limit > 0 && query && query.length <= 8192 && registry.length && config?.semanticRetrievalV1 !== false && host.enabled(config)
+          && typeof SemanticAdmissionRequest !== 'undefined' && typeof SemanticRuntimeTransportProof !== 'undefined'
+          && SemanticRuntimeTransportProof.method() !== null) {
+        return search(registry, query, limit, config, context, baseline);
+      }
+      context = { ...context, check: failures.guard(context.check) };
       await context.check?.('start');
       const state = async status => {
         await context.check?.('finish');
@@ -176,10 +180,33 @@ const MemorySemanticRecall = (() => {
       return { entries, baselineEntries: baseline.entries, rankingKeys: selected.map(entry => host.key(entry)), fillKeys: baseline.fillKeys,
         semantic: { status: 'reranked', mode: 'rerank-only', automaticCandidates: false, modelFingerprint: result.modelFingerprint, candidateCount: selected.length } };
     }
-    async function search(registry, query, limit, config, context = {}) {
+    function mergeAutomatic(baseline, admitted, scoreOf, limit) {
+      const matches = baseline.entries.filter(entry => !baseline.fillKeys.has(host.key(entry)));
+      const keys = new Set(matches.map(host.key));
+      const best = Math.max(-Infinity, ...Array.from(admitted.values(), row => row.semanticScore));
+      // Admission verifies the original header. On unattended sends also omit
+      // marginal alternatives that trail the strongest admitted hit.
+      const additions = Array.from(admitted.values())
+        .filter(row => row.semanticScore >= best - 0.035 && !keys.has(host.key(row.entry)))
+        .map(row => row.entry);
+      const addedKeys = new Set(additions.map(host.key));
+      const fills = baseline.entries.filter(entry => baseline.fillKeys.has(host.key(entry)) && !addedKeys.has(host.key(entry)));
+      const candidates = [...matches,...additions];
+      const entries = [...candidates.slice().sort((a,b)=>scoreOf(b)-scoreOf(a)), ...fills].slice(0,limit);
+      const retained = new Set(entries.map(host.key));
+      return {entries, baselineEntries:[...candidates,...fills].filter(entry=>retained.has(host.key(entry))),
+        rankingKeys:candidates.filter(entry=>retained.has(host.key(entry))).map(host.key), fillKeys:new Set(fills.map(host.key)),
+        semanticOnlyMatches:entries.filter(entry=>addedKeys.has(host.key(entry))).length};
+    }
+    async function search(registry, query, limit, config, context = {}, automaticBaseline = null) {
       context = { ...context, check: failures.guard(context.check) };
       const lexical=host.lexical(registry,query),baseline=lexical.slice(0,limit);
       const result=(rows,status,extra={})=>{
+        if (automaticBaseline) {
+          const fallback = deferredRecall(status, 'existing-recall');
+          return { ...automaticBaseline, semantic: {status, mode:'hybrid-header-search', automaticCandidates:true,
+            semanticOnlyMatches:0, ...extra, ...(fallback ? {fallback} : {})} };
+        }
         const deferred = deferredRecall(status, rows.some(row=>row.semanticOnly) ? 'keywords-and-admitted-semantic' : 'keywords');
         return {entries:rows.map(row=>row.entry),matched:rows.filter(row=>row.shared>0||row.semanticOnly).map(row=>row.entry),
         matches:new Map(rows.map(row=>[host.key(row.entry),{kind:row.semanticOnly?'semantic':row.shared>0?'lexical':'rule-fill',...(row.shared>0?{lexicalScore:row.score}:{}),...(Number.isFinite(row.semanticScore)?{semanticScore:row.semanticScore}:{})}])),
@@ -188,7 +215,7 @@ const MemorySemanticRecall = (() => {
       const fallback=async status=>{await context.check?.('finish');return result(baseline,status);};
       await context.check?.('start');
       if(config?.semanticRetrievalV1===false||!host.enabled(config))return fallback('disabled');
-      if(!query||query.length>256||!registry.length)return fallback('not-needed');
+      if(!query||query.length>(automaticBaseline?8192:256)||!registry.length)return fallback('not-needed');
       const useGemma=typeof SemanticAdmissionRequest!=='undefined'&&typeof SemanticRuntimeTransportProof!=='undefined'&&SemanticRuntimeTransportProof.method()!==null;
       if(!useGemma){
         try{return await searchLegacy(registry,query,limit,context,lexical,result);}
@@ -196,9 +223,10 @@ const MemorySemanticRecall = (() => {
       }
       // Full selected metadata is split before encoding; neither memory bodies
       // nor text-bearing identities enter this path. Coverage is explicit.
-      const fragments=[],selected=registry.slice(0,128);let omittedHeaders=registry.length-selected.length,fragmentChars=0;
-      for(const entry of selected){
-        const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096){omittedHeaders++;continue;}
+      const fragments=[],selected=[];let omittedHeaders=0,fragmentChars=0;
+      for(const entry of registry.slice(0,128)){
+        const initialFragments=fragments.length,initialChars=fragmentChars;
+        const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;
         let complete=true;
         for(let start=0;start<text.length;){
           let end=Math.min(text.length,start+96);if(end<text.length&&text.charCodeAt(end)>=0xdc00&&text.charCodeAt(end)<=0xdfff)end--;
@@ -206,31 +234,82 @@ const MemorySemanticRecall = (() => {
           fragments.push({entry,start,end,text:text.slice(start,end)});fragmentChars+=end-start;
           if(end===text.length)break;start=end-16;if(text.charCodeAt(start)>=0xdc00&&text.charCodeAt(start)<=0xdfff)start--;
         }
+        if(automaticBaseline && !complete){ fragments.length=initialFragments; fragmentChars=initialChars; break; }
+        selected.push(entry);
         if(!complete)omittedHeaders++;
       }
+      omittedHeaders+=registry.length-selected.length;
       const coverage={source:'memory-metadata',bodyIndexed:false,selection:'first-128-eligible-headers',headerLimit:128,fragmentLimit:128,
         candidateHeaders:registry.length,selectedHeaders:selected.length,fragments:fragments.length,omittedHeaders,headerComplete:omittedHeaders===0,
         encodedFragments:0,admissionEvaluated:false,complete:false};
       if(!fragments.length){await context.check?.('finish');return result(baseline,'budget',{coverage});}
       {
-        const deadline=Math.min(Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
+        const deadline=Math.min(automaticBaseline ? Number.MAX_SAFE_INTEGER : Date.now()+1000,Number.isFinite(context.deadline)?context.deadline:Infinity),scopeId=context.scopeId,request=SemanticAdmissionRequest.create({query,scopeId,explicitMemory:true,identify:SemanticRetrieval.structuredIds,normalize:text=>text.normalize('NFKC').toLowerCase(),terms:retrievalTerms,maxRows:128}),fields=new Map(),owners=new Map();
         try{
           for(const entry of selected){const text=host.searchText?host.searchText(entry):host.text(entry);if(typeof text!=='string'||text.length>4096)continue;const key=host.key(entry),revision=String(entry.memoryVersion||''),identity={sourceId:JSON.stringify([scopeId,key]),field:'memory.metadata',revision,epoch:scopeId,sourceRevision:crypto.createHash('sha256').update(text).digest('hex')},field=request.addField({identity,text},{kind:'raw-metadata-v1',order:[key]});fields.set(key,field);owners.set(identity.sourceId,entry);}
+          const entriesByField=new Map(selected.map(entry=>[fields.get(host.key(entry)),entry]));
           const input=request.inputs();let scored;
-          try{scored=await host.score(query,input.docs,{scopeId,signal:context.signal,deadline,maxEncodeDocuments:128,identities:input.identities,policyContext:input.policyContext,purpose:'search',beforeEncode:()=>context.check?.('finish',selected)});}
-          catch(error){if(!failures.degradable(error,context.signal))throw error;await context.check?.('finish');return result(baseline,'unavailable',{coverage});}
+          const checkSources = () => context.check?.('finish', automaticBaseline ? undefined : selected);
+          let encodingSources;
+          const resolveBatch = async batch => {
+            encodingSources = batch.map(index => entriesByField.get(request.fieldAt(index)));
+            await context.check?.('finish', encodingSources);
+            return batch.map(index => input.docs[index]);
+          };
+          try {
+            scored = await host.score(query, input.docs, {
+              scopeId, signal:context.signal, deadline, maxEncodeDocuments:128, identities:input.identities,
+              policyContext:input.policyContext, purpose:'search',
+              beforeEncode:()=>context.check?.('finish', automaticBaseline ? encodingSources : selected),
+              ...(automaticBaseline ? {resolveTexts:resolveBatch, waitForCompletion:true} : {}),
+            });
+          } catch (error) {
+            if (!failures.degradable(error,context.signal)) throw error;
+            await context.check?.('finish'); return result(baseline,'unavailable',{coverage});
+          }
           await context.check?.('finish');
-          const known=SemanticRetrieval.hasScoreEvidence(scored);if(!known&&['ready','partial'].includes(scored.status)&&scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)throw Error('semantic.score_evidence_invalid');
-          const decision=await request.evaluate(known?scored:null,{poolComplete:coverage.headerComplete&&!input.truncated,lexicalFields:lexical.filter(row=>row.shared>0&&fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),deadline,signal:context.signal,beforeVerify:()=>context.check?.('finish',selected),verifyField:async snapshot=>{await context.check?.('finish',selected);const entry=owners.get(snapshot.identity.sourceId);if(!entry)return null;return {identity:snapshot.identity,text:host.searchText?host.searchText(entry):host.text(entry)};}}),d=request.read();
+          if (automaticBaseline && scored.status !== 'ready') return fallback(scored.status);
+          const known=SemanticRetrieval.hasScoreEvidence(scored);
+          if (!known && ['ready','partial'].includes(scored.status) && scored.modelFingerprint===SemanticAdmissionRequest.CONTRACT.modelFingerprint)
+            throw Error('semantic.score_evidence_invalid');
+          // Send-time selection stops at the last whole header that fits. Explicit
+          // searches retain their full-registry completeness contract.
+          const decision = await request.evaluate(known ? scored : null, {
+            poolComplete:(!!automaticBaseline || coverage.headerComplete) && !input.truncated,
+            lexicalFields:lexical.filter(row=>row.shared>0 && fields.has(host.key(row.entry))).map(row=>fields.get(host.key(row.entry))),
+            deadline, signal:context.signal, beforeVerify:checkSources,
+            verifyField:async snapshot => {
+              const entry=owners.get(snapshot.identity.sourceId);
+              await context.check?.('finish',automaticBaseline && entry ? [entry] : selected);
+              if (!entry) return null;
+              return {identity:snapshot.identity,text:host.searchText ? host.searchText(entry) : host.text(entry)};
+            },
+          });
+          const d = request.read();
           const kept=lexical.filter(row=>row.shared>0&&d.weakAccepted.get(fields.get(host.key(row.entry)))===true),lexicalKeys=new Set(kept.map(row=>host.key(row.entry))),bestByKey=new Map();
           for(let n=0;n<d.semanticAccepted.length;n++){
             if(d.semanticAccepted[n]!==true)continue;
             const field=request.fieldAt(n);
-            const entry=selected.find(item=>fields.get(host.key(item))===field);
+            const entry=entriesByField.get(field);
             if(!entry)continue;
             const key=host.key(entry),score=scored.scores[n];
-            if(!lexicalKeys.has(key)&&(!bestByKey.has(key)||score>bestByKey.get(key).semanticScore))
+            if((automaticBaseline || !lexicalKeys.has(key))&&(!bestByKey.has(key)||score>bestByKey.get(key).semanticScore))
               bestByKey.set(key,{entry,shared:0,semanticOnly:true,semanticScore:score});
+          }
+          if (automaticBaseline) {
+            if (!known || !decision.complete) return fallback('partial');
+            const scores = new Map();
+            for (let n=0; n<input.docs.length; n++) {
+              const field=request.fieldAt(n), score=scored.scores[n];
+              if (Number.isFinite(score)) scores.set(field,Math.max(scores.get(field) ?? -Infinity,score));
+            }
+            await context.check?.('finish'); request.read();
+            const merged = mergeAutomatic(automaticBaseline, bestByKey, entry=>scores.get(fields.get(host.key(entry))) ?? -2, limit);
+            if (host.budgetSafe && !host.budgetSafe(merged.entries, config)) return fallback('budget');
+            return { ...merged, semantic:{status:'reranked',mode:'hybrid-header-search',automaticCandidates:true,
+              modelFingerprint:scored.modelFingerprint,admissionPolicy:decision.policyId,candidateCount:merged.rankingKeys.length,
+              semanticOnlyMatches:merged.semanticOnlyMatches,coverage:{...coverage,encodedFragments:scored.coverage.cached,
+              admissionEvaluated:true,complete:decision.complete&&coverage.headerComplete}} };
           }
           const added=[...bestByKey.values()].sort((a,b)=>b.semanticScore-a.semanticScore||host.key(a.entry).localeCompare(host.key(b.entry)));const addedKeys=new Set(added.map(row=>host.key(row.entry))),rows=[...kept,...added,...lexical.filter(row=>!row.shared&&!addedKeys.has(host.key(row.entry)))].slice(0,limit);
           await context.check?.('finish');request.read();return result(rows,decision.complete?'ready':'partial',{modelFingerprint:scored.modelFingerprint,admissionPolicy:decision.policyId,semanticOnlyMatches:rows.filter(row=>row.semanticOnly).length,coverage:{...coverage,encodedFragments:scored.coverage?.cached||0,admissionEvaluated:true,complete:decision.complete}});

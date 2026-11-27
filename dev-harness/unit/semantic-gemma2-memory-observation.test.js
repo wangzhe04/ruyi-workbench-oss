@@ -7,7 +7,19 @@ const context=()=>({scopeId:'scope',check:async()=>{}});
 test('actual memory Gemma2 global strongK bypass preserves lexical and never refills semantic winner',async()=>{const f=setup(),entries=[{id:'strong',memoryVersion:'1',text:'needle fact'},{id:'other',memoryVersion:'1',text:'accepted other text'}],r=await memory(f,entries).search(entries,'needle fact',5,{},context());a.deepEqual(Array.from(r.matched,e=>e.id),['strong']);a.equal(r.semantic.coverage.complete,true);a.equal(r.semantic.admissionPolicy,'embeddinggemma2-memory-distinct-k3-cos070-v1');});
 test('actual memory weak header is independently admitted, rejected sibling not retained as match',async()=>{const f=setup(),entries=[{id:'good',memoryVersion:'1',text:'accepted needle subject'},{id:'bad',memoryVersion:'1',text:'needle unrelated'}],r=await memory(f,entries).search(entries,'needle fact',5,{},context());a.deepEqual(Array.from(r.matched,e=>e.id),['good']);a.equal(r.matches.has('bad'),false);a.equal(r.semantic.coverage.complete,true);});
 test('actual memory authority denial after prepare preserves original falsy reason and sends no document',async()=>{const f=setup(),entries=[{id:'one',memoryVersion:'1',text:'accepted needle subject'}];let count=0,caught=Symbol();try{await memory(f,entries).search(entries,'needle fact',5,{}, {scopeId:'scope',check:async()=>{if(++count===2)throw 0;}});}catch(e){caught=e;}a.equal(caught,0);a.equal(f.calls.length,0);});
-test('actual automatic memory uses existing candidates only and keeps rule membership with automatic:null',async()=>{const f=setup(),entries=[{id:'a',text:'needle subject'},{id:'b',text:'accepted needle subject'}],r=await memory(f,entries).rank(entries,'needle fact',2,{},context());a.deepEqual(new Set(Array.from(r.entries,e=>e.id)),new Set(['a','b']));a.equal(r.semantic.automaticCandidates,false);a.equal(r.semantic.mode,'rerank-only');});
+test('send preflight unions admitted semantic headers with keyword hits and promotes a rule fill just once',async()=>{
+  const f=setup(), entries=['needle subject','accepted needle guide','accepted different wording','unrelated'].map((text,i)=>({id:'m'+i,text}));
+  const rank=f.api.MemorySemanticRecall.create({
+    fallback:()=>({entries:[entries[0],entries[1],entries[2]],fillKeys:new Set(['m2'])}),
+    enabled:()=>true,budgetSafe:()=>true,lexical:()=>entries.slice(0,2).map(entry=>({entry,shared:1,score:1})),
+    key:entry=>entry.id,text:entry=>entry.text,score:f.api.score
+  }).rank;
+  const r=await rank(entries,'needle fact',3,{},context());
+  a.deepEqual(Array.from(r.entries,e=>e.id),['m1','m2','m0']);
+  a.equal(r.fillKeys.has('m2'),false);a.equal(r.semantic.semanticOnlyMatches,1);
+  a.equal(r.semantic.automaticCandidates,true);
+  a.equal(r.semantic.coverage.complete,true);
+});
 function observationArgs(f,fragments,extra={}){return{scopeId:'observation:scope',deadline:Date.now()+1000,poolComplete:true,check:async()=>{},fieldText:row=>row.full,identity:row=>({sourceId:row.id,field:'tool.content',revision:'r',epoch:'e',sourceRevision:'sr'}),coordinates:row=>[row.start,row.start+row.text.length],order:row=>[row.id],identities:fragments.map(row=>[row.id,row.start]),...extra};}
 test('actual observation helper raw snapshot obeys one globalK and independent weak windows',async()=>{const f=setup(),fragments=[{id:'A',start:0,text:'accepted needle subject',full:'accepted needle subject'},{id:'B',start:0,text:'needle unrelated',full:'needle unrelated'}],r=await f.api.observationWindowAdmission('needle fact',fragments,observationArgs(f,fragments));a.deepEqual(Array.from(r.scored.admission.accepted),[true,false]);a.equal(r.weak.get(r.keys[0]),true);a.equal(r.weak.get(r.keys[1]),false);a.equal(r.complete,true);});
 test('actual committed-message helper never uses raw hidden ID for whole-field eligibility or encode',async()=>{const f=setup(),mask='[[RUYI_PVT:KEY:'+('a'.repeat(32))+']]',projected='accepted '+mask+' subject',fragments=[{id:'A',start:0,text:projected,full:projected,raw:'OP-12 private hidden value'}],r=await f.api.observationWindowAdmission('Decision OP-12',fragments,observationArgs(f,fragments,{geometry:'privacy-projected-v1'}));a.deepEqual(Array.from(r.scored.admission.accepted),[false]);a.ok(f.calls.every(call=>call.texts.every(text=>!text.includes('private hidden value'))));a.equal(r.complete,true);});
@@ -46,4 +58,18 @@ test('a named literal is checked on the visible field, while unlabelled acronyms
     a.deepEqual(Array.from(r.matched,e=>e.id),['d2'],q);
   }
   a.equal((await search('how does HTTP work')).matched.length,3);
+});
+
+test('send-time discovery keeps keyword fallback while warming and checks the source before encoding', async () => {
+  const f=setup(), entries=[{id:'one',text:'accepted extra header'}];
+  const host={fallback:()=>({entries:[],fillKeys:new Set()}),enabled:()=>true,lexical:()=>[],
+    key:entry=>entry.id,text:entry=>entry.text,score:f.api.score};
+  const cold=f.api.MemorySemanticRecall.create({...host,score:async()=>({status:'loading'})});
+  const fallback=await cold.rank(entries,'question',8,{},context());
+  a.equal(fallback.semantic.status,'loading');a.equal(fallback.entries.length,0);
+  const denied=Error('source revoked');
+  await a.rejects(f.api.MemorySemanticRecall.create(host).rank(entries,'question',8,{},{
+    scopeId:'scope',check:async(_phase,watched)=>{if(watched?.includes(entries[0]))throw denied;},
+  }),error=>error===denied);
+  a.equal(f.calls.some(call=>call.role==='document'),false);
 });

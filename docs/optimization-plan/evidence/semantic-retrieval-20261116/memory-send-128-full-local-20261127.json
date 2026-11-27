@@ -1,0 +1,165 @@
+{
+  "packageSha256": "f9936fbf3048c17829b64269734d04d023dd500e15384a043f169e44f34f5fa9",
+  "zipEntries": 21305,
+  "serverSha256": "ec5f2a637cfb626a1c40fc1486cddb9e4ae5f9ad1ad862e4c5792a7abff1bd1b",
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "scope": "Windows CPU Q4, 128 short synthetic project headers (one fragment each), default recall limits. Three serial fresh processes and isolated sessions. Model startup and fixture creation precede timing. Each run times the packaged resolveMemoryPreflight on nine distinct queries in the same session. Warm means document vectors cached; the query still needs encoding.",
+  "topics": [
+    "番茄",
+    "密码重置",
+    "数据库回滚预案",
+    "航班取消",
+    "自行车",
+    "automobile",
+    "myocardial infarction",
+    "vacation policy"
+  ],
+  "filler": "120 headers, cycling twelve unrelated technical and operations topics with numbered suffixes",
+  "queries": [
+    "西红柿",
+    "heart attack",
+    "paid time off",
+    "骑脚踏车",
+    "bicycle",
+    "tomato",
+    "心肌梗死",
+    "annual leave",
+    "how to bake sourdough bread"
+  ],
+  "firstEncodeMs": [
+    16470,
+    16288,
+    16651
+  ],
+  "cachedMs": [
+    [
+      298,
+      296,
+      300,
+      289,
+      289,
+      293,
+      278,
+      288
+    ],
+    [
+      294,
+      295,
+      300,
+      283,
+      279,
+      289,
+      278,
+      274
+    ],
+    [
+      280,
+      288,
+      302,
+      277,
+      262,
+      272,
+      276,
+      276
+    ]
+  ],
+  "firstEncodeMedianMs": 16470,
+  "cachedMedianMs": 288.0,
+  "cachedNearestRankP95Ms": 300,
+  "documentEncodesPerRun": [
+    128,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ],
+  "queryEncodesPerRun": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "coverage": "128/128 headers and fragments in every timed request",
+  "sendChecks": "Separate HTTP chat turns with the same 128-header corpus. Received memory sections inspected at local mock Provider via Ruyi.exe and local mock CLI stdin via bundled Node. IDs 0 and 6 represent 番茄 and myocardial infarction.",
+  "received": {
+    "provider": [
+      {
+        "question": "西红柿",
+        "ids": [
+          0
+        ],
+        "semanticOnlyMatches": 1
+      },
+      {
+        "question": "heart attack",
+        "ids": [
+          6
+        ],
+        "semanticOnlyMatches": 1
+      },
+      {
+        "question": "番茄",
+        "ids": [
+          0
+        ],
+        "semanticOnlyMatches": 0
+      },
+      {
+        "question": "tomato 番茄",
+        "ids": [
+          0
+        ],
+        "semanticOnlyMatches": 0
+      },
+      {
+        "question": "how to bake sourdough bread",
+        "ids": [],
+        "semanticOnlyMatches": 0
+      }
+    ],
+    "cli": [
+      {
+        "question": "西红柿",
+        "ids": [
+          0
+        ],
+        "semanticOnlyMatches": 1
+      },
+      {
+        "question": "heart attack",
+        "ids": [
+          6
+        ],
+        "semanticOnlyMatches": 1
+      },
+      {
+        "question": "番茄",
+        "ids": [
+          0
+        ],
+        "semanticOnlyMatches": 0
+      },
+      {
+        "question": "tomato 番茄",
+        "ids": [
+          0
+        ],
+        "semanticOnlyMatches": 0
+      },
+      {
+        "question": "how to bake sourdough bread",
+        "ids": [],
+        "semanticOnlyMatches": 0
+      }
+    ]
+  }
+}
