@@ -1,5 +1,5 @@
 {
-  "sessions": 169,
+  "sessions": 167,
   "indexedSessions": 0,
   "unavailableIndexes": 0,
   "shardRows": 0,
@@ -26,5 +26,26 @@
     "p95": 33,
     "max": 33
   },
-  "projectsOver512": 0
+  "projectsOver512": 0,
+  "committedTextEstimate": {
+    "stewardSessions": 1,
+    "missingTranscript": 0,
+    "unreadableOrChanged": 0,
+    "shardRows": {
+      "count": 166,
+      "total": 21337,
+      "p50": 37,
+      "p95": 565,
+      "max": 1466
+    },
+    "sessionWindows": {
+      "count": 166,
+      "total": 322762,
+      "p50": 576,
+      "p95": 8233,
+      "max": 21676
+    },
+    "sessionsOver4096": 25,
+    "sessionsOver1938": 40
+  }
 }
