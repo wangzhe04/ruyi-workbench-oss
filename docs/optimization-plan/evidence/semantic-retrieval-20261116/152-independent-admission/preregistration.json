@@ -1,0 +1,22 @@
+{
+  "registeredAt": "2026-11-27T07:22:29.4333890+00:00",
+  "instrument": "a325ad709035dc012f37140c707efabb16b38338e2cda6aac05b7c359bd54b38",
+  "holdoutManifest": "1c7cff34316678f109efee82d1968118d32b46afd3fd7b8dbc2feae97d7c57c9",
+  "assetLock": "7edf09ad7e849a8e5f84402ce94fa522ed15ca0a4bd3e93186075d6f4af8950b",
+  "modelFingerprint": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "modelGraph": "f9eeba97acddf139b8ee2ddf04bc30dceafa88de93fadf74d7644e0d61a477a9",
+  "modelWeights": "c3975f2d1ab7a1878ae31a7d7a9b7804a827aff3800b60dfceafce21cac3df49",
+  "provider": "40713b6792d39558374c8f08c58738288db075194baa33707a4130fefdb61c95",
+  "profileValidator": "caf838b85a8cafff670f693dacee6bd1e0ac94abd54d704d5c09e4ef1c42ac57",
+  "referenceModule": "edff97d1a342fefe75224b6a4ab96dc7d0653a69506ec0afc04764ae00a186e8",
+  "referenceArray": "06580af42abb07a8954097f773cc0238a63a8a688afeddeec4a79cfdcd620908",
+  "absoluteFloor": 0.7,
+  "referenceMargin": 0.07,
+  "baseline": "Admit fields whose maximum window cosine is >= 0.70.",
+  "candidate": "Same absolute floor. Additionally require the maximum minus the unweighted mean cosine of all 32 anchor documents for the query to be >= 0.070. No tuning or rescoring.",
+  "encoding": "One verified packaged Gemma Q4 worker with below-normal process priority in an isolated evaluator-owned home. Query role for questions and document role for notes and fixed anchors. 96 UTF-16 code units per field window, stride 80. No truncation. Normalize every vector to unit length for cosine. Every input encoded once by role, and the same vectors feed both rules.",
+  "ranking": "Score only the supplied roster. Sort by descending maximum-window cosine, then by the input pool order. Return up to five admitted field IDs. Baseline/candidate top five committed to an evaluator-private file and publicly hashed before parsing gold. A pilot query has zero or one target candidate ID.",
+  "metrics": "Top-1 and top-5 hits and MRR@5 on answerables; reciprocal rank zero for missing gold. Any admitted result for a null query is one false accept. Also report null false accepts by direction, pool size and category, and grouped near-topic (missing_number, wrong_entity, absent_attribute) versus chitchat. Chinese-language regression: zh->zh top1/top5, MRR, false accepts, by form/category and pool size. Report all four directions. Counts are descriptive and repeated queries cluster by topic.",
+  "gate": "Proceed to the next research stage only if top1 and top5 both hold or improve for all answerables and for zh->zh, and total false accepts strictly decrease. Denominators must be identical across the comparison. Otherwise record no support. No post-result threshold change or second blind run.",
+  "scope": "Independent mathematical admission test for the small-pool synthetic memory supplement. Does not exercise end-to-end retrieval, production injection, authorization, disclosure, integration, latency or full SR2. No model tuning. Do not publish questions, candidate notes, individual predictions or reference labels in the repository."
+}

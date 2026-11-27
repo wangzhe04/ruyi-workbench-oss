@@ -1,0 +1,20 @@
+{
+  "utc": "2026-11-27T07:23:10.400Z",
+  "registrationSha256": "4c744a473dbd86a4618d2e1ca640c6ced1ac630662c06a6cca55ae5e1d27235e",
+  "predictionSha256": "2a2b440a12ec91f1460f5b8ebb9288876699d7a4325c51c8d4fdc427a7e5f80c",
+  "aggregateSha256": "f602eeebf01e550afec6a404fc1f225aaa2e897cd92f5f85a57ac6200d998be5",
+  "modelFingerprint": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "assetLockSha256": "7edf09ad7e849a8e5f84402ce94fa522ed15ca0a4bd3e93186075d6f4af8950b",
+  "holdoutManifestSha256": "1c7cff34316678f109efee82d1968118d32b46afd3fd7b8dbc2feae97d7c57c9",
+  "anchorsSha256": "06580af42abb07a8954097f773cc0238a63a8a688afeddeec4a79cfdcd620908",
+  "queries": 112,
+  "uniqueFields": 104,
+  "fieldWindows": 104,
+  "referenceDocuments": 32,
+  "verifiedUntruncatedEncodes": 248,
+  "comparisonRuns": 1,
+  "sharedVectors": true,
+  "measureLatency": false,
+  "isolatedWorkerHome": true,
+  "goldParsedAfterPredictionSeal": true
+}

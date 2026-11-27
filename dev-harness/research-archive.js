@@ -46,7 +46,7 @@ const KEPT_CONFIG = new Map([
   // Maintained evaluation entry points added after the historical archive was frozen.
   ...['gemma-session-timeout.cjs', 'sr2-encoder-comparison.cjs', 'sr2-product-evaluation.cjs', 'sr2-product-summary.cjs',
     'admission-dev-corpus.cjs', 'admission-replay.cjs', 'gemma-library-counts.cjs', 'gemma-memory-latency.cjs',
-    'gemma-stored-restart.cjs'].map(file => ['dev-harness/semantic/' + file, 'Current offline evaluation harness']),
+    'gemma-stored-restart.cjs', 'independent-admission-once.cjs'].map(file => ['dev-harness/semantic/' + file, 'Current offline evaluation harness']),
 ]);
 
 function parseArgs(argv) {

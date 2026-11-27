@@ -1,0 +1,682 @@
+{
+  "overall": {
+    "positive": 80,
+    "negative": 32,
+    "baseline": {
+      "first": 77,
+      "firstFive": 80,
+      "mrrAtFive": 0.97916667,
+      "falseAccepts": 28
+    },
+    "candidate": {
+      "first": 77,
+      "firstFive": 80,
+      "mrrAtFive": 0.97916667,
+      "falseAccepts": 26
+    }
+  },
+  "directions": {
+    "en->en": {
+      "positive": 20,
+      "negative": 8,
+      "baseline": {
+        "first": 18,
+        "firstFive": 20,
+        "mrrAtFive": 0.95,
+        "falseAccepts": 7
+      },
+      "candidate": {
+        "first": 18,
+        "firstFive": 20,
+        "mrrAtFive": 0.95,
+        "falseAccepts": 7
+      }
+    },
+    "en->zh": {
+      "positive": 20,
+      "negative": 8,
+      "baseline": {
+        "first": 20,
+        "firstFive": 20,
+        "mrrAtFive": 1,
+        "falseAccepts": 8
+      },
+      "candidate": {
+        "first": 20,
+        "firstFive": 20,
+        "mrrAtFive": 1,
+        "falseAccepts": 8
+      }
+    },
+    "zh->en": {
+      "positive": 20,
+      "negative": 8,
+      "baseline": {
+        "first": 20,
+        "firstFive": 20,
+        "mrrAtFive": 1,
+        "falseAccepts": 5
+      },
+      "candidate": {
+        "first": 20,
+        "firstFive": 20,
+        "mrrAtFive": 1,
+        "falseAccepts": 3
+      }
+    },
+    "zh->zh": {
+      "positive": 20,
+      "negative": 8,
+      "baseline": {
+        "first": 19,
+        "firstFive": 20,
+        "mrrAtFive": 0.96666667,
+        "falseAccepts": 8
+      },
+      "candidate": {
+        "first": 19,
+        "firstFive": 20,
+        "mrrAtFive": 0.96666667,
+        "falseAccepts": 8
+      }
+    }
+  },
+  "poolSizes": {
+    "2": {
+      "positive": 4,
+      "negative": 4,
+      "baseline": {
+        "first": 4,
+        "firstFive": 4,
+        "mrrAtFive": 1,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 4,
+        "firstFive": 4,
+        "mrrAtFive": 1,
+        "falseAccepts": 3
+      }
+    },
+    "3": {
+      "positive": 4,
+      "negative": 4,
+      "baseline": {
+        "first": 4,
+        "firstFive": 4,
+        "mrrAtFive": 1,
+        "falseAccepts": 2
+      },
+      "candidate": {
+        "first": 4,
+        "firstFive": 4,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      }
+    },
+    "5": {
+      "positive": 36,
+      "negative": 12,
+      "baseline": {
+        "first": 36,
+        "firstFive": 36,
+        "mrrAtFive": 1,
+        "falseAccepts": 12
+      },
+      "candidate": {
+        "first": 36,
+        "firstFive": 36,
+        "mrrAtFive": 1,
+        "falseAccepts": 12
+      }
+    },
+    "8": {
+      "positive": 36,
+      "negative": 12,
+      "baseline": {
+        "first": 33,
+        "firstFive": 36,
+        "mrrAtFive": 0.9537037,
+        "falseAccepts": 11
+      },
+      "candidate": {
+        "first": 33,
+        "firstFive": 36,
+        "mrrAtFive": 0.9537037,
+        "falseAccepts": 11
+      }
+    }
+  },
+  "negativeCategories": {
+    "absent_attribute": {
+      "positive": 0,
+      "negative": 4,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      }
+    },
+    "chitchat": {
+      "positive": 0,
+      "negative": 6,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "missing_number": {
+      "positive": 0,
+      "negative": 15,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 15
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 15
+      }
+    },
+    "wrong_entity": {
+      "positive": 0,
+      "negative": 7,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 7
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 7
+      }
+    }
+  },
+  "nearTopicAndChitchat": {
+    "chitchat": {
+      "positive": 0,
+      "negative": 6,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "near-topic": {
+      "positive": 0,
+      "negative": 26,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 25
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 25
+      }
+    }
+  },
+  "negativeCategoryByDirection": {
+    "en->en/absent_attribute": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "en->en/chitchat": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 0
+      }
+    },
+    "en->en/missing_number": {
+      "positive": 0,
+      "negative": 6,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 6
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 6
+      }
+    },
+    "en->zh/absent_attribute": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "en->zh/missing_number": {
+      "positive": 0,
+      "negative": 4,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 4
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 4
+      }
+    },
+    "en->zh/wrong_entity": {
+      "positive": 0,
+      "negative": 3,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      }
+    },
+    "zh->en/absent_attribute": {
+      "positive": 0,
+      "negative": 2,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "zh->en/chitchat": {
+      "positive": 0,
+      "negative": 4,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 2
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 0
+      }
+    },
+    "zh->en/missing_number": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "zh->en/wrong_entity": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "zh->zh/chitchat": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "zh->zh/missing_number": {
+      "positive": 0,
+      "negative": 4,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 4
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 4
+      }
+    },
+    "zh->zh/wrong_entity": {
+      "positive": 0,
+      "negative": 3,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      }
+    }
+  },
+  "positiveForms": {
+    "direct": {
+      "positive": 39,
+      "negative": 0,
+      "baseline": {
+        "first": 37,
+        "firstFive": 39,
+        "mrrAtFive": 0.97435897,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 37,
+        "firstFive": 39,
+        "mrrAtFive": 0.97435897,
+        "falseAccepts": 0
+      }
+    },
+    "numeric": {
+      "positive": 16,
+      "negative": 0,
+      "baseline": {
+        "first": 16,
+        "firstFive": 16,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 16,
+        "firstFive": 16,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      }
+    },
+    "weak": {
+      "positive": 25,
+      "negative": 0,
+      "baseline": {
+        "first": 24,
+        "firstFive": 25,
+        "mrrAtFive": 0.97333333,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 24,
+        "firstFive": 25,
+        "mrrAtFive": 0.97333333,
+        "falseAccepts": 0
+      }
+    }
+  },
+  "chinesePositiveForms": {
+    "direct": {
+      "positive": 10,
+      "negative": 0,
+      "baseline": {
+        "first": 10,
+        "firstFive": 10,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 10,
+        "firstFive": 10,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      }
+    },
+    "numeric": {
+      "positive": 4,
+      "negative": 0,
+      "baseline": {
+        "first": 4,
+        "firstFive": 4,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 4,
+        "firstFive": 4,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      }
+    },
+    "weak": {
+      "positive": 6,
+      "negative": 0,
+      "baseline": {
+        "first": 5,
+        "firstFive": 6,
+        "mrrAtFive": 0.88888889,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 5,
+        "firstFive": 6,
+        "mrrAtFive": 0.88888889,
+        "falseAccepts": 0
+      }
+    }
+  },
+  "chineseNegativeCategories": {
+    "chitchat": {
+      "positive": 0,
+      "negative": 1,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 1
+      }
+    },
+    "missing_number": {
+      "positive": 0,
+      "negative": 4,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 4
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 4
+      }
+    },
+    "wrong_entity": {
+      "positive": 0,
+      "negative": 3,
+      "baseline": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      },
+      "candidate": {
+        "first": 0,
+        "firstFive": 0,
+        "mrrAtFive": null,
+        "falseAccepts": 3
+      }
+    }
+  },
+  "chinesePoolSizes": {
+    "2": {
+      "positive": 2,
+      "negative": 0,
+      "baseline": {
+        "first": 2,
+        "firstFive": 2,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 2,
+        "firstFive": 2,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      }
+    },
+    "3": {
+      "positive": 2,
+      "negative": 0,
+      "baseline": {
+        "first": 2,
+        "firstFive": 2,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      },
+      "candidate": {
+        "first": 2,
+        "firstFive": 2,
+        "mrrAtFive": 1,
+        "falseAccepts": 0
+      }
+    },
+    "5": {
+      "positive": 6,
+      "negative": 4,
+      "baseline": {
+        "first": 6,
+        "firstFive": 6,
+        "mrrAtFive": 1,
+        "falseAccepts": 4
+      },
+      "candidate": {
+        "first": 6,
+        "firstFive": 6,
+        "mrrAtFive": 1,
+        "falseAccepts": 4
+      }
+    },
+    "8": {
+      "positive": 10,
+      "negative": 4,
+      "baseline": {
+        "first": 9,
+        "firstFive": 10,
+        "mrrAtFive": 0.93333333,
+        "falseAccepts": 4
+      },
+      "candidate": {
+        "first": 9,
+        "firstFive": 10,
+        "mrrAtFive": 0.93333333,
+        "falseAccepts": 4
+      }
+    }
+  },
+  "gates": {
+    "globalRecallHeld": true,
+    "chineseMonolingualRecallHeld": true,
+    "falseAcceptsStrictlyReduced": true
+  },
+  "supportsNextStage": true
+}
