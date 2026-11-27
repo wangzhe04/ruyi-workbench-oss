@@ -1,0 +1,165 @@
+{
+  "serverSha256": "5270a4b9c05e6a7a764bd4f44fd941e55e6e9532de705589e3afa04a50b2bb27",
+  "availableParallelism": 2,
+  "model": "sha256:9d41595d7508ff328b6c5a4223c7af26a91ed2fe53662cc9d633c1373eb4163e",
+  "scope": "128 synthetic project headers; resident worker; distinct warm queries; exclusive timings in ms",
+  "cold": {
+    "query": "西红柿",
+    "status": "partial",
+    "elapsedMs": 155.76519999999982,
+    "checks": 9,
+    "checksMs": 9.450200000000223,
+    "evaluateMs": 0,
+    "queryMs": 83.14480000000003,
+    "otherMs": 63.17019999999957,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0
+  },
+  "prewarmMs": 22160,
+  "warm": [
+    {
+      "query": "heart attack",
+      "status": "reranked",
+      "elapsedMs": 144.35299999999916,
+      "checks": 13,
+      "checksMs": 24.596000000005006,
+      "evaluateMs": 8.578899999996793,
+      "queryMs": 78.81289999999717,
+      "otherMs": 32.365200000000186,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "paid time off",
+      "status": "reranked",
+      "elapsedMs": 146.22149999999965,
+      "checks": 13,
+      "checksMs": 28.711999999999534,
+      "evaluateMs": 5.714499999994587,
+      "queryMs": 84.70319999999992,
+      "otherMs": 27.091800000005605,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "骑脚踏车",
+      "status": "reranked",
+      "elapsedMs": 161.71529999999984,
+      "checks": 13,
+      "checksMs": 38.72600000000239,
+      "evaluateMs": 4.421599999997852,
+      "queryMs": 86.6208000000006,
+      "otherMs": 31.946899999999005,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "bicycle",
+      "status": "reranked",
+      "elapsedMs": 136.1729000000014,
+      "checks": 13,
+      "checksMs": 25.121599999991304,
+      "evaluateMs": 4.54920000000493,
+      "queryMs": 77.24770000000353,
+      "otherMs": 29.254400000001624,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "tomato",
+      "status": "reranked",
+      "elapsedMs": 133.36160000000018,
+      "checks": 13,
+      "checksMs": 25.828199999996286,
+      "evaluateMs": 4.027699999998731,
+      "queryMs": 76.96529999999984,
+      "otherMs": 26.54040000000532,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "心肌梗死",
+      "status": "reranked",
+      "elapsedMs": 144.48790000000008,
+      "checks": 13,
+      "checksMs": 26.06909999999698,
+      "evaluateMs": 3.4438999999983935,
+      "queryMs": 88.2251000000033,
+      "otherMs": 26.749800000001414,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "annual leave",
+      "status": "reranked",
+      "elapsedMs": 135.01310000000012,
+      "checks": 13,
+      "checksMs": 25.25749999999607,
+      "evaluateMs": 3.5738000000019383,
+      "queryMs": 79.54450000000361,
+      "otherMs": 26.637299999998504,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    },
+    {
+      "query": "how to bake sourdough bread",
+      "status": "reranked",
+      "elapsedMs": 165.19940000000133,
+      "checks": 13,
+      "checksMs": 43.67610000000059,
+      "evaluateMs": 4.389900000005582,
+      "queryMs": 87.00590000000011,
+      "otherMs": 30.127499999995052,
+      "documentTexts": 0,
+      "foregroundDocumentTexts": 0,
+      "kills": 0
+    }
+  ],
+  "secondSession": {
+    "query": "heart attack",
+    "status": "reranked",
+    "elapsedMs": 136.26550000000134,
+    "checks": 13,
+    "checksMs": 23.648699999994278,
+    "evaluateMs": 3.673000000009779,
+    "queryMs": 78.99460000000181,
+    "otherMs": 29.94919999999547,
+    "documentTexts": 0,
+    "foregroundDocumentTexts": 0,
+    "kills": 0
+  },
+  "summary": {
+    "elapsedMs": {
+      "median": 144.42044999999962,
+      "p95": 165.19940000000133
+    },
+    "queryMs": {
+      "median": 82.12385000000177,
+      "p95": 88.2251000000033
+    },
+    "checksMs": {
+      "median": 25.948649999996633,
+      "p95": 43.67610000000059
+    },
+    "checks": {
+      "median": 13,
+      "p95": 13
+    },
+    "evaluateMs": {
+      "median": 4.405750000001717,
+      "p95": 8.578899999996793
+    },
+    "otherMs": {
+      "median": 28.173100000003615,
+      "p95": 32.365200000000186
+    }
+  }
+}
