@@ -4,6 +4,7 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
+const os = require('node:os');
 const path = require('node:path');
 const vm = require('node:vm');
 const cp = require('node:child_process');
@@ -18,13 +19,19 @@ const script = `const readline=require('node:readline');const fp='${fingerprint}
   readline.createInterface({input:process.stdin}).on('line',line=>{const r=JSON.parse(line);const t=r.texts[0];
     const ms=/^slow/.test(t)?400:/^mid/.test(t)?200:/^mute/.test(t)?-1:5;
     console.error('order:'+t);if(ms<0)return;
+    if(t==='reply during host pause'){
+      const fs=require('node:fs');
+      fs.writeSync(1,JSON.stringify({ok:true,requestId:r.requestId,vectors:[[1,0,0,0,0,0,0,0]],modelFingerprint:fp})+'\\n');
+      fs.writeFileSync(process.env.RUYI_TEST_PIPE_RECEIPT,String(Date.now()));
+      return;
+    }
     setTimeout(()=>{if(t.startsWith('deadline')||Date.now()>r.deadlineMs)console.log(JSON.stringify({ok:false,requestId:r.requestId,error:{code:'EG2_DEADLINE'}}));
       else console.log(JSON.stringify({ok:true,requestId:r.requestId,vectors:r.texts.map(()=>[1,0,0,0,0,0,0,0]),modelFingerprint:fp}));},ms);});`;
-function fixture({ exitObservationMs = 0, softTimeoutCooldownMs } = {}) {
+function fixture({ exitObservationMs = 0, softTimeoutCooldownMs, pipeReceipt } = {}) {
   const children = [], closed = new Set(), order = [];
   const client = context.api.create({ enabled: async () => true, startupMs: 5000, softTimeoutCooldownMs,
     observe: async pid => { if (!closed.has(pid)) return { exists: true, pid, creationFileTime: '133000000000000000' }; await sleep(exitObservationMs); return { exists: false }; },
-    settings: () => ({ command: process.execPath, args: ['-e', script], env: {}, cwd: process.cwd() }),
+    settings: () => ({ command: process.execPath, args: ['-e', script], env: pipeReceipt ? {RUYI_TEST_PIPE_RECEIPT: pipeReceipt} : {}, cwd: process.cwd() }),
     spawn(...args) {
       const child = cp.spawn(...args); children.push(child);
       child.once('close', () => closed.add(child.pid));
@@ -183,6 +190,34 @@ test('a soft timeout answers at the caller deadline, keeps the worker, and holds
     assert.equal(f.client.stats().softTimeouts, 1);
     assert.equal(f.client.descriptor().available, true);
   } finally { await f.close(); }
+});
+
+test('an on-time pipe reply survives a host pause past both deadlines', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ruyi-lease-pipe-'));
+  const pipeReceipt = path.join(dir, 'written-at');
+  const f = fixture({pipeReceipt});
+  try {
+    assert.equal((await f.client.prepare({budgetMs: 5000})).available, true);
+    // Start in the check phase. Microtasks drive encode through stdin.write without polling stdout.
+    await new Promise(resolve => setImmediate(resolve));
+    const deadline = Date.now() + 1200;
+    const pending = f.client.encode(['reply during host pause'], {role: 'document', deadline, budgetMs: 2000});
+    for (let n = 0; n < 100 && !f.client.stats().documentTexts; n++) await Promise.resolve();
+    assert.equal(f.client.stats().documentTexts, 1);
+    Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, Math.max(1, deadline + 700 - Date.now()));
+    const result = await pending;
+    const writtenAt = Number(fs.readFileSync(pipeReceipt, 'utf8'));
+    assert.ok(writtenAt > 0 && writtenAt < deadline, 'the child wrote the complete reply before its deadline');
+    assert.equal(result.reason, 'timeout');
+    const next = await f.client.encode(['next lease'], {role:'query', budgetMs:2000});
+    assert.equal(next.ok, true, 'the same worker must accept the next lease');
+    assert.equal(f.client.stats().starts, 1);
+    assert.equal(f.client.stats().stops, 0);
+    assert.equal(f.client.stats().kills, 0);
+  } finally {
+    await f.close();
+    fs.rmSync(dir, {recursive:true, force:true});
+  }
 });
 
 test('a worker silent past deadline plus grace is still reaped as hung', async () => {
