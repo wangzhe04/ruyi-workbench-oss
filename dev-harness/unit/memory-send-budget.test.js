@@ -99,6 +99,30 @@ test('L2 a second session in the same project reuses the header vectors (no docu
   a.ok(f.calls.filter(call => call.role === 'document').every(call => call.scopeId === 'memory-headers'));
 });
 
+test('L6 warm automatic ranking checks the complete header batch on both sides of the ranking', async () => {
+  const f = setup({msPerText:1}), entries = headers(12), memory = recall(f, entries);
+  await memory.prime(entries);
+  let fullChecks = 0, singletonChecks = 0;
+  const context = sendContext('memory:batch:p');
+  context.check = async (_phase, watched) => {
+    if (watched?.length === 1) singletonChecks++;
+    if (watched?.length === entries.length) {
+      a.deepEqual(Array.from(watched, item => item.id), entries.map(item => item.id));
+      fullChecks++;
+    }
+  };
+  const result = await memory.rank(entries, 'question', 3, {}, context);
+  a.equal(result.semantic.status, 'reranked');
+  a.deepEqual(Array.from(result.entries, item => item.id), entries.slice(0,3).map(item => item.id));
+  a.ok(fullChecks >= 2 && fullChecks <= 4, 'bound the number of complete-batch checks');
+  a.equal(singletonChecks, 0, 'do not re-read one file for each use of its window');
+  fullChecks = 0;
+  context.check = async (_phase, watched) => {
+    if (watched?.length === entries.length && ++fullChecks === 2) throw Error('authority revoked at batch exit');
+  };
+  await a.rejects(memory.rank(entries, 'question', 3, {}, context), /authority revoked at batch exit/);
+});
+
 test('L2 prime encodes exactly the rows a later send looks up, checking each source first', async () => {
   const f = setup({ msPerText: 1 }), entries = headers(12), checked = [];
   const memory = recall(f, entries);
