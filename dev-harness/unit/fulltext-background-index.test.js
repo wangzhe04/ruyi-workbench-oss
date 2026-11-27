@@ -349,6 +349,27 @@ test('[G15] (e) background batches stay small; a foreground encode during a back
   a.ok(spent <= 300, `within its own budget (${spent} ms)`);
 });
 
+test('[G15b] a slow single document can acquire a background lease and persist its vector', async t => {
+  const f = await fixture(); t.after(() => f.close());
+  await f.put('SLOW', [{ role: 'user', id: 'slow', content: '坐大巴出发' }]);
+  const encoder = runtime(), attempts = [];
+  encoder.estimateEncodingBudget = (_role, count) => 1200 * count;
+  encoder.encode = async (texts, options) => {
+    attempts.push({ count: texts.length, ...options });
+    if (Math.min(options.budgetMs ?? 1000, options.deadline - Date.now()) < 1200)
+      return { ok: false, reason: 'timeout' };
+    return { ok: true, modelFingerprint: MODEL, vectors: texts.map(embed) };
+  };
+  const index = create(f, { encoder });
+  index.backgroundKick(); await settle(index);
+  a.equal(attempts.length, 1);
+  a.equal(attempts[0].count, 1);
+  a.equal(attempts[0].maxWaitMs, 0);
+  a.equal(attempts[0].priority, 'background');
+  a.ok(attempts[0].budgetMs <= 8000);
+  a.ok(exists(path.join(indexDir(f), 'SLOW', 'vectors.json')));
+});
+
 test('[G16] P6 semantic off→on in the middle of a purge re-encodes the purged sessions', async t => {
   const f = await fixture(); t.after(() => f.close());
   for (const id of ['V1', 'V2', 'V3']) await f.put(id, [{ role: 'user', id: 'm' + id, content: '大巴 ' + id }]);
